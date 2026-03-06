@@ -46,6 +46,8 @@ if "role" not in st.session_state:
     st.session_state.role = None
 if "user_name" not in st.session_state:
     st.session_state.user_name = None
+if "cast_id" not in st.session_state:
+    st.session_state.cast_id = None
 
 db_data = get_db_data()
 if not db_data:
@@ -74,15 +76,19 @@ if st.session_state.role is None:
                     st.error("パスワードが間違っています。")
 
     with tab_cast:
-        cast_list = ["-- 選択 --"] + [c['name'] for c in db_data['casts']]
-        c_name = st.selectbox("キャスト名", cast_list, key="c_name")
+        # 🌟 キャスト検索：必ず「店番 キャスト名」で表示し、店番で検索可能にする
+        cast_list_display = ["-- 選択 --"] + [f"{c['cast_id']} {c['name']}" for c in db_data['casts']]
+        c_selected = st.selectbox("店番とキャスト名", cast_list_display, key="c_name")
         c_pass = st.text_input("パスワード", type="password", key="c_pass")
+        
         if st.button("ログイン", type="primary", use_container_width=True, key="c_login"):
-            if c_name != "-- 選択 --":
-                correct_pass = next((c['password'] for c in db_data['casts'] if c['name'] == c_name), "")
-                if c_pass == correct_pass:
+            if c_selected != "-- 選択 --":
+                selected_id = c_selected.split(" ")[0] # 選択肢から店番だけを抽出
+                target_cast = next((c for c in db_data['casts'] if c['cast_id'] == selected_id), None)
+                if target_cast and c_pass == target_cast['password']:
                     st.session_state.role = "cast"
-                    st.session_state.user_name = c_name
+                    st.session_state.user_name = target_cast['name']
+                    st.session_state.cast_id = target_cast['cast_id']
                     st.rerun()
                 else:
                     st.error("パスワードが間違っています。")
@@ -104,11 +110,14 @@ if st.session_state.role is None:
 # ==========================================
 col1, col2 = st.columns([7, 3])
 with col1:
-    st.markdown(f"👤 **{st.session_state.user_name}**")
+    # キャストがログインしている場合は店番も表示
+    display_name = f"{st.session_state.cast_id} {st.session_state.user_name}" if st.session_state.role == "cast" else st.session_state.user_name
+    st.markdown(f"👤 **{display_name}**")
 with col2:
     if st.button("ログアウト", use_container_width=True):
         st.session_state.role = None
         st.session_state.user_name = None
+        st.session_state.cast_id = None
         st.rerun()
 
 # ==========================================
@@ -128,7 +137,8 @@ if st.session_state.role == "driver":
         for a in attendances:
             is_mine = (a['driver_name'] == st.session_state.user_name)
             icon = "🟢" if is_mine else "⚪"
-            label = f"{icon} {a['pickup_time']} | {a['cast_name']} | {a['status']} | {a['driver_name']}"
+            # 🌟 リスト表示：必ず「店番 キャスト名」のセットにする
+            label = f"{icon} {a['pickup_time']} | {a['cast_id']} {a['cast_name']} | {a['status']} | {a['driver_name']}"
             
             with st.expander(label):
                 d_index = driver_names.index(a['driver_name']) if a['driver_name'] in driver_names else 0
@@ -205,7 +215,7 @@ elif st.session_state.role == "cast":
                 st.rerun()
 
 # ==========================================
-# ⚙️ 管理者専用画面（失われた一覧・登録機能の完全復活）
+# ⚙️ 管理者専用画面
 # ==========================================
 elif st.session_state.role == "admin":
     tab_dispatch, tab_driver, tab_cast, tab_setting = st.tabs(["配車", "ｽﾀｯﾌ", "ｷｬｽﾄ", "設定"])
@@ -223,7 +233,8 @@ elif st.session_state.role == "admin":
         else:
             updates = []
             for a in attendances:
-                label = f"{a['pickup_time']} | {a['cast_name']} | {a['status']} | {a['driver_name']}"
+                # 🌟 リスト表示：必ず「店番 キャスト名」のセットにする
+                label = f"{a['pickup_time']} | {a['cast_id']} {a['cast_name']} | {a['status']} | {a['driver_name']}"
                 with st.expander(label):
                     d_index = driver_names.index(a['driver_name']) if a['driver_name'] in driver_names else 0
                     s_options = ["出勤", "迎車中", "完了", "未定", "キャンセル"]
@@ -246,7 +257,7 @@ elif st.session_state.role == "admin":
                 time.sleep(1)
                 st.rerun()
 
-    # --- 🚙 スタッフ登録タブ（一覧表示と編集を完全復旧） ---
+    # --- 🚙 スタッフ登録タブ ---
     with tab_driver:
         st.markdown("##### 📋 登録済みスタッフ一覧")
         if db_data['drivers']:
@@ -271,7 +282,7 @@ elif st.session_state.role == "admin":
                     time.sleep(1)
                     st.rerun()
 
-    # --- 👸 キャスト登録タブ（一覧表示と編集を完全復旧） ---
+    # --- 👸 キャスト登録タブ ---
     with tab_cast:
         st.markdown("##### 📋 登録済みキャスト一覧")
         if db_data['casts']:
@@ -282,7 +293,8 @@ elif st.session_state.role == "admin":
         st.markdown("---")
         st.markdown("##### ➕ 新規登録・上書き編集")
         with st.form("cast_form"):
-            c_id = st.text_input("ID (半角英数 ※既存ID入力で上書き)")
+            # 🌟 明確に「店番」と表記
+            c_id = st.text_input("店番 (キャストID / 半角英数 ※既存入力で上書き)")
             c_name = st.text_input("名前")
             c_pass = st.text_input("パスワード")
             c_phone = st.text_input("電話番号")
