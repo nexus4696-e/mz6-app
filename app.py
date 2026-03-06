@@ -67,7 +67,9 @@ if st.session_state.role is None:
         d_pass = st.text_input("パスワード", type="password", key="d_pass")
         if st.button("ログイン", type="primary", use_container_width=True, key="d_login"):
             if d_name != "-- 選択 --":
-                correct_pass = next((d['password'] for d in db_data['drivers'] if d['name'] == d_name), "")
+                correct_pass = next((d.get('password') for d in db_data['drivers'] if d['name'] == d_name), None)
+                if correct_pass is None:
+                    correct_pass = ""
                 if d_pass == correct_pass:
                     st.session_state.role = "driver"
                     st.session_state.user_name = d_name
@@ -76,22 +78,28 @@ if st.session_state.role is None:
                     st.error("パスワードが間違っています。")
 
     with tab_cast:
-        # 🌟 キャスト検索：必ず「店番 キャスト名」で表示し、店番で検索可能にする
         cast_list_display = ["-- 選択 --"] + [f"{c['cast_id']} {c['name']}" for c in db_data['casts']]
         c_selected = st.selectbox("店番とキャスト名", cast_list_display, key="c_name")
         c_pass = st.text_input("パスワード", type="password", key="c_pass")
         
         if st.button("ログイン", type="primary", use_container_width=True, key="c_login"):
             if c_selected != "-- 選択 --":
-                selected_id = c_selected.split(" ")[0] # 選択肢から店番だけを抽出
-                target_cast = next((c for c in db_data['casts'] if c['cast_id'] == selected_id), None)
-                if target_cast and c_pass == target_cast['password']:
-                    st.session_state.role = "cast"
-                    st.session_state.user_name = target_cast['name']
-                    st.session_state.cast_id = target_cast['cast_id']
-                    st.rerun()
+                # 🌟 バグ修正：確実に文字として比較し、正しいパスワードを照合する
+                selected_id = str(c_selected.split(" ")[0])
+                target_cast = next((c for c in db_data['casts'] if str(c['cast_id']) == selected_id), None)
+                if target_cast:
+                    correct_pass = target_cast.get('password')
+                    if correct_pass is None:
+                        correct_pass = ""
+                    if c_pass == correct_pass:
+                        st.session_state.role = "cast"
+                        st.session_state.user_name = target_cast['name']
+                        st.session_state.cast_id = target_cast['cast_id']
+                        st.rerun()
+                    else:
+                        st.error("パスワードが間違っています。")
                 else:
-                    st.error("パスワードが間違っています。")
+                    st.error("キャスト情報が見つかりません。")
 
     with tab_admin:
         a_pass = st.text_input("管理者パスワード", type="password", key="a_pass")
@@ -110,7 +118,6 @@ if st.session_state.role is None:
 # ==========================================
 col1, col2 = st.columns([7, 3])
 with col1:
-    # キャストがログインしている場合は店番も表示
     display_name = f"{st.session_state.cast_id} {st.session_state.user_name}" if st.session_state.role == "cast" else st.session_state.user_name
     st.markdown(f"👤 **{display_name}**")
 with col2:
@@ -137,7 +144,6 @@ if st.session_state.role == "driver":
         for a in attendances:
             is_mine = (a['driver_name'] == st.session_state.user_name)
             icon = "🟢" if is_mine else "⚪"
-            # 🌟 リスト表示：必ず「店番 キャスト名」のセットにする
             label = f"{icon} {a['pickup_time']} | {a['cast_id']} {a['cast_name']} | {a['status']} | {a['driver_name']}"
             
             with st.expander(label):
@@ -167,7 +173,7 @@ if st.session_state.role == "driver":
 # ==========================================
 elif st.session_state.role == "cast":
     my_record = next((a for a in db_data['attendance'] if a['cast_name'] == st.session_state.user_name and a['target_date'] == '当日'), None)
-    c_info = next((c for c in db_data['casts'] if c['name'] == st.session_state.user_name), None)
+    c_info = next((c for c in db_data['casts'] if str(c['cast_id']) == str(st.session_state.cast_id)), None)
     
     if my_record:
         st.success(f"状態: {my_record['status']}")
@@ -233,7 +239,6 @@ elif st.session_state.role == "admin":
         else:
             updates = []
             for a in attendances:
-                # 🌟 リスト表示：必ず「店番 キャスト名」のセットにする
                 label = f"{a['pickup_time']} | {a['cast_id']} {a['cast_name']} | {a['status']} | {a['driver_name']}"
                 with st.expander(label):
                     d_index = driver_names.index(a['driver_name']) if a['driver_name'] in driver_names else 0
@@ -270,14 +275,19 @@ elif st.session_state.role == "admin":
         with st.form("driver_form"):
             d_id = st.text_input("ID (半角英数 ※既存ID入力で上書き)")
             d_name = st.text_input("名前")
-            d_pass = st.text_input("パスワード")
+            # 🌟 空欄なら現在のパスワードを維持する安全装置
+            d_pass = st.text_input("パスワード (※変更しない場合は空欄でOK)")
             d_phone = st.text_input("電話番号")
             d_area = st.text_input("担当エリア")
             d_address = st.text_input("住所")
             d_capa = st.number_input("乗車定員", min_value=1, value=4)
             if st.form_submit_button("💾 スタッフ保存"):
                 if d_id and d_name:
-                    post_api({"action": "save_driver", "driver_id": d_id, "name": d_name, "password": d_pass, "phone": d_phone, "area": d_area, "address": d_address, "capacity": d_capa})
+                    save_pass = d_pass
+                    if not save_pass:
+                        existing = next((d.get('password') for d in db_data['drivers'] if str(d['driver_id']) == str(d_id)), "")
+                        save_pass = existing if existing else ""
+                    post_api({"action": "save_driver", "driver_id": d_id, "name": d_name, "password": save_pass, "phone": d_phone, "area": d_area, "address": d_address, "capacity": d_capa})
                     st.success("保存しました！")
                     time.sleep(1)
                     st.rerun()
@@ -293,17 +303,21 @@ elif st.session_state.role == "admin":
         st.markdown("---")
         st.markdown("##### ➕ 新規登録・上書き編集")
         with st.form("cast_form"):
-            # 🌟 明確に「店番」と表記
             c_id = st.text_input("店番 (キャストID / 半角英数 ※既存入力で上書き)")
             c_name = st.text_input("名前")
-            c_pass = st.text_input("パスワード")
+            # 🌟 空欄なら現在のパスワードを維持する安全装置
+            c_pass = st.text_input("パスワード (※変更しない場合は空欄でOK)")
             c_phone = st.text_input("電話番号")
             c_area = st.text_input("送迎エリア")
             c_address = st.text_input("住所")
             c_manager = st.text_input("担当マネージャー")
             if st.form_submit_button("💾 キャスト保存"):
                 if c_id and c_name:
-                    post_api({"action": "save_cast", "cast_id": c_id, "name": c_name, "password": c_pass, "phone": c_phone, "area": c_area, "address": c_address, "manager": c_manager})
+                    save_pass = c_pass
+                    if not save_pass:
+                        existing = next((c.get('password') for c in db_data['casts'] if str(c['cast_id']) == str(c_id)), "")
+                        save_pass = existing if existing else ""
+                    post_api({"action": "save_cast", "cast_id": c_id, "name": c_name, "password": save_pass, "phone": c_phone, "area": c_area, "address": c_address, "manager": c_manager})
                     st.success("保存しました！")
                     time.sleep(1)
                     st.rerun()
