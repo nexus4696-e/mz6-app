@@ -125,71 +125,63 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 超安全・堅牢なカスタムCSS
+# 🎨 カスタムCSS（画面の崩壊・横はみ出しを完全に防ぐ超安全版）
 # ==========================================
 st.markdown("""
 <style>
-    /* 全体の余白と横揺れ防止 */
-    html, body, [data-testid="stAppViewContainer"], .block-container {
-        max-width: 100vw !important;
-        overflow-x: hidden !important;
-        background-color: #f0f2f5; 
-        font-family: -apple-system, sans-serif;
-    }
-    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
+    /* 全体のベースデザイン */
+    .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; overflow-x: hidden; }
     
-    /* 余計なStreamlitデフォルトUIを完全に隠滅 */
+    /* 🌟 余計なシステム表示（右下のアイコン等）を確実に消す */
     header, footer, [data-testid="stToolbar"], [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
     a[href^="https://streamlit.io/cloud"] { display: none !important; }
     
-    /* スマホ画面でカラムが縦に崩れるのを防ぐ魔法（すべてのカラムを横並び維持） */
-    @media (max-width: 640px) {
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 5px !important;
-        }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-            flex: 1 1 0% !important;
-            min-width: 0 !important;
-            width: auto !important;
-        }
-    }
-
-    /* ボタンの余白を削ってスッキリさせる */
-    div.stButton > button {
-        padding: 0px 5px !important;
-        min-height: 42px !important;
-        height: 42px !important;
-        line-height: 1.2 !important;
-        font-size: 14px !important;
-        font-weight: bold !important;
-        white-space: nowrap !important;
-        width: 100% !important;
-    }
-
-    /* 各種見出しやラベルのデザイン */
-    .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
-    .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 30px; }
+    /* アプリ内の各パーツの基本デザイン */
+    .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
+    .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 50px; }
+    .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .driver-card { background: white; border-left: 6px solid #e91e63; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+    .shop-no-badge { background: #ffeb3b; color: #d32f2f; font-weight: 900; padding: 5px 2px; border-radius: 6px; border: 2px solid #d32f2f; font-size: 16px; margin-right: 5px; min-width: 60px; text-align: center; display: inline-block; }
     .shop-no-badge-mini { background: #ffeb3b; color: #d32f2f; font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #d32f2f; font-size: 12px; margin-right: 5px; display: inline-block; min-width: 45px; text-align: center; }
     .notice-box { border: 2px solid #fdd835; background: #fffde7; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
-    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
+    .nav-btn { display: block; width: 100%; text-decoration: none; background: #e91e63; color: white; font-weight: bold; font-size: 18px; padding: 15px; text-align: center; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-bottom:20px; }
+    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; }
+    .date-header .main-date { font-size: 26px; font-weight: 900; color: #e91e63; }
     
     div[role="radiogroup"] { flex-wrap: wrap !important; gap: 5px; justify-content: center; padding-bottom: 5px; }
-    div[role="radiogroup"] > label { background-color: white; border: 2px solid #999; padding: 8px 15px; border-radius: 20px; cursor: pointer; margin-bottom: 5px; }
+    div[role="radiogroup"]::-webkit-scrollbar { display: none; }
+    div[role="radiogroup"] > label { background-color: white; border: 2px solid #999; padding: 8px 15px; border-radius: 20px; cursor: pointer; white-space: nowrap; flex-shrink: 0; margin-bottom: 5px; }
     div[role="radiogroup"] > label[data-checked="true"] { background-color: #009688; border-color: #009688; }
-    div[role="radiogroup"] > label[data-checked="true"] p { color: white !important; }
+    div[role="radiogroup"] > label[data-checked="true"] p { color: white !important; font-weight: bold; }
     div[role="radiogroup"] > label > div:first-child { display: none; }
     div[role="radiogroup"] > label p { color: #333; margin: 0; font-size: 14px; font-weight: bold; }
-    
     .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
     .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-    
-    /* 入力フォームの枠線 */
-    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
-        border: 2px solid #555 !important; border-radius: 6px !important; background-color: #fff !important;
+
+    /* 🌟 ここが最重要：一番上のナビボタン【だけ】を横一列にする安全なコード（他の入力欄は一切壊しません） */
+    div.main div[data-testid="stVerticalBlock"] > div.element-container:nth-child(2) > div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 5px !important;
+        overflow: hidden !important;
+    }
+    div.main div[data-testid="stVerticalBlock"] > div.element-container:nth-child(2) > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+    div.main div[data-testid="stVerticalBlock"] > div.element-container:nth-child(2) button {
+        width: 100% !important;
+        padding: 0 2px !important;
+        font-size: 14px !important;
+        min-height: 42px !important;
+        height: 42px !important;
+        white-space: nowrap !important;
+        margin: 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -207,6 +199,7 @@ time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 def render_top_nav():
     if st.session_state.page == "home": return
     
+    # ログイン中は3個のボタンを横一列に配置します
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -224,6 +217,7 @@ def render_top_nav():
                 st.session_state.page = "home"
                 st.rerun()
     else:
+        # ログイン前は2個のボタンを横一列に配置します
         col1, col2 = st.columns(2)
         with col1:
             if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
@@ -232,7 +226,7 @@ def render_top_nav():
             if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
                 
-    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 10px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
 # 🏠 ホーム画面
@@ -263,7 +257,6 @@ elif st.session_state.page == "cast_login":
     render_top_nav()
     st.markdown('<div class="app-header">キャストログイン</div>', unsafe_allow_html=True)
     st.caption("店番とキャスト名を選択し、パスワードを入力してください")
-    
     db = get_db_data()
     casts = db.get("casts", [])
     cast_list_display = ["-- 選択 --"] + [f"{c['cast_id']} {c['name']}" for c in casts if str(c.get("name", "")).strip() != ""]
@@ -290,12 +283,10 @@ elif st.session_state.page == "admin_login":
     render_top_nav()
     db = get_db_data()
     settings = db.get("settings") or {}
-    
     st.markdown('<div class="app-header">👑 管理者認証</div>', unsafe_allow_html=True)
     st.caption("パスワードを入力してください (初期: 1234)")
     
     admin_pass = st.text_input("パスワード", type="password", key="admin_pass_input", label_visibility="collapsed")
-    
     if st.button("ログイン", type="primary", use_container_width=True):
         db_pass = str(settings.get("admin_password", "")) if isinstance(settings, dict) else "1234"
         if not db_pass: db_pass = "1234"
@@ -307,7 +298,6 @@ elif st.session_state.page == "staff_login":
     render_top_nav()
     st.markdown('<div class="app-header">スタッフ認証</div>', unsafe_allow_html=True)
     st.caption("自分の名前の横にパスワードを入力して開始を押してください")
-    
     db = get_db_data()
     drivers = db.get("drivers", [])
     staff_list = [d for d in drivers if str(d["name"]).strip() != ""]
@@ -317,8 +307,7 @@ elif st.session_state.page == "staff_login":
         for d in staff_list:
             st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd;'>👤 {d['name']}</div>", unsafe_allow_html=True)
             colA, colB = st.columns([3, 2])
-            with colA: 
-                p_in = st.text_input("パスワード", type="password", key=f"pass_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
+            with colA: p_in = st.text_input("パスワード", type="password", key=f"pass_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
             with colB:
                 if st.button("開始", key=f"btn_{d['driver_id']}", type="primary", use_container_width=True):
                     if p_in == "0000" or p_in.strip() == str(d["password"]).strip() or str(d["password"]) == "":
@@ -549,7 +538,7 @@ elif st.session_state.page == "staff_portal":
                 map_btn = f"<a href='https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(clean_single_addr)}' target='_blank' style='text-decoration:none; background:#e3f2fd; color:#1565c0; font-weight:bold; padding:4px 10px; border-radius:15px; font-size:12px; border:1px solid #2196f3; margin-left:5px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>📍 個別マップ</a>" if addr_text else ""
 
                 st.markdown(f"""
-                <div style='background:white; border-left:6px solid #e91e63; border-radius:8px; padding:15px; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.15);'>
+                <div class='driver-card' style='margin-bottom:5px;'>
                     <div style='font-size:14px; color:#e91e63; font-weight:bold; margin-bottom:5px;'>
                         🚙 {idx+1}件目：{t['pickup_time'] if t['pickup_time'] else '未定'}
                     </div>
@@ -610,7 +599,7 @@ elif st.session_state.page == "staff_portal":
                             res = post_api({"action": "update_manual_dispatch", "updates": updates})
                             if res.get("status") == "success": clear_cache(); st.rerun()
                 with col_d:
-                    if st.button("❌ 辞退", key=f"cancel_{t['id']}", use_container_width=True):
+                    if st.button("❌ 辞退(外す)", key=f"cancel_{t['id']}", use_container_width=True):
                         updates = [{"id": t["id"], "driver_name": "未定", "pickup_time": "未定", "status": t["status"]}]
                         res = post_api({"action": "update_manual_dispatch", "updates": updates})
                         if res.get("status") == "success": clear_cache(); st.rerun()
@@ -637,6 +626,7 @@ elif st.session_state.page == "staff_portal":
         if st.session_state.staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">配車予定日</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
             
+            # 🌟 【修正】自動配車が「稼働しないバグ」を修正し、確実な命令名(update_manual_dispatch)とステータスを付けて送信するようにしました。
             st.markdown('<div class="auto-dispatch-box">', unsafe_allow_html=True)
             st.markdown('<div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（一筆書きAI）</div>', unsafe_allow_html=True)
             if not d_names:
@@ -656,16 +646,28 @@ elif st.session_state.page == "staff_portal":
                         st.info("自動配車を実行中...")
                         all_today_casts = []
                         for row in attendance:
-                            if row["target_date"] == "当日" and row["status"] == "出勤":
+                            if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                                 c_info = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
                                 addr = c_info.get("address", "")
                                 line, dst = get_route_line_and_distance(addr)
                                 all_today_casts.append({"row": row, "line": line, "dist": dst})
                         
                         all_today_casts.sort(key=lambda x: x["dist"], reverse=True)
-                        drv_specs = {d["name"]: {"capacity": int(d["capacity"]), "assigned_rows": [], "line": None} for d in drivers if d["name"] in active_drivers}
+                        
+                        # 定員エラーを防ぐための安全な処理
+                        drv_specs = {}
+                        for d in drivers:
+                            if d["name"] in active_drivers:
+                                try: cap = int(d.get("capacity", 4))
+                                except: cap = 4
+                                drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
 
                         for uc in all_today_casts:
+                            if uc["row"]["status"] == "自走":
+                                uc["row"]["driver_name"] = "未定"
+                                uc["row"]["pickup_time"] = "未定"
+                                continue
+                                
                             assigned_d = None
                             c_line = uc["line"]
                             for d_name, stat in drv_specs.items():
@@ -698,14 +700,25 @@ elif st.session_state.page == "staff_portal":
                                 mins_to_subtract = (total_casts - idx) * 20
                                 t_mins = b_mins - mins_to_subtract
                                 current_calc_time = f"{t_mins // 60}:{t_mins % 60:02d}"
-                                updates.append({"id": item["row"]["id"], "driver_name": d_name, "pickup_time": current_calc_time})
+                                updates.append({
+                                    "id": item["row"]["id"], 
+                                    "driver_name": d_name, 
+                                    "pickup_time": current_calc_time,
+                                    "status": item["row"]["status"] # ステータスを追加してエラーを防ぐ
+                                })
                         
                         for uc in all_today_casts:
                             if uc["row"]["driver_name"] == "未定":
-                                updates.append({"id": uc["row"]["id"], "driver_name": "未定", "pickup_time": "未定"})
+                                updates.append({
+                                    "id": uc["row"]["id"], 
+                                    "driver_name": "未定", 
+                                    "pickup_time": "未定",
+                                    "status": uc["row"]["status"] # ステータスを追加してエラーを防ぐ
+                                })
                                         
                         if updates:
-                            res = post_api({"action": "batch_update_dispatch", "updates": updates})
+                            # 🌟 「batch_update」ではなく、サーバーが確実に認識できる「update_manual_dispatch」に変更しました
+                            res = post_api({"action": "update_manual_dispatch", "updates": updates})
                             if res.get("status") == "success": 
                                 clear_cache(); st.success(f"自動配車が完了しました！"); time.sleep(1.5); st.rerun()
                             else: st.error("エラー: " + res.get("message"))
@@ -760,7 +773,7 @@ elif st.session_state.page == "staff_portal":
                 
             for d_name, t_rows in my_tasks.items():
                 t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
-                st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 {d_name} (STAFF)</div><div style="background:white; border:1px solid #ddd; border-top:none; border-radius:0 0 5px 5px; padding:15px; margin-bottom:15px;">', unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 {d_name} (STAFF)</div><div class="card" style="border-radius:0 0 5px 5px; border-top:none;">', unsafe_allow_html=True)
                 
                 if is_return_time:
                     st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:8px; border-radius:5px; margin-bottom:15px;"><div style="color:#1565c0; font-weight:bold; margin-bottom:5px;">🌙 帰り班 (自動編成)</div>', unsafe_allow_html=True)
@@ -814,7 +827,7 @@ elif st.session_state.page == "staff_portal":
                         dest = urllib.parse.quote(dest_addr)
                         waypoints = "/".join([urllib.parse.quote(a) for a in valid_addrs])
                         map_url = f"https://www.google.com/maps/dir/現在地/{waypoints}/{dest}?hl=ja"
-                        st.markdown(f"<a href='{map_url}' target='_blank' style='display:block; background:#4285f4; color:white; font-weight:bold; text-align:center; padding:10px; border-radius:8px; text-decoration:none; margin-top:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{map_url}' target='_blank' class='line-connect-btn' style='background:#4285f4; margin-top:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
 
                 st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
                 
@@ -859,24 +872,25 @@ elif st.session_state.page == "staff_portal":
                     if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"] and str(row["cast_id"]) == str(c_id):
                         is_dispatch = True; break
                 
-                st.markdown(f"<div style='font-weight:bold; font-size:16px; margin-top:15px;'><span class='shop-no-badge-mini'>店番 {c_id}</span> {c_name} <span style='font-size:12px;color:#777;'>({pref})</span></div>", unsafe_allow_html=True)
-                colA, colB = st.columns([1, 1])
-                with colA: 
-                    if is_dispatch: st.markdown('<div style="color:#e91e63; font-weight:bold; padding-top:5px;">🚙 送迎予定あり</div>', unsafe_allow_html=True)
-                    else: st.markdown('<div style="color:#aaa; padding-top:5px;">未定</div>', unsafe_allow_html=True)
-                with colB:
-                    if is_dispatch:
-                        if st.button("❌ 取消す", key=f"cancel_{c_id}", use_container_width=True):
-                            res = post_api({"action": "cancel_dispatch", "cast_id": c_id})
-                            if res.get("status") == "success": clear_cache(); st.rerun()
-                            else: st.error("取消失敗: " + res.get("message"))
-                    else:
-                        if st.button("☑ 追加する", key=f"add_{c_id}", type="primary", use_container_width=True):
-                            payload = {"action": "create_or_update_dispatch", "cast_id": c_id, "cast_name": c_name, "area": pref, "pickup_time": "未定", "driver_name": "未定"}
-                            res = post_api(payload)
-                            if res.get("status") == "success": clear_cache(); st.rerun()
-                            else: st.error("追加失敗: " + res.get("message"))
-                st.markdown("<hr style='margin:5px 0; border-top:1px dashed #ccc;'>", unsafe_allow_html=True)
+                st.markdown('<div class="card" style="padding:10px;">', unsafe_allow_html=True)
+                colA, colB = st.columns([3, 2])
+                with colA: st.markdown(f'<span class="shop-no-badge-mini">店番 {c_id}</span> <span style="font-weight:bold; font-size:16px;">{c_name}</span> <span style="font-size:12px;color:#777;">({pref})</span>', unsafe_allow_html=True)
+                with colB: 
+                    if is_dispatch: st.markdown('<div style="color:#e91e63; font-weight:bold; text-align:right; padding-top:5px;">🚙 送迎予定あり</div>', unsafe_allow_html=True)
+                    else: st.markdown('<div style="color:#aaa; text-align:right; padding-top:5px;">未定</div>', unsafe_allow_html=True)
+                st.markdown("<hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                if is_dispatch:
+                    if st.button("❌ この送迎を取り消す", key=f"cancel_{c_id}", use_container_width=True):
+                        res = post_api({"action": "cancel_dispatch", "cast_id": c_id})
+                        if res.get("status") == "success": clear_cache(); st.rerun()
+                        else: st.error("取消失敗: " + res.get("message"))
+                else:
+                    if st.button("☑ 送迎リストに追加する", key=f"add_{c_id}", type="primary", use_container_width=True):
+                        payload = {"action": "create_or_update_dispatch", "cast_id": c_id, "cast_name": c_name, "area": pref, "pickup_time": "未定", "driver_name": "未定"}
+                        res = post_api(payload)
+                        if res.get("status") == "success": clear_cache(); st.rerun()
+                        else: st.error("追加失敗: " + res.get("message"))
+                st.markdown('</div>', unsafe_allow_html=True)
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
         # ----------------------------------------
@@ -949,8 +963,10 @@ elif st.session_state.page == "staff_portal":
                 d = exist_drvs.get(str(i), {})
                 nm = str(d.get("name", ""))
                 if not is_admin and not nm: continue
-                st.markdown(f"<div style='font-weight:bold; margin-top:15px; font-size:16px;'><span style='font-size:11px; color:#aaa;'>STAFF {i}</span> {nm if nm else '未登録'}</div>", unsafe_allow_html=True)
-                
+                st.markdown('<div class="card" style="padding:10px;">', unsafe_allow_html=True)
+                col1, col2 = st.columns([1.5, 1])
+                with col1: st.markdown(f'<span style="font-size:11px; color:#aaa;">STAFF {i}</span> <span style="font-weight:bold; font-size:16px;">{nm if nm else "未登録"}</span>', unsafe_allow_html=True)
+                with col2: st.button("担当 ▼", key=f"tbtn_{i}")
                 if is_admin:
                     with st.expander("✏️ 詳細設定・編集"):
                         d_area = str(d.get("area", "他")).strip()
@@ -988,6 +1004,7 @@ elif st.session_state.page == "staff_portal":
                                 if res.get("status") == "success":
                                     clear_cache(); st.session_state[f"saved_driver_{i}"] = True; st.success(f"STAFF {i} を保存しました！"); time.sleep(1); st.rerun()
                                 else: st.error("エラー: " + res.get("message"))
+                st.markdown('</div>', unsafe_allow_html=True)
 
         # ----------------------------------------
         # ⚙️ 管理設定
