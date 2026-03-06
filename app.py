@@ -132,7 +132,6 @@ st.markdown("""
     .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
     
-    /* 🌟 画面右下に出る不要なシステムアイコン等を完全に消し去る設定 */
     header, footer { display: none !important; }
     .stDeployButton { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
@@ -165,7 +164,7 @@ st.markdown("""
         border: 2px solid #e91e63 !important; box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
     }
 
-    /* 🌟 一番上のナビボタンをスマホでも【絶対に横1列に並べる】安全なコード */
+    /* 🌟 ここが最重要：一番上のナビボタンをスマホでも【絶対に横1列に並べる】安全なコード */
     div.element-container:has(#nav-start) + div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -250,7 +249,6 @@ if st.session_state.page == "home":
         st.rerun()
     st.write("\n\n")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
-    # 🌟 不要な <u> タグを削除しました
     if st.button("⚙️ 管理者ログイン (全権限)", use_container_width=True):
         if st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "admin_login"
@@ -464,6 +462,9 @@ elif st.session_state.page == "staff_portal":
         if st.button("🔄 最新"): clear_cache(); st.rerun()
     st.markdown("<hr style='margin:5px 0 10px 0;'>", unsafe_allow_html=True)
 
+    current_hour = datetime.datetime.now().hour
+    is_return_time = (current_hour >= 22) or (current_hour <= 7)
+
     # ========================================================
     # 🚙 【非管理者】ドライバー専用のナビ直結＆順番入替ルート画面
     # ========================================================
@@ -476,6 +477,32 @@ elif st.session_state.page == "staff_portal":
         if not my_tasks:
             st.info("現在、割り当てられている送迎予定はありません。管理者の配車をお待ちください。")
         else:
+            if is_return_time:
+                st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">行きで送迎したキャストが自動的に帰り班として表示されています。</p>', unsafe_allow_html=True)
+                
+                return_tasks = []
+                for t in my_tasks:
+                    c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
+                    addr = c_info.get("address", "") if c_info else ""
+                    _, dst = get_route_line_and_distance(addr)
+                    return_tasks.append({"task": t, "dist": dst, "addr": addr, "c_name": t['cast_name'], "c_id": t['cast_id']})
+                
+                return_tasks.sort(key=lambda x: x["dist"])
+                
+                valid_return_addrs = [clean_address_for_map(x["addr"]) for x in return_tasks if clean_address_for_map(x["addr"])]
+                store_addr = settings.get("store_address", "岡山県倉敷市水島東栄町2-24")
+                
+                if valid_return_addrs:
+                    dest_return = urllib.parse.quote(valid_return_addrs[-1])
+                    waypoints_list = [store_addr] + valid_return_addrs[:-1]
+                    waypoints_str = "/".join([urllib.parse.quote(a) for a in waypoints_list])
+                    return_map_url = f"https://www.google.com/maps/dir/現在地//{waypoints_str}/{dest_return}?hl=ja"
+                    st.markdown(f"<a href='{return_map_url}' target='_blank' class='nav-btn' style='background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (店舗発〜近い順)</a>", unsafe_allow_html=True)
+                    
+                for idx, rt in enumerate(return_tasks):
+                    st.markdown(f"<div style='font-size:14px;'><b>降車{idx+1}</b>：店番 {rt['c_id']} <b>{rt['c_name']}</b><br><span style='color:#666;font-size:12px;'>{rt['addr']}</span></div><hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
             first_t = my_tasks[0]
             c_info_first = next((c for c in casts if str(c["cast_id"]) == str(first_t["cast_id"])), None)
             addr_first = c_info_first.get("address", "") if c_info_first else ""
@@ -496,7 +523,7 @@ elif st.session_state.page == "staff_portal":
                 dest = urllib.parse.quote(store_addr)
                 waypoints = "/".join([urllib.parse.quote(a) for a in valid_addrs])
                 map_url = f"https://www.google.com/maps/dir/現在地/{waypoints}/{dest}?hl=ja"
-                st.markdown(f"<a href='{map_url}' target='_blank' class='nav-btn'>🚀 ナビ開始 (遠方から順に拾うルート)</a>", unsafe_allow_html=True)
+                st.markdown(f"<a href='{map_url}' target='_blank' class='nav-btn'>🚀 行きナビ開始 (遠方から順)</a>", unsafe_allow_html=True)
             else:
                 st.warning("キャストの住所が登録されていないため、自動ナビゲーションが起動できません。")
 
@@ -658,6 +685,30 @@ elif st.session_state.page == "staff_portal":
                 t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
                 st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 {d_name} (STAFF)</div><div class="card" style="border-radius:0 0 5px 5px; border-top:none;">', unsafe_allow_html=True)
                 
+                if is_return_time:
+                    st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:8px; border-radius:5px; margin-bottom:15px;"><div style="color:#1565c0; font-weight:bold; margin-bottom:5px;">🌙 帰り班 (自動編成)</div>', unsafe_allow_html=True)
+                    return_tasks = []
+                    for t in t_rows:
+                        c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
+                        addr = c_info.get("address", "") if c_info else ""
+                        _, dst = get_route_line_and_distance(addr)
+                        return_tasks.append({"task": t, "dist": dst, "addr": addr, "c_name": t['cast_name'], "c_id": t['cast_id']})
+                    
+                    return_tasks.sort(key=lambda x: x["dist"])
+                    valid_return_addrs = [clean_address_for_map(x["addr"]) for x in return_tasks if clean_address_for_map(x["addr"])]
+                    store_addr = settings.get("store_address", "岡山県倉敷市水島東栄町2-24")
+                    
+                    if valid_return_addrs:
+                        dest_return = urllib.parse.quote(valid_return_addrs[-1])
+                        waypoints_list = [store_addr] + valid_return_addrs[:-1]
+                        waypoints_str = "/".join([urllib.parse.quote(a) for a in waypoints_list])
+                        return_map_url = f"https://www.google.com/maps/dir/現在地//{waypoints_str}/{dest_return}?hl=ja"
+                        st.markdown(f"<a href='{return_map_url}' target='_blank' style='display:inline-block; background:#1565c0; color:white; padding:5px 10px; border-radius:5px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🗺️ 帰りナビ (店舗発)</a>", unsafe_allow_html=True)
+                        
+                    for idx, rt in enumerate(return_tasks):
+                        st.markdown(f"<div style='font-size:13px;'>降{idx+1}：<b>{rt['c_name']}</b> <span style='color:#777;font-size:11px;'>{rt['addr']}</span></div>", unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
                 first_t = t_rows[0]
                 c_info_first = next((c for c in casts if str(c["cast_id"]) == str(first_t["cast_id"])), None)
                 addr_first = c_info_first.get("address", "") if c_info_first else ""
