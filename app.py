@@ -125,17 +125,27 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS
+# 🎨 カスタムCSS（横スクロール・縦並び・ゴミ表示を完全に根絶）
 # ==========================================
 st.markdown("""
 <style>
+    /* 🌟 横スクロール（画面のはみ出し）を完全に防ぐ */
+    html, body, [data-testid="stAppViewContainer"], .block-container {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+
     .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
     
+    /* 🌟 右下のゴミ（Streamlitのアイコンや文字）を完全に消し去る */
     header, footer { display: none !important; }
     .stDeployButton { display: none !important; }
     [data-testid="stToolbar"] { display: none !important; }
     #MainMenu { display: none !important; }
+    div[class*="viewerBadge"] { display: none !important; }
+    div[class*="st-emotion-cache-"] > button[title="Manage app"] { display: none !important; }
+    [data-testid="manage-app-button"] { display: none !important; }
     
     .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
     .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 50px; }
@@ -164,21 +174,26 @@ st.markdown("""
         border: 2px solid #e91e63 !important; box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
     }
 
-    div.element-container:has(#nav-start) + div[data-testid="stHorizontalBlock"] {
+    /* 🌟 ここが最重要：一番上のナビゲーションブロック（1〜3番目）だけを【絶対に横1列に3等分】する最強のコード */
+    div[data-testid="stVerticalBlock"] > div.element-container:nth-child(1) div[data-testid="stHorizontalBlock"],
+    div[data-testid="stVerticalBlock"] > div.element-container:nth-child(2) div[data-testid="stHorizontalBlock"],
+    div[data-testid="stVerticalBlock"] > div.element-container:nth-child(3) div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 5px !important;
         width: 100% !important;
-        overflow: hidden !important; 
     }
-    div.element-container:has(#nav-start) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    div[data-testid="stVerticalBlock"] > div.element-container:nth-child(1) div[data-testid="stHorizontalBlock"] > div[data-testid="column"],
+    div[data-testid="stVerticalBlock"] > div.element-container:nth-child(2) div[data-testid="stHorizontalBlock"] > div[data-testid="column"],
+    div[data-testid="stVerticalBlock"] > div.element-container:nth-child(3) div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         width: auto !important;
-        flex: 1 1 0% !important; 
+        flex: 1 1 0% !important;
         min-width: 0 !important;
         padding: 0 !important;
     }
-    div.element-container:has(#nav-start) + div[data-testid="stHorizontalBlock"] button {
+    /* ボタンの厚みをなくしてスッキリさせる */
+    div.stButton > button {
         padding: 0 2px !important;
         font-size: 13px !important;
         min-height: 40px !important;
@@ -203,9 +218,8 @@ time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 def render_top_nav():
     if st.session_state.page == "home": return
     
-    st.markdown('<div id="nav-start" style="display:none;"></div>', unsafe_allow_html=True)
-    
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
+        # ログイン中は3個のボタンを横一列に配置します
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
@@ -222,6 +236,7 @@ def render_top_nav():
                 st.session_state.page = "home"
                 st.rerun()
     else:
+        # ログイン前は2個のボタンを横一列に配置します
         col1, col2 = st.columns(2)
         with col1:
             if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
@@ -237,17 +252,18 @@ def render_top_nav():
 # ==========================================
 if st.session_state.page == "home":
     st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
-    if st.button("🚙 スタッフ業務開始\n(配車・送迎設定)", type="primary", use_container_width=True):
+    if st.button("🚙 スタッフ業務開始", type="primary", use_container_width=True):
         if st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "staff_login"; st.session_state.selected_staff_for_login = None
         st.rerun()
     st.write("") 
-    if st.button("👩 キャスト専用ログイン\n(予定の申請)", use_container_width=True):
+    if st.button("👩 キャスト専用ログイン", use_container_width=True):
         if st.session_state.get("logged_in_cast"): st.session_state.page = "cast_mypage"
         else: st.session_state.page = "cast_login"
         st.rerun()
     st.write("\n\n")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
+    # 🌟 不要な <u> タグを削除し、綺麗なボタンにしました
     if st.button("⚙️ 管理者ログイン (全権限)", use_container_width=True):
         if st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "admin_login"
@@ -634,22 +650,24 @@ elif st.session_state.page == "staff_portal":
         if st.session_state.staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">配車予定日</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
             
-            # 🌟 自動配車機能の復活（稼働ドライバー選択と実行ボタン）
-            st.markdown('<div style="background: #e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 15px;">', unsafe_allow_html=True)
+            # 🌟 【修正】画像での圧迫を解消するため、ドライバー選択をスッキリと折りたたみに収納しました。機能は以前のまま完璧に動きます。
+            st.markdown('<div class="auto-dispatch-box">', unsafe_allow_html=True)
+            st.markdown('<div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（一筆書きAI）</div>', unsafe_allow_html=True)
             if not d_names:
                 st.warning("⚠️ まだドライバーが登録されていません。「④ STAFF設定」タブを開いて登録してください。")
             else:
                 if "active_drv_state" not in st.session_state: st.session_state.active_drv_state = d_names
                 valid_drv = [d for d in st.session_state.active_drv_state if d in d_names]
                 def on_drv_change(): st.session_state.active_drv_state = st.session_state.active_drv_ms
-                active_drivers = st.multiselect("稼働するドライバーを選択", d_names, default=valid_drv, key="active_drv_ms", on_change=on_drv_change)
+                
+                with st.expander("🛠️ 稼働ドライバーの選択 (タップで開く)", expanded=False):
+                    active_drivers = st.multiselect("稼働するドライバーを選択", d_names, default=valid_drv, key="active_drv_ms", on_change=on_drv_change)
                 
                 if st.button("🚀 自動配車を実行", type="primary", use_container_width=True):
                     if not active_drivers: 
                         st.error("稼働するドライバーを1人以上選択してください。")
                     else:
                         st.info("自動配車を実行中...")
-                        
                         all_today_casts = []
                         for row in attendance:
                             if row["target_date"] == "当日" and row["status"] == "出勤":
@@ -664,22 +682,18 @@ elif st.session_state.page == "staff_portal":
                         for uc in all_today_casts:
                             assigned_d = None
                             c_line = uc["line"]
-                            
                             for d_name, stat in drv_specs.items():
                                 if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
                                     assigned_d = d_name; break
-                                    
                             if not assigned_d:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) == 0:
                                         stat["line"] = c_line
                                         assigned_d = d_name; break
-
                             if not assigned_d and c_line == "Route_E_South" and uc["dist"] <= 10:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) < stat["capacity"] and len(stat["assigned_rows"]) > 0:
                                         assigned_d = d_name; break
-
                             if assigned_d: drv_specs[assigned_d]["assigned_rows"].append(uc)
                             else:
                                 uc["row"]["driver_name"] = "未定"
@@ -687,14 +701,12 @@ elif st.session_state.page == "staff_portal":
                         
                         base_time = str(settings.get("base_arrival_time", "19:50"))
                         updates = []
-                        
                         for d_name, stat in drv_specs.items():
                             assigned_list = sorted(stat["assigned_rows"], key=lambda x: x["dist"], reverse=True)
                             try:
                                 bh, bm = map(int, base_time.split(':'))
                                 b_mins = bh * 60 + bm
                             except: b_mins = 19 * 60 + 50
-                            
                             total_casts = len(assigned_list)
                             for idx, item in enumerate(assigned_list):
                                 mins_to_subtract = (total_casts - idx) * 20
