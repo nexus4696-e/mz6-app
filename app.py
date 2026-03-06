@@ -5,8 +5,8 @@ import time
 import re
 import streamlit as st
 
-# ページの設定（🌟ここにアイコン画像のURLを直接設定しました）
-st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="https://central-6.com/icon.png", layout="centered", initial_sidebar_state="collapsed")
+# ページの設定
+st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
 
 # ==========================================
 # 🔗 ロリポップAPI 接続設定
@@ -131,7 +131,12 @@ st.markdown("""
 <style>
     .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
+    
+    /* 🌟 画面右下に出る不要なシステムアイコン等を完全に消し去る設定 */
     header, footer { display: none !important; }
+    .stDeployButton { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    #MainMenu { display: none !important; }
     
     .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
     .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 50px; }
@@ -160,18 +165,18 @@ st.markdown("""
         border: 2px solid #e91e63 !important; box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
     }
 
-    /* 🌟 ここが最重要：一番上のナビボタンをスマホでも【絶対に横1列に並べる】安全なコード */
+    /* 🌟 一番上のナビボタンをスマホでも【絶対に横1列に並べる】安全なコード */
     div.element-container:has(#nav-start) + div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 5px !important;
         width: 100% !important;
-        overflow: hidden !important; /* 横スクロールの完全防止 */
+        overflow: hidden !important; 
     }
     div.element-container:has(#nav-start) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         width: auto !important;
-        flex: 1 1 0% !important; /* 2個でも3個でも均等に横幅を割り当てる魔法 */
+        flex: 1 1 0% !important; 
         min-width: 0 !important;
         padding: 0 !important;
     }
@@ -200,11 +205,9 @@ time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 def render_top_nav():
     if st.session_state.page == "home": return
     
-    # 🌟 このマーカーの直後の要素だけが、上のCSSで強制的に【横一列（折り返しなし）】になります
     st.markdown('<div id="nav-start" style="display:none;"></div>', unsafe_allow_html=True)
     
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
-        # ログイン中はご指示通り、3個のボタンを横一列に配置します
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
@@ -221,7 +224,6 @@ def render_top_nav():
                 st.session_state.page = "home"
                 st.rerun()
     else:
-        # ログイン前は2個のボタンを横一列に配置します
         col1, col2 = st.columns(2)
         with col1:
             if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
@@ -248,7 +250,8 @@ if st.session_state.page == "home":
         st.rerun()
     st.write("\n\n")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
-    if st.button("<u>⚙️ 管理者ログイン (全権限)</u>", use_container_width=True):
+    # 🌟 不要な <u> タグを削除しました
+    if st.button("⚙️ 管理者ログイン (全権限)", use_container_width=True):
         if st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "admin_login"
         st.rerun()
@@ -337,7 +340,6 @@ elif st.session_state.page == "cast_mypage":
     st.markdown('<div class="app-header" style="margin-bottom:0; border:none; text-align:left;">出勤報告</div>', unsafe_allow_html=True)
     st.markdown("<hr style='margin-top:0; margin-bottom:15px; border-top: 2px solid #333;'>", unsafe_allow_html=True)
     
-    # お知らせが空欄の場合は表示しない
     notice = str(settings.get("notice_text", "")).strip()
     if notice:
         st.markdown(f'<div class="notice-box"><div class="notice-title">📢 お知らせ</div><div style="font-weight:bold;">{notice}</div></div>', unsafe_allow_html=True)
@@ -354,7 +356,6 @@ elif st.session_state.page == "cast_mypage":
     tmr_dt = today_dt + datetime.timedelta(days=1)
     tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
-    # 申請ボタンの横並び（タブ化）
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
     with tab_today:
