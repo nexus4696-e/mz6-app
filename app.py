@@ -6,23 +6,18 @@ import time
 # --- 初期設定 ---
 st.set_page_config(page_title="送迎管理", page_icon="🚙", layout="centered")
 
-# 🌟 【最重要】スマホの無駄な余白・タイトル・メニューを完全に消し去る魔法のコード
+# スマホの無駄な余白を限界まで削る設定
 st.markdown("""
     <style>
-        /* Streamlitのデフォルトヘッダーとメニューを隠す */
         header {visibility: hidden;}
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        
-        /* スマホ画面の上下左右の無駄な余白を限界まで削る */
         .block-container {
             padding-top: 1rem !important;
             padding-bottom: 1rem !important;
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
         }
-        
-        /* 折りたたみメニュー（Expander）の隙間を詰める */
         .streamlit-expanderHeader {
             font-size: 14px !important;
             padding: 0.5rem !important;
@@ -30,7 +25,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ロリポップのAPI連携URL（絶対に消さないでください）
+# ロリポップのAPI連携URL
 API_URL = "https://mute-imari-1089.catfood.jp/mz6/api.php"
 
 def post_api(payload):
@@ -58,15 +53,12 @@ if not db_data:
     st.stop()
 
 # ==========================================
-# 🔐 ログイン画面（コンパクト化）
+# 🔐 ログイン画面
 # ==========================================
 if st.session_state.role is None:
-    # 無駄な巨大タイトルを廃止し、シンプルに
     st.markdown("<h4 style='text-align: center;'>水島本店 送迎システム</h4>", unsafe_allow_html=True)
-    
     tab_driver, tab_cast, tab_admin = st.tabs(["🚙 スタッフ", "👸 キャスト", "⚙️ 管理者"])
     
-    # --- 🚙 スタッフログイン ---
     with tab_driver:
         driver_list = ["-- 選択 --"] + [d['name'] for d in db_data['drivers']]
         d_name = st.selectbox("スタッフ名", driver_list, key="d_name")
@@ -81,7 +73,6 @@ if st.session_state.role is None:
                 else:
                     st.error("パスワードが間違っています。")
 
-    # --- 👸 キャストログイン ---
     with tab_cast:
         cast_list = ["-- 選択 --"] + [c['name'] for c in db_data['casts']]
         c_name = st.selectbox("キャスト名", cast_list, key="c_name")
@@ -96,7 +87,6 @@ if st.session_state.role is None:
                 else:
                     st.error("パスワードが間違っています。")
 
-    # --- ⚙️ 管理者ログイン ---
     with tab_admin:
         a_pass = st.text_input("管理者パスワード", type="password", key="a_pass")
         if st.button("ログイン", type="primary", use_container_width=True, key="a_login"):
@@ -110,7 +100,7 @@ if st.session_state.role is None:
     st.stop()
 
 # ==========================================
-# 🚪 極小共通ヘッダー（画面のスペースを奪わない）
+# 🚪 極小共通ヘッダー
 # ==========================================
 col1, col2 = st.columns([7, 3])
 with col1:
@@ -121,9 +111,8 @@ with col2:
         st.session_state.user_name = None
         st.rerun()
 
-
 # ==========================================
-# 🚙 スタッフ専用画面（全一覧・1行圧縮デザイン）
+# 🚙 スタッフ専用画面
 # ==========================================
 if st.session_state.role == "driver":
     if st.button("🔄 更新", use_container_width=True):
@@ -139,7 +128,6 @@ if st.session_state.role == "driver":
         for a in attendances:
             is_mine = (a['driver_name'] == st.session_state.user_name)
             icon = "🟢" if is_mine else "⚪"
-            # 💡 タイトルに情報を詰め込み、開かなくても状況がわかるようにする
             label = f"{icon} {a['pickup_time']} | {a['cast_name']} | {a['status']} | {a['driver_name']}"
             
             with st.expander(label):
@@ -165,7 +153,7 @@ if st.session_state.role == "driver":
             st.rerun()
 
 # ==========================================
-# 👸 キャスト専用画面（詳細設定・指名機能完全復元）
+# 👸 キャスト専用画面
 # ==========================================
 elif st.session_state.role == "cast":
     my_record = next((a for a in db_data['attendance'] if a['cast_name'] == st.session_state.user_name and a['target_date'] == '当日'), None)
@@ -217,7 +205,7 @@ elif st.session_state.role == "cast":
                 st.rerun()
 
 # ==========================================
-# ⚙️ 管理者専用画面（全機能・タブ式省スペース化）
+# ⚙️ 管理者専用画面（失われた一覧・登録機能の完全復活）
 # ==========================================
 elif st.session_state.role == "admin":
     tab_dispatch, tab_driver, tab_cast, tab_setting = st.tabs(["配車", "ｽﾀｯﾌ", "ｷｬｽﾄ", "設定"])
@@ -258,10 +246,18 @@ elif st.session_state.role == "admin":
                 time.sleep(1)
                 st.rerun()
 
-    # --- 🚙 スタッフ登録タブ ---
+    # --- 🚙 スタッフ登録タブ（一覧表示と編集を完全復旧） ---
     with tab_driver:
+        st.markdown("##### 📋 登録済みスタッフ一覧")
+        if db_data['drivers']:
+            st.dataframe(db_data['drivers'], use_container_width=True)
+        else:
+            st.info("データがありません")
+            
+        st.markdown("---")
+        st.markdown("##### ➕ 新規登録・上書き編集")
         with st.form("driver_form"):
-            d_id = st.text_input("ID (半角英数)")
+            d_id = st.text_input("ID (半角英数 ※既存ID入力で上書き)")
             d_name = st.text_input("名前")
             d_pass = st.text_input("パスワード")
             d_phone = st.text_input("電話番号")
@@ -275,10 +271,18 @@ elif st.session_state.role == "admin":
                     time.sleep(1)
                     st.rerun()
 
-    # --- 👸 キャスト登録タブ ---
+    # --- 👸 キャスト登録タブ（一覧表示と編集を完全復旧） ---
     with tab_cast:
+        st.markdown("##### 📋 登録済みキャスト一覧")
+        if db_data['casts']:
+            st.dataframe(db_data['casts'], use_container_width=True)
+        else:
+            st.info("データがありません")
+            
+        st.markdown("---")
+        st.markdown("##### ➕ 新規登録・上書き編集")
         with st.form("cast_form"):
-            c_id = st.text_input("ID (半角英数)")
+            c_id = st.text_input("ID (半角英数 ※既存ID入力で上書き)")
             c_name = st.text_input("名前")
             c_pass = st.text_input("パスワード")
             c_phone = st.text_input("電話番号")
