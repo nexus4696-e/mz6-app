@@ -34,7 +34,7 @@ if not db_data:
     st.stop()
 
 # ==========================================
-# 🔐 ログイン画面（スマホ特化のタブデザイン）
+# 🔐 ログイン画面
 # ==========================================
 if st.session_state.role is None:
     st.markdown("<h2 style='text-align: center;'>六本木 水島本店 送迎管理</h2>", unsafe_allow_html=True)
@@ -47,38 +47,40 @@ if st.session_state.role is None:
         st.markdown("#### スタッフ専用ログイン")
         driver_list = ["-- 選択してください --"] + [d['name'] for d in db_data['drivers']]
         d_name = st.selectbox("スタッフ名", driver_list, key="d_name")
+        # ※パスワード未設定のスタッフは、空欄のままログインを押せば入れます
         d_pass = st.text_input("パスワード", type="password", key="d_pass")
         
         if st.button("ログイン", type="primary", use_container_width=True, key="d_login"):
-            if d_name == "-- 選択してください --":
-                st.warning("名前を選択してください。")
-            else:
+            if d_name != "-- 選択してください --":
                 correct_pass = next((d['password'] for d in db_data['drivers'] if d['name'] == d_name), "")
-                if d_pass == correct_pass and correct_pass != "":
+                if d_pass == correct_pass:
                     st.session_state.role = "driver"
                     st.session_state.user_name = d_name
                     st.rerun()
                 else:
                     st.error("パスワードが間違っています。")
+            else:
+                st.warning("名前を選択してください。")
 
     # --- 👸 キャストログイン ---
     with tab_cast:
         st.markdown("#### キャスト専用ログイン")
         cast_list = ["-- 選択してください --"] + [c['name'] for c in db_data['casts']]
         c_name = st.selectbox("キャスト名", cast_list, key="c_name")
+        # ※パスワード未設定のキャストは、空欄のままログインを押せば入れます
         c_pass = st.text_input("パスワード", type="password", key="c_pass")
         
         if st.button("ログイン", type="primary", use_container_width=True, key="c_login"):
-            if c_name == "-- 選択してください --":
-                st.warning("名前を選択してください。")
-            else:
+            if c_name != "-- 選択してください --":
                 correct_pass = next((c['password'] for c in db_data['casts'] if c['name'] == c_name), "")
-                if c_pass == correct_pass and correct_pass != "":
+                if c_pass == correct_pass:
                     st.session_state.role = "cast"
                     st.session_state.user_name = c_name
                     st.rerun()
                 else:
                     st.error("パスワードが間違っています。")
+            else:
+                st.warning("名前を選択してください。")
 
     # --- ⚙️ 管理者ログイン ---
     with tab_admin:
@@ -110,46 +112,63 @@ st.markdown("---")
 
 
 # ==========================================
-# 🚙 スタッフ（ドライバー）専用画面
+# 🚙 スタッフ（ドライバー）専用画面（全一覧を復旧！）
 # ==========================================
 if st.session_state.role == "driver":
-    st.markdown("### 📋 本日のあなたの担当リスト")
+    st.markdown("### 📋 本日の配車・送迎リスト")
+    st.write("※自分以外の送迎状況も確認・編集できます。")
     
-    if st.button("🔄 リストを最新にする", use_container_width=True):
+    if st.button("🔄 最新情報に更新", use_container_width=True):
         st.rerun()
         
-    my_tasks = [a for a in db_data['attendance'] if a['driver_name'] == st.session_state.user_name and a['target_date'] == '当日']
+    attendances = [a for a in db_data['attendance'] if a['target_date'] == '当日']
+    driver_names = ["未定"] + [d['name'] for d in db_data['drivers']]
     
-    if not my_tasks:
-        st.info("現在、あなたに割り当てられた送迎はありません。")
+    if not attendances:
+        st.info("現在、本日の送迎リクエストはありません。")
     else:
-        for task in my_tasks:
-            st.success(f"👸 **{task['cast_name']}**")
-            st.write(f"📍 **エリア:** {task['area']}　／　⏰ **時間:** {task['pickup_time']}")
-            st.write(f"📋 **状態:** 【 {task['status']} 】")
+        updates = []
+        for a in attendances:
+            # 自分が担当のものは緑色マークで分かりやすくする
+            is_mine = (a['driver_name'] == st.session_state.user_name)
+            icon = "🟢" if is_mine else "⚪"
             
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🚙 迎車に向かう", key=f"go_{task['id']}", use_container_width=True):
-                    post_api({"action": "update_manual_dispatch", "updates": [{"id": task['id'], "driver_name": task['driver_name'], "pickup_time": task['pickup_time'], "status": "迎車中"}]})
-                    st.rerun()
-            with col2:
-                if st.button("✅ 送迎完了", key=f"done_{task['id']}", use_container_width=True):
-                    post_api({"action": "update_manual_dispatch", "updates": [{"id": task['id'], "driver_name": task['driver_name'], "pickup_time": task['pickup_time'], "status": "完了"}]})
-                    st.rerun()
-            st.markdown("---")
+            # スマホでタップしやすい折りたたみ式一覧
+            with st.expander(f"{icon} 👸 {a['cast_name']} （エリア: {a['area']} / 状態: {a['status']} / 時間: {a['pickup_time']}）"):
+                d_index = driver_names.index(a['driver_name']) if a['driver_name'] in driver_names else 0
+                s_options = ["出勤", "迎車中", "完了", "未定", "キャンセル"]
+                s_index = s_options.index(a['status']) if a['status'] in s_options else 0
+                
+                new_driver = st.selectbox("担当スタッフ", driver_names, index=d_index, key=f"dd_{a['id']}")
+                new_time = st.text_input("時間", value=a['pickup_time'], key=f"dt_{a['id']}")
+                new_status = st.selectbox("状態", s_options, index=s_index, key=f"ds_{a['id']}")
+                
+                updates.append({
+                    "id": a['id'],
+                    "driver_name": new_driver,
+                    "pickup_time": new_time,
+                    "status": new_status
+                })
+                
+        if st.button("💾 変更を保存する", type="primary", use_container_width=True, key="d_save"):
+            post_api({"action": "update_manual_dispatch", "updates": updates})
+            st.success("保存しました！現場の画面に反映されます。")
+            time.sleep(1)
+            st.rerun()
 
 # ==========================================
-# 👸 キャスト専用画面
+# 👸 キャスト専用画面（詳細設定・指名機能を復旧！）
 # ==========================================
 elif st.session_state.role == "cast":
-    st.markdown("### 🚕 送迎の申請")
+    st.markdown("### 🚕 送迎の申請・確認")
     
     my_record = next((a for a in db_data['attendance'] if a['cast_name'] == st.session_state.user_name and a['target_date'] == '当日'), None)
+    c_info = next((c for c in db_data['casts'] if c['name'] == st.session_state.user_name), None)
     
     if my_record:
-        st.success("✅ 本日の送迎は手配済み・または申請済みです。")
+        st.success("✅ 本日の送迎は申請済みです。")
         st.write(f"**予定時間:** {my_record['pickup_time']}")
+        st.write(f"**エリア:** {my_record['area']}")
         st.write(f"**担当スタッフ:** {my_record['driver_name']}")
         st.write(f"**現在の状態:** 【 {my_record['status']} 】")
         
@@ -157,43 +176,58 @@ elif st.session_state.role == "cast":
             st.rerun()
             
         st.markdown("---")
+        st.write("※内容を変更・キャンセルする場合は以下を操作してください")
+        
+        with st.form("cast_update_form"):
+            new_time = st.text_input("時間の変更 (例: 20:30)", value=my_record['pickup_time'])
+            if st.form_submit_button("💾 予定時間を変更する"):
+                post_api({"action": "update_manual_dispatch", "updates": [{"id": my_record['id'], "driver_name": my_record['driver_name'], "pickup_time": new_time, "status": my_record['status']}]})
+                st.success("時間を変更しました。")
+                time.sleep(1)
+                st.rerun()
+
         if st.button("❌ 送迎をキャンセルする", use_container_width=True):
             post_api({"action": "cancel_dispatch", "cast_id": my_record['cast_id']})
             st.success("キャンセルしました。")
             time.sleep(1)
             st.rerun()
     else:
-        st.info("本日の送迎を申請します。希望時間を選択してください。")
-        c_info = next((c for c in db_data['casts'] if c['name'] == st.session_state.user_name), None)
-        
-        req_time = st.time_input("希望時間", datetime.time(20, 0))
-        
-        if st.button("📤 送迎をリクエストする", type="primary", use_container_width=True):
-            payload = {
-                "action": "create_or_update_dispatch",
-                "cast_id": c_info['cast_id'],
-                "cast_name": c_info['name'],
-                "area": c_info['area'],
-                "pickup_time": req_time.strftime("%H:%M"),
-                "driver_name": "未定"
-            }
-            post_api(payload)
-            st.success("リクエストを送信しました！")
-            time.sleep(1)
-            st.rerun()
+        st.info("本日の送迎を申請します。詳細を入力してください。")
+        with st.form("cast_request_form"):
+            req_time = st.time_input("希望時間", datetime.time(20, 0))
+            req_area = st.text_input("お迎えエリア", value=c_info['area'] if c_info else "")
+            
+            # ドライバーの指名機能
+            driver_names = ["指定なし（誰でもOK）"] + [d['name'] for d in db_data['drivers']]
+            pref_driver = c_info.get('preferred_driver', '') if c_info else ''
+            d_index = driver_names.index(pref_driver) if pref_driver in driver_names else 0
+            req_driver = st.selectbox("希望するスタッフ (任意)", driver_names, index=d_index)
+            
+            if st.form_submit_button("📤 送迎をリクエストする", type="primary", use_container_width=True):
+                final_driver = "未定" if req_driver == "指定なし（誰でもOK）" else req_driver
+                payload = {
+                    "action": "create_or_update_dispatch",
+                    "cast_id": c_info['cast_id'],
+                    "cast_name": c_info['name'],
+                    "area": req_area,
+                    "pickup_time": req_time.strftime("%H:%M"),
+                    "driver_name": final_driver
+                }
+                post_api(payload)
+                st.success("リクエストを送信しました！")
+                time.sleep(1)
+                st.rerun()
 
 # ==========================================
-# ⚙️ 管理者専用画面（全機能を復元・タブ化）
+# ⚙️ 管理者専用画面（全機能をタブ化して復旧！）
 # ==========================================
 elif st.session_state.role == "admin":
     st.markdown("### 👑 管理者ダッシュボード")
-    
-    # 🌟 ここで失われていた機能をすべてタブに分けて復活させました！
     tab_dispatch, tab_driver, tab_cast, tab_setting = st.tabs(["🚕 配車管理", "🚙 スタッフ登録", "👸 キャスト登録", "⚙️ 設定"])
     
     # --- 🚕 配車管理タブ ---
     with tab_dispatch:
-        if st.button("🔄 最新情報に更新", use_container_width=True, key="update_dispatch"):
+        if st.button("🔄 最新情報に更新", use_container_width=True, key="a_update"):
             st.rerun()
             
         attendances = [a for a in db_data['attendance'] if a['target_date'] == '当日']
@@ -206,12 +240,12 @@ elif st.session_state.role == "admin":
             for a in attendances:
                 with st.expander(f"👸 {a['cast_name']} （状態: {a['status']} / 時間: {a['pickup_time']}）"):
                     d_index = driver_names.index(a['driver_name']) if a['driver_name'] in driver_names else 0
-                    s_options = ["出勤", "迎車中", "完了", "未定"]
+                    s_options = ["出勤", "迎車中", "完了", "未定", "キャンセル"]
                     s_index = s_options.index(a['status']) if a['status'] in s_options else 0
                     
-                    new_driver = st.selectbox("担当スタッフ", driver_names, index=d_index, key=f"d_{a['id']}")
-                    new_time = st.text_input("時間", value=a['pickup_time'], key=f"t_{a['id']}")
-                    new_status = st.selectbox("状態", s_options, index=s_index, key=f"s_{a['id']}")
+                    new_driver = st.selectbox("担当スタッフ", driver_names, index=d_index, key=f"a_d_{a['id']}")
+                    new_time = st.text_input("時間", value=a['pickup_time'], key=f"a_t_{a['id']}")
+                    new_status = st.selectbox("状態", s_options, index=s_index, key=f"a_s_{a['id']}")
                     
                     updates.append({
                         "id": a['id'],
@@ -222,11 +256,11 @@ elif st.session_state.role == "admin":
                     
             if st.button("💾 配車の変更を保存する", type="primary", use_container_width=True):
                 post_api({"action": "update_manual_dispatch", "updates": updates})
-                st.success("保存しました！現場のスタッフ画面に反映されます。")
+                st.success("保存しました！現場の画面に反映されます。")
                 time.sleep(1)
                 st.rerun()
 
-    # --- 🚙 スタッフ（ドライバー）登録タブ ---
+    # --- 🚙 スタッフ登録タブ ---
     with tab_driver:
         st.markdown("#### 新規スタッフ登録・編集")
         st.write("※既存のIDを入力すると上書き編集になります")
@@ -238,16 +272,14 @@ elif st.session_state.role == "admin":
             d_area = st.text_input("担当エリア")
             d_address = st.text_input("住所")
             d_capa = st.number_input("乗車定員", min_value=1, value=4)
-            submit_driver = st.form_submit_button("💾 スタッフ情報を保存")
-            
-            if submit_driver:
-                if d_id and d_name and d_pass:
+            if st.form_submit_button("💾 スタッフ情報を保存"):
+                if d_id and d_name:
                     post_api({"action": "save_driver", "driver_id": d_id, "name": d_name, "password": d_pass, "phone": d_phone, "area": d_area, "address": d_address, "capacity": d_capa})
                     st.success("スタッフ情報を保存しました！")
                     time.sleep(1)
                     st.rerun()
                 else:
-                    st.error("ID、名前、パスワードは必須です。")
+                    st.error("IDと名前は必須です。")
 
     # --- 👸 キャスト登録タブ ---
     with tab_cast:
@@ -261,16 +293,14 @@ elif st.session_state.role == "admin":
             c_area = st.text_input("送迎エリア")
             c_address = st.text_input("住所")
             c_manager = st.text_input("担当マネージャー")
-            submit_cast = st.form_submit_button("💾 キャスト情報を保存")
-            
-            if submit_cast:
-                if c_id and c_name and c_pass:
+            if st.form_submit_button("💾 キャスト情報を保存"):
+                if c_id and c_name:
                     post_api({"action": "save_cast", "cast_id": c_id, "name": c_name, "password": c_pass, "phone": c_phone, "area": c_area, "address": c_address, "manager": c_manager})
                     st.success("キャスト情報を保存しました！")
                     time.sleep(1)
                     st.rerun()
                 else:
-                    st.error("ID、名前、パスワードは必須です。")
+                    st.error("IDと名前は必須です。")
                     
     # --- ⚙️ システム設定タブ ---
     with tab_setting:
@@ -282,9 +312,7 @@ elif st.session_state.role == "admin":
             s_time = st.text_input("基準出勤時間 (例: 19:50)", value=current_settings.get('base_arrival_time', ''))
             s_notice = st.text_area("お知らせテキスト", value=current_settings.get('notice_text', ''))
             s_line = st.text_input("LINE Bot ID (開発中)", value=current_settings.get('line_bot_id', ''))
-            submit_setting = st.form_submit_button("💾 設定を更新する")
-            
-            if submit_setting:
+            if st.form_submit_button("💾 設定を更新する"):
                 post_api({"action": "save_settings", "admin_password": s_pass, "store_address": s_store, "base_arrival_time": s_time, "notice_text": s_notice, "line_bot_id": s_line})
                 st.success("システム設定を更新しました！")
                 time.sleep(1)
