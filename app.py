@@ -164,7 +164,6 @@ st.markdown("""
         border: 2px solid #e91e63 !important; box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
     }
 
-    /* 🌟 ここが最重要：一番上のナビボタンをスマホでも【絶対に横1列に並べる】安全なコード */
     div.element-container:has(#nav-start) + div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -634,6 +633,86 @@ elif st.session_state.page == "staff_portal":
         # ----------------------------------------
         if st.session_state.staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">配車予定日</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
+            
+            # 🌟 自動配車機能の復活（稼働ドライバー選択と実行ボタン）
+            st.markdown('<div style="background: #e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 15px;">', unsafe_allow_html=True)
+            if not d_names:
+                st.warning("⚠️ まだドライバーが登録されていません。「④ STAFF設定」タブを開いて登録してください。")
+            else:
+                if "active_drv_state" not in st.session_state: st.session_state.active_drv_state = d_names
+                valid_drv = [d for d in st.session_state.active_drv_state if d in d_names]
+                def on_drv_change(): st.session_state.active_drv_state = st.session_state.active_drv_ms
+                active_drivers = st.multiselect("稼働するドライバーを選択", d_names, default=valid_drv, key="active_drv_ms", on_change=on_drv_change)
+                
+                if st.button("🚀 自動配車を実行", type="primary", use_container_width=True):
+                    if not active_drivers: 
+                        st.error("稼働するドライバーを1人以上選択してください。")
+                    else:
+                        st.info("自動配車を実行中...")
+                        
+                        all_today_casts = []
+                        for row in attendance:
+                            if row["target_date"] == "当日" and row["status"] == "出勤":
+                                c_info = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
+                                addr = c_info.get("address", "")
+                                line, dst = get_route_line_and_distance(addr)
+                                all_today_casts.append({"row": row, "line": line, "dist": dst})
+                        
+                        all_today_casts.sort(key=lambda x: x["dist"], reverse=True)
+                        drv_specs = {d["name"]: {"capacity": int(d["capacity"]), "assigned_rows": [], "line": None} for d in drivers if d["name"] in active_drivers}
+
+                        for uc in all_today_casts:
+                            assigned_d = None
+                            c_line = uc["line"]
+                            
+                            for d_name, stat in drv_specs.items():
+                                if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
+                                    assigned_d = d_name; break
+                                    
+                            if not assigned_d:
+                                for d_name, stat in drv_specs.items():
+                                    if len(stat["assigned_rows"]) == 0:
+                                        stat["line"] = c_line
+                                        assigned_d = d_name; break
+
+                            if not assigned_d and c_line == "Route_E_South" and uc["dist"] <= 10:
+                                for d_name, stat in drv_specs.items():
+                                    if len(stat["assigned_rows"]) < stat["capacity"] and len(stat["assigned_rows"]) > 0:
+                                        assigned_d = d_name; break
+
+                            if assigned_d: drv_specs[assigned_d]["assigned_rows"].append(uc)
+                            else:
+                                uc["row"]["driver_name"] = "未定"
+                                uc["row"]["pickup_time"] = "未定"
+                        
+                        base_time = str(settings.get("base_arrival_time", "19:50"))
+                        updates = []
+                        
+                        for d_name, stat in drv_specs.items():
+                            assigned_list = sorted(stat["assigned_rows"], key=lambda x: x["dist"], reverse=True)
+                            try:
+                                bh, bm = map(int, base_time.split(':'))
+                                b_mins = bh * 60 + bm
+                            except: b_mins = 19 * 60 + 50
+                            
+                            total_casts = len(assigned_list)
+                            for idx, item in enumerate(assigned_list):
+                                mins_to_subtract = (total_casts - idx) * 20
+                                t_mins = b_mins - mins_to_subtract
+                                current_calc_time = f"{t_mins // 60}:{t_mins % 60:02d}"
+                                updates.append({"id": item["row"]["id"], "driver_name": d_name, "pickup_time": current_calc_time})
+                        
+                        for uc in all_today_casts:
+                            if uc["row"]["driver_name"] == "未定":
+                                updates.append({"id": uc["row"]["id"], "driver_name": "未定", "pickup_time": "未定"})
+                                        
+                        if updates:
+                            res = post_api({"action": "batch_update_dispatch", "updates": updates})
+                            if res.get("status") == "success": 
+                                clear_cache(); st.success(f"自動配車が完了しました！"); time.sleep(1.5); st.rerun()
+                            else: st.error("エラー: " + res.get("message"))
+                        else: st.warning("本日の出勤キャストがいません。")
+            st.markdown('</div>', unsafe_allow_html=True)
             
             with st.expander("✏️ 配車の手動変更・入れ替え (個別更新)"):
                 st.caption("各キャストの項目を変更し、右側の「更新」ボタンを押してください。")
