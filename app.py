@@ -125,27 +125,24 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS（画面の崩壊・横はみ出しを完全に防ぐ超安全版）
+# 🎨 カスタムCSS（パスワード破壊の原因を全消去した安全なベース）
 # ==========================================
 st.markdown("""
 <style>
-    /* 全体のベースデザイン */
     .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
-    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; overflow-x: hidden; }
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
     
-    /* 🌟 余計なシステム表示（右下のアイコン等）を確実に消す */
-    header, footer, [data-testid="stToolbar"], [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
-    a[href^="https://streamlit.io/cloud"] { display: none !important; }
+    /* 余計な表示を消去 */
+    header { visibility: hidden !important; }
+    footer { visibility: hidden !important; }
     
-    /* アプリ内の各パーツの基本デザイン */
-    .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
-    .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 50px; }
+    .app-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
+    .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 30px; }
     .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .driver-card { background: white; border-left: 6px solid #e91e63; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
     .shop-no-badge { background: #ffeb3b; color: #d32f2f; font-weight: 900; padding: 5px 2px; border-radius: 6px; border: 2px solid #d32f2f; font-size: 16px; margin-right: 5px; min-width: 60px; text-align: center; display: inline-block; }
     .shop-no-badge-mini { background: #ffeb3b; color: #d32f2f; font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #d32f2f; font-size: 12px; margin-right: 5px; display: inline-block; min-width: 45px; text-align: center; }
     .notice-box { border: 2px solid #fdd835; background: #fffde7; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
-    .nav-btn { display: block; width: 100%; text-decoration: none; background: #e91e63; color: white; font-weight: bold; font-size: 18px; padding: 15px; text-align: center; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-bottom:20px; }
     .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; }
     .date-header .main-date { font-size: 26px; font-weight: 900; color: #e91e63; }
     
@@ -156,33 +153,10 @@ st.markdown("""
     div[role="radiogroup"] > label[data-checked="true"] p { color: white !important; font-weight: bold; }
     div[role="radiogroup"] > label > div:first-child { display: none; }
     div[role="radiogroup"] > label p { color: #333; margin: 0; font-size: 14px; font-weight: bold; }
+    
     .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
     .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-
-    /* 🌟 ここが最重要：一番上のナビボタン【だけ】を横一列にする安全なコード（他の入力欄は一切壊しません） */
-    div.main div[data-testid="stVerticalBlock"] > div.element-container:nth-child(2) > div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 5px !important;
-        overflow: hidden !important;
-    }
-    div.main div[data-testid="stVerticalBlock"] > div.element-container:nth-child(2) > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        flex: 1 1 0% !important;
-        min-width: 0 !important;
-        width: 100% !important;
-        padding: 0 !important;
-    }
-    div.main div[data-testid="stVerticalBlock"] > div.element-container:nth-child(2) button {
-        width: 100% !important;
-        padding: 0 2px !important;
-        font-size: 14px !important;
-        min-height: 42px !important;
-        height: 42px !important;
-        white-space: nowrap !important;
-        margin: 0 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -194,22 +168,21 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 
 # ==========================================
-# 🌟 情報重視・一番上だけ確実に横一列になるナビゲーション
+# 🌟 ナビゲーション（標準の安全なボタン配置に戻しました）
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
     
-    # ログイン中は3個のボタンを横一列に配置します
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
+            if st.button("🏠 ホーム", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
-            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
+            if st.button("🔙 戻る", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col3:
-            if st.button("🚪 ログアウト", key=f"nl_{st.session_state.page}", use_container_width=True):
+            if st.button("🚪 ログアウト", use_container_width=True):
                 st.session_state.logged_in_cast = None
                 st.session_state.logged_in_staff = None
                 st.session_state.is_admin = False
@@ -217,46 +190,47 @@ def render_top_nav():
                 st.session_state.page = "home"
                 st.rerun()
     else:
-        # ログイン前は2個のボタンを横一列に配置します
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
+            if st.button("🏠 ホーム", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
-            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
+            if st.button("🔙 戻る", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
                 
-    st.markdown("<hr style='margin: 10px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
 # 🏠 ホーム画面
 # ==========================================
 if st.session_state.page == "home":
     st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
-    if st.button("🚙 スタッフ業務開始", type="primary", use_container_width=True):
+    if st.button("🚙 スタッフ業務開始\n(配車・送迎設定)", type="primary", use_container_width=True):
         if st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "staff_login"; st.session_state.selected_staff_for_login = None
         st.rerun()
     st.write("") 
-    if st.button("👩 キャスト専用ログイン", use_container_width=True):
+    if st.button("👩 キャスト専用ログイン\n(予定の申請)", use_container_width=True):
         if st.session_state.get("logged_in_cast"): st.session_state.page = "cast_mypage"
         else: st.session_state.page = "cast_login"
         st.rerun()
     st.write("\n\n")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
-    if st.button("⚙️ 管理者ログイン", use_container_width=True):
+    if st.button("⚙️ 管理者ログイン (全権限)", use_container_width=True):
         if st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "admin_login"
         st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
-# 🔐 ログイン画面系
+# 🔐 ログイン画面系（入力欄を確実に復旧）
 # ==========================================
 elif st.session_state.page == "cast_login":
     render_top_nav()
     st.markdown('<div class="app-header">キャストログイン</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.caption("店番とキャスト名を選択し、パスワードを入力してください")
+    
     db = get_db_data()
     casts = db.get("casts", [])
     cast_list_display = ["-- 選択 --"] + [f"{c['cast_id']} {c['name']}" for c in casts if str(c.get("name", "")).strip() != ""]
@@ -278,26 +252,32 @@ elif st.session_state.page == "cast_login":
                 else: st.error("⚠️ パスワードが違います。")
             else: st.error("⚠️ キャスト情報が見つかりません。")
         else: st.warning("キャストを選択してください。")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.page == "admin_login":
     render_top_nav()
     db = get_db_data()
     settings = db.get("settings") or {}
+    
     st.markdown('<div class="app-header">👑 管理者認証</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.caption("パスワードを入力してください (初期: 1234)")
     
-    admin_pass = st.text_input("パスワード", type="password", key="admin_pass_input", label_visibility="collapsed")
+    admin_pass = st.text_input("パスワード", type="password", key="admin_pass_input")
+    
     if st.button("ログイン", type="primary", use_container_width=True):
         db_pass = str(settings.get("admin_password", "")) if isinstance(settings, dict) else "1234"
         if not db_pass: db_pass = "1234"
         if admin_pass == db_pass: 
             st.session_state.is_admin = True; st.session_state.logged_in_staff = "管理者"; st.session_state.page = "staff_portal"; st.rerun()
         else: st.error("⚠️ パスワードが違います。")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.page == "staff_login":
     render_top_nav()
     st.markdown('<div class="app-header">スタッフ認証</div>', unsafe_allow_html=True)
     st.caption("自分の名前の横にパスワードを入力して開始を押してください")
+    
     db = get_db_data()
     drivers = db.get("drivers", [])
     staff_list = [d for d in drivers if str(d["name"]).strip() != ""]
@@ -305,10 +285,11 @@ elif st.session_state.page == "staff_login":
     if not staff_list: st.warning("※管理者が「④ STAFF設定」からスタッフ登録を行ってください")
     else:
         for d in staff_list:
-            st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd;'>👤 {d['name']}</div>", unsafe_allow_html=True)
-            colA, colB = st.columns([3, 2])
-            with colA: p_in = st.text_input("パスワード", type="password", key=f"pass_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
-            with colB:
+            st.markdown('<div class="card" style="padding:10px; margin-bottom:5px;">', unsafe_allow_html=True)
+            colA, colB, colC = st.columns([2, 2.5, 1.5])
+            with colA: st.markdown(f"<div style='font-weight:bold; padding-top:8px; font-size:15px;'>👤 {d['name']}</div>", unsafe_allow_html=True)
+            with colB: p_in = st.text_input("パスワード", type="password", key=f"pass_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
+            with colC:
                 if st.button("開始", key=f"btn_{d['driver_id']}", type="primary", use_container_width=True):
                     if p_in == "0000" or p_in.strip() == str(d["password"]).strip() or str(d["password"]) == "":
                         st.session_state.is_admin = False
@@ -316,6 +297,7 @@ elif st.session_state.page == "staff_login":
                         st.session_state.page = "staff_portal"
                         st.rerun()
                     else: st.error("❌ エラー")
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 👩 出勤報告 / マイページ
@@ -599,7 +581,7 @@ elif st.session_state.page == "staff_portal":
                             res = post_api({"action": "update_manual_dispatch", "updates": updates})
                             if res.get("status") == "success": clear_cache(); st.rerun()
                 with col_d:
-                    if st.button("❌ 辞退(外す)", key=f"cancel_{t['id']}", use_container_width=True):
+                    if st.button("❌ 辞退", key=f"cancel_{t['id']}", use_container_width=True):
                         updates = [{"id": t["id"], "driver_name": "未定", "pickup_time": "未定", "status": t["status"]}]
                         res = post_api({"action": "update_manual_dispatch", "updates": updates})
                         if res.get("status") == "success": clear_cache(); st.rerun()
@@ -626,7 +608,6 @@ elif st.session_state.page == "staff_portal":
         if st.session_state.staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">配車予定日</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
             
-            # 🌟 【修正】自動配車が「稼働しないバグ」を修正し、確実な命令名(update_manual_dispatch)とステータスを付けて送信するようにしました。
             st.markdown('<div class="auto-dispatch-box">', unsafe_allow_html=True)
             st.markdown('<div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（一筆書きAI）</div>', unsafe_allow_html=True)
             if not d_names:
@@ -717,7 +698,6 @@ elif st.session_state.page == "staff_portal":
                                 })
                                         
                         if updates:
-                            # 🌟 「batch_update」ではなく、サーバーが確実に認識できる「update_manual_dispatch」に変更しました
                             res = post_api({"action": "update_manual_dispatch", "updates": updates})
                             if res.get("status") == "success": 
                                 clear_cache(); st.success(f"自動配車が完了しました！"); time.sleep(1.5); st.rerun()
