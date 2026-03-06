@@ -125,23 +125,19 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS（すべてのバグを根絶し、安全に装飾）
+# 🎨 カスタムCSS（パスワード破壊コードを全消去した超安全版）
 # ==========================================
 st.markdown("""
 <style>
-    /* 🌟 ベースデザイン */
+    /* 全体のベースデザイン */
     .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
     
-    /* 🌟 右下のゴミ（Built with Streamlit等）と不要なヘッダーを完全に隠滅 */
-    header, footer { visibility: hidden !important; display: none !important; }
-    .stDeployButton { display: none !important; }
-    [data-testid="stToolbar"] { display: none !important; }
-    [data-testid="manage-app-button"] { display: none !important; }
-    a[href^="https://streamlit.io/cloud"] { display: none !important; }
-    div[class^="viewerBadge"] { display: none !important; }
+    /* 🌟 Streamlitの不要な文字（Built with Streamlit）を消去 */
+    header { visibility: hidden; }
+    footer { visibility: hidden; }
     
-    /* アプリ内の各パーツのデザイン */
+    /* 各パーツの基本デザイン */
     .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
     .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 50px; }
     .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -153,6 +149,7 @@ st.markdown("""
     .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; }
     .date-header .main-date { font-size: 26px; font-weight: 900; color: #e91e63; }
     
+    /* ラジオボタンをボタン風にする（標準の安全な機能） */
     div[role="radiogroup"] { flex-wrap: wrap !important; gap: 5px; justify-content: center; padding-bottom: 5px; }
     div[role="radiogroup"]::-webkit-scrollbar { display: none; }
     div[role="radiogroup"] > label { background-color: white; border: 2px solid #999; padding: 8px 15px; border-radius: 20px; cursor: pointer; white-space: nowrap; flex-shrink: 0; margin-bottom: 5px; }
@@ -164,27 +161,22 @@ st.markdown("""
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
     .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
 
-    /* 🌟 【超安全】パスワード入力等に絶対に影響を与えず、一番上のナビだけを横一列にする専用コード */
-    div:has(> #top-nav-anchor) { display: none !important; }
-    div.element-container:has(> div > #top-nav-anchor) + div[data-testid="stHorizontalBlock"] {
+    /* 🌟 パスワード入力や画面全体を絶対に壊さず、上部のナビボタン「だけ」を横一列にする安全なコード */
+    div.element-container:has(#nav-marker) + div.element-container div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 5px !important;
-        max-width: 100% !important;
     }
-    div.element-container:has(> div > #top-nav-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    div.element-container:has(#nav-marker) + div.element-container div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: 100% !important;
         flex: 1 1 0% !important;
         min-width: 0 !important;
-        padding: 0 !important;
     }
-    div.element-container:has(> div > #top-nav-anchor) + div[data-testid="stHorizontalBlock"] button {
-        padding: 0px 2px !important;
-        width: 100% !important;
-        min-height: 45px !important;
+    div.element-container:has(#nav-marker) + div.element-container button {
+        padding: 0 !important;
         font-size: 14px !important;
-        white-space: nowrap !important;
-        margin: 0 !important;
+        width: 100% !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -197,13 +189,13 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 
 # ==========================================
-# 🌟 ナビゲーション（絶対に他の部品を壊さず横一列になります）
+# 🌟 情報重視・一番上だけ確実に横一列になるナビゲーション
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
     
-    # 🌟 この目印の「直後の横並びブロック」だけを対象とするため、パスワード等に一切影響しません
-    st.markdown('<div id="top-nav-anchor"></div>', unsafe_allow_html=True)
+    # 🌟 この目印の「直後のボタン群」だけを横一列にします。入力欄には一切影響しません。
+    st.markdown('<span id="nav-marker" style="display:none;"></span>', unsafe_allow_html=True)
     
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
