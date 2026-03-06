@@ -78,13 +78,13 @@ if st.session_state.role is None:
                     st.error("パスワードが間違っています。")
 
     with tab_cast:
+        # キャスト名には必ず店番を表示
         cast_list_display = ["-- 選択 --"] + [f"{c['cast_id']} {c['name']}" for c in db_data['casts']]
         c_selected = st.selectbox("店番とキャスト名", cast_list_display, key="c_name")
         c_pass = st.text_input("パスワード", type="password", key="c_pass")
         
         if st.button("ログイン", type="primary", use_container_width=True, key="c_login"):
             if c_selected != "-- 選択 --":
-                # 🌟 バグ修正：確実に文字として比較し、正しいパスワードを照合する
                 selected_id = str(c_selected.split(" ")[0])
                 target_cast = next((c for c in db_data['casts'] if str(c['cast_id']) == selected_id), None)
                 if target_cast:
@@ -98,8 +98,6 @@ if st.session_state.role is None:
                         st.rerun()
                     else:
                         st.error("パスワードが間違っています。")
-                else:
-                    st.error("キャスト情報が見つかりません。")
 
     with tab_admin:
         a_pass = st.text_input("管理者パスワード", type="password", key="a_pass")
@@ -148,7 +146,7 @@ if st.session_state.role == "driver":
             
             with st.expander(label):
                 d_index = driver_names.index(a['driver_name']) if a['driver_name'] in driver_names else 0
-                s_options = ["出勤", "迎車中", "完了", "未定", "キャンセル"]
+                s_options = ["出勤", "迎車中", "完了", "未定", "キャンセル", "出勤(送迎あり)", "出勤(送迎なし)"]
                 s_index = s_options.index(a['status']) if a['status'] in s_options else 0
                 
                 new_time = st.text_input("時間", value=a['pickup_time'], key=f"dt_{a['id']}")
@@ -169,54 +167,103 @@ if st.session_state.role == "driver":
             st.rerun()
 
 # ==========================================
-# 👸 キャスト専用画面
+# 👸 キャスト専用画面（【完全復旧】当日・翌日・週間申請・送迎有無）
 # ==========================================
 elif st.session_state.role == "cast":
-    my_record = next((a for a in db_data['attendance'] if a['cast_name'] == st.session_state.user_name and a['target_date'] == '当日'), None)
     c_info = next((c for c in db_data['casts'] if str(c['cast_id']) == str(st.session_state.cast_id)), None)
     
+    # 🌟 当日の申請状況確認・キャンセル
+    my_record = next((a for a in db_data['attendance'] if str(a['cast_id']) == str(st.session_state.cast_id) and a['target_date'] == '当日'), None)
     if my_record:
-        st.success(f"状態: {my_record['status']}")
-        st.write(f"⏰ {my_record['pickup_time']} ／ 🚙 {my_record['driver_name']}")
-        
-        if st.button("🔄 更新", use_container_width=True):
-            st.rerun()
+        st.success(f"✅ 本日 ({my_record['status']}) 申請済み")
+        if my_record['pickup_time'] != "未定":
+            st.write(f"⏰ お迎え予定: **{my_record['pickup_time']}** ／ 🚙 担当: **{my_record['driver_name']}**")
+        else:
+            st.write("⏰ お迎え予定: 調整中")
             
-        with st.form("cast_update_form"):
-            new_time = st.text_input("時間の変更 (例: 20:30)", value=my_record['pickup_time'])
-            if st.form_submit_button("💾 時間を変更する"):
-                post_api({"action": "update_manual_dispatch", "updates": [{"id": my_record['id'], "driver_name": my_record['driver_name'], "pickup_time": new_time, "status": my_record['status']}]})
-                st.success("変更しました。")
-                time.sleep(1)
-                st.rerun()
-
-        if st.button("❌ キャンセルする", use_container_width=True):
+        if st.button("❌ 本日の申請を取り消す", use_container_width=True):
             post_api({"action": "cancel_dispatch", "cast_id": my_record['cast_id']})
             time.sleep(1)
             st.rerun()
-    else:
-        st.info("送迎リクエスト")
-        with st.form("cast_request_form"):
-            req_time = st.time_input("希望時間", datetime.time(20, 0))
-            req_area = st.text_input("お迎えエリア", value=c_info['area'] if c_info else "")
+        st.markdown("---")
+
+    st.markdown("##### 📝 出勤・送迎申請")
+    tab_daily, tab_weekly = st.tabs(["当日・翌日申請", "週間申請"])
+    
+    # --- 当日・翌日申請 ---
+    with tab_daily:
+        with st.form("daily_apply_form"):
+            target_date = st.radio("申請日", ["当日", "翌日"], horizontal=True)
+            needs_pickup = st.radio("送迎の希望", ["送迎あり", "送迎なし"], horizontal=True)
+            req_area = st.text_input("お迎えエリア (送迎ありの場合)", value=c_info['area'] if c_info else "")
+            memo = st.text_input("備考・メモ")
             
-            driver_names = ["指定なし"] + [d['name'] for d in db_data['drivers']]
-            pref_driver = c_info.get('preferred_driver', '') if c_info else ''
-            d_index = driver_names.index(pref_driver) if pref_driver in driver_names else 0
-            req_driver = st.selectbox("希望スタッフ", driver_names, index=d_index)
-            
-            if st.form_submit_button("📤 リクエスト送信", type="primary", use_container_width=True):
-                final_driver = "未定" if req_driver == "指定なし" else req_driver
+            if st.form_submit_button("📤 申請を送信", type="primary", use_container_width=True):
+                status_val = "出勤(送迎あり)" if needs_pickup == "送迎あり" else "出勤(送迎なし)"
+                area_val = req_area if needs_pickup == "送迎あり" else "不要"
+                
                 payload = {
-                    "action": "create_or_update_dispatch",
-                    "cast_id": c_info['cast_id'],
-                    "cast_name": c_info['name'],
-                    "area": req_area,
-                    "pickup_time": req_time.strftime("%H:%M"),
-                    "driver_name": final_driver
+                    "action": "save_attendance",
+                    "records": [{
+                        "cast_id": c_info['cast_id'],
+                        "cast_name": c_info['name'],
+                        "area": area_val,
+                        "status": status_val,
+                        "memo": memo,
+                        "target_date": target_date
+                    }]
                 }
                 post_api(payload)
-                st.success("送信しました！")
+                st.success(f"{target_date}の申請を完了しました！")
+                time.sleep(1)
+                st.rerun()
+
+    # --- 週間申請 ---
+    with tab_weekly:
+        st.write("※向こう1週間の予定をまとめて申請できます")
+        with st.form("weekly_apply_form"):
+            today = datetime.date.today()
+            weekly_data = []
+            
+            for i in range(1, 8):
+                d = today + datetime.timedelta(days=i)
+                target_val = "翌日" if i == 1 else d.strftime("%Y-%m-%d")
+                date_disp = "明日" if i == 1 else d.strftime("%m/%d")
+                
+                st.write(f"**{date_disp}**")
+                col1, col2 = st.columns(2)
+                with col1:
+                    w_attend = st.selectbox("出勤", ["--", "出勤", "休み"], key=f"wat_{i}", label_visibility="collapsed")
+                with col2:
+                    w_pickup = st.selectbox("送迎", ["送迎あり", "送迎なし"], key=f"wpk_{i}", label_visibility="collapsed")
+                    
+                weekly_data.append({
+                    "date": target_val,
+                    "attend": w_attend,
+                    "pickup": w_pickup,
+                    "area": c_info['area'] if c_info else ""
+                })
+                st.markdown("---")
+                
+            if st.form_submit_button("📤 週間申請を一括送信", type="primary", use_container_width=True):
+                records = []
+                for w in weekly_data:
+                    if w['attend'] == "出勤":
+                        status_val = "出勤(送迎あり)" if w['pickup'] == "送迎あり" else "出勤(送迎なし)"
+                        area_val = w['area'] if w['pickup'] == "送迎あり" else "不要"
+                        records.append({
+                            "cast_id": c_info['cast_id'],
+                            "cast_name": c_info['name'],
+                            "area": area_val,
+                            "status": status_val,
+                            "memo": "週間申請",
+                            "target_date": w['date']
+                        })
+                if records:
+                    post_api({"action": "save_attendance", "records": records})
+                    st.success("週間申請を送信しました！")
+                else:
+                    st.warning("出勤の申請がありませんでした。")
                 time.sleep(1)
                 st.rerun()
 
@@ -242,7 +289,7 @@ elif st.session_state.role == "admin":
                 label = f"{a['pickup_time']} | {a['cast_id']} {a['cast_name']} | {a['status']} | {a['driver_name']}"
                 with st.expander(label):
                     d_index = driver_names.index(a['driver_name']) if a['driver_name'] in driver_names else 0
-                    s_options = ["出勤", "迎車中", "完了", "未定", "キャンセル"]
+                    s_options = ["出勤", "迎車中", "完了", "未定", "キャンセル", "出勤(送迎あり)", "出勤(送迎なし)"]
                     s_index = s_options.index(a['status']) if a['status'] in s_options else 0
                     
                     new_time = st.text_input("時間", value=a['pickup_time'], key=f"a_t_{a['id']}")
@@ -275,7 +322,6 @@ elif st.session_state.role == "admin":
         with st.form("driver_form"):
             d_id = st.text_input("ID (半角英数 ※既存ID入力で上書き)")
             d_name = st.text_input("名前")
-            # 🌟 空欄なら現在のパスワードを維持する安全装置
             d_pass = st.text_input("パスワード (※変更しない場合は空欄でOK)")
             d_phone = st.text_input("電話番号")
             d_area = st.text_input("担当エリア")
@@ -305,7 +351,6 @@ elif st.session_state.role == "admin":
         with st.form("cast_form"):
             c_id = st.text_input("店番 (キャストID / 半角英数 ※既存入力で上書き)")
             c_name = st.text_input("名前")
-            # 🌟 空欄なら現在のパスワードを維持する安全装置
             c_pass = st.text_input("パスワード (※変更しない場合は空欄でOK)")
             c_phone = st.text_input("電話番号")
             c_area = st.text_input("送迎エリア")
