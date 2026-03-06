@@ -125,18 +125,21 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS（パスワードが打てないバグを完全解消・安全なボタン横並び）
+# 🎨 カスタムCSS（パスワード妨害・横スクロールを完全排除した安全版）
 # ==========================================
 st.markdown("""
 <style>
+    /* ベースデザイン */
     .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
     
-    /* 🌟 システムの不要な表示を安全に消す */
-    header, footer { display: none !important; }
-    .stDeployButton { display: none !important; }
-    [data-testid="stToolbar"] { display: none !important; }
+    /* 🌟 システム由来の不要なゴミ表示を完全に消し去る */
+    header, footer, #MainMenu, .stDeployButton, [data-testid="stToolbar"], [data-testid="manage-app-button"] { 
+        display: none !important; 
+        visibility: hidden !important; 
+    }
     
+    /* アプリ内の各パーツのデザイン */
     .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
     .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 50px; }
     .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -159,21 +162,24 @@ st.markdown("""
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
     .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
 
-    /* 🌟 上部のナビボタン（3つ）を完全に横一列に並べる「安全な」専用コード */
-    div.element-container:has(.nav-wrapper) + div[data-testid="stHorizontalBlock"] {
+    /* 🌟 パスワード入力や画面全体を絶対に壊さず、上部のナビボタン「だけ」を横一列にする安全なコード */
+    div[data-testid="stHorizontalBlock"]:has(.nav-btn-col) {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 5px !important;
     }
-    div.element-container:has(.nav-wrapper) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    div[data-testid="stHorizontalBlock"]:has(.nav-btn-col) > div[data-testid="column"] {
+        width: auto !important;
         flex: 1 1 0% !important;
         min-width: 0 !important;
         padding: 0 !important;
     }
-    div.element-container:has(.nav-wrapper) + div[data-testid="stHorizontalBlock"] button {
+    div[data-testid="stHorizontalBlock"]:has(.nav-btn-col) button {
         padding: 0 2px !important;
         font-size: 14px !important;
+        min-height: 42px !important;
+        height: 42px !important;
         width: 100% !important;
         white-space: nowrap !important;
     }
@@ -188,18 +194,16 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 
 # ==========================================
-# 🌟 情報重視・3個のボタンを横一列に配置するナビゲーション
+# 🌟 情報重視・一番上だけ確実に横一列になるナビゲーション
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
     
-    # 🌟 このマーカーの直後の要素だけが、横一列（折り返しなし）になります。入力欄には影響しません。
-    st.markdown('<div class="nav-wrapper" style="display:none;"></div>', unsafe_allow_html=True)
-    
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
-        # ログイン中はご指示通り、3個のボタンを横一列に配置します
         col1, col2, col3 = st.columns(3)
         with col1:
+            # 🌟 ここに目印を置くことで、このボタンのブロックだけが確実に横並びになります
+            st.markdown('<div class="nav-btn-col"></div>', unsafe_allow_html=True)
             if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
@@ -214,16 +218,16 @@ def render_top_nav():
                 st.session_state.page = "home"
                 st.rerun()
     else:
-        # ログイン前は2個のボタンを横一列に配置します
         col1, col2 = st.columns(2)
         with col1:
+            st.markdown('<div class="nav-btn-col"></div>', unsafe_allow_html=True)
             if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
             if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
                 
-    st.markdown("<hr style='margin: 10px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
 # 🏠 ホーム画面
