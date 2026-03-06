@@ -5,8 +5,8 @@ import time
 import re
 import streamlit as st
 
-# ページの設定
-st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
+# ページの設定（🌟ここにアイコン画像のURLを直接設定しました）
+st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="https://central-6.com/icon.png", layout="centered", initial_sidebar_state="collapsed")
 
 # ==========================================
 # 🔗 ロリポップAPI 接続設定
