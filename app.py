@@ -168,19 +168,24 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 
 # ==========================================
-# 共通極小ナビゲーション（全画面上部に配置）
+# 🌟 情報重視・極小ナビゲーション（全画面上部に配置）
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
-    col_n1, col_n2, col_n3, col_n4 = st.columns(4)
-    with col_n1:
-        if st.button("🔙 戻る", key=f"nav_back_{st.session_state.page}", use_container_width=True): st.session_state.page = "home"; st.rerun()
-    with col_n2:
-        if st.button("🏠 ホーム", key=f"nav_home_{st.session_state.page}", use_container_width=True): st.session_state.page = "home"; st.rerun()
-        
-    if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff"):
-        col_lo1, col_lo2, col_lo3, col_lo4 = st.columns(4)
-        with col_lo1:
+    
+    # 指示1：戻る・ホームボタンは一列（左側ホーム、右側戻る）
+    col_home, col_back = st.columns(2)
+    with col_home:
+        if st.button("🏠 ホーム", key=f"nav_home_{st.session_state.page}", use_container_width=True): 
+            st.session_state.page = "home"; st.rerun()
+    with col_back:
+        if st.button("🔙 戻る", key=f"nav_back_{st.session_state.page}", use_container_width=True): 
+            st.session_state.page = "home"; st.rerun()
+            
+    # 指示2：その下にログアウトボタン（小さく中央に）
+    if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
+        col_L1, col_L2, col_L3 = st.columns([1, 2, 1])
+        with col_L2:
             if st.button("🚪 ログアウト", key=f"nav_lo_{st.session_state.page}", use_container_width=True):
                 st.session_state.logged_in_cast = None
                 st.session_state.logged_in_staff = None
@@ -284,7 +289,7 @@ elif st.session_state.page == "staff_login":
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 👩 出勤報告 / マイページ (UI改善版)
+# 👩 出勤報告 / マイページ
 # ==========================================
 elif st.session_state.page == "cast_mypage":
     render_top_nav()
@@ -292,7 +297,10 @@ elif st.session_state.page == "cast_mypage":
     db = get_db_data()
     settings = db.get("settings") or {}
     
-    # 🌟 お知らせ表示の修正（空欄なら枠ごと消す）
+    st.markdown('<div class="app-header" style="margin-bottom:0; border:none; text-align:center;">出勤報告</div>', unsafe_allow_html=True)
+    st.markdown("<hr style='margin-top:0; margin-bottom:15px; border-top: 2px solid #333;'>", unsafe_allow_html=True)
+    
+    # お知らせが空欄の場合は表示しない
     notice = str(settings.get("notice_text", "")).strip()
     if notice:
         st.markdown(f'<div class="notice-box"><div class="notice-title">📢 お知らせ</div><div style="font-weight:bold;">{notice}</div></div>', unsafe_allow_html=True)
@@ -309,7 +317,7 @@ elif st.session_state.page == "cast_mypage":
     tmr_dt = today_dt + datetime.timedelta(days=1)
     tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
-    # 🌟 申請ボタンの横並び配置（タブ化）
+    # 申請ボタンの横並び（タブ化）
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
     with tab_today:
@@ -685,7 +693,7 @@ elif st.session_state.page == "staff_portal":
             
             if unassigned:
                 st.markdown('<div class="warning-box">⚠️ 定員・路線オーバーで未割り当てのキャスト</div><div class="warning-content">', unsafe_allow_html=True)
-                st.caption("※キャストの乗車時間を最小にする基本理念に基づき、逆走や別路線の無理な相乗りを禁止した結果、車が不足しています。手掌握で割り当てるか、稼働ドライバーを追加してください。")
+                st.caption("※キャストの乗車時間を最小にする基本理念に基づき、逆走や別路線の無理な相乗りを禁止した結果、車が不足しています。手動で割り当てるか、稼働ドライバーを追加してください。")
                 for u in unassigned:
                     st.markdown(f"**{u['pickup_time'] if u['pickup_time'] else '未定'}**　<span style='font-size:16px; font-weight:bold;'>{u['cast_name']}</span> <br><span style='font-size:12px; color:#555;'>({u['status']})</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
