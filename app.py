@@ -125,7 +125,7 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS
+# 🎨 カスタムCSS（スマホ特化の強制横並びを追加）
 # ==========================================
 st.markdown("""
 <style>
@@ -157,6 +157,34 @@ st.markdown("""
     div[data-baseweb="input"] > div:focus-within, div[data-baseweb="select"] > div:focus-within, div[data-baseweb="textarea"] > div:focus-within {
         border: 2px solid #e91e63 !important; box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
     }
+
+    /* --- 🌟 スマホで「ホーム」「戻る」を強制的に横一列にする魔法のCSS --- */
+    .top-nav-marker + div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+    }
+    .top-nav-marker + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: 50% !important;
+        min-width: 0 !important;
+        flex: 1 1 50% !important;
+    }
+    
+    /* --- 🌟 ログアウトボタンを小さく中央に配置する魔法のCSS --- */
+    .logout-marker + div {
+        display: flex !important;
+        justify-content: center !important;
+    }
+    .logout-marker + div button {
+        width: 140px !important;
+        min-height: 32px !important;
+        padding: 0 !important;
+        font-size: 12px !important;
+        background-color: #ffffff !important;
+        color: #555 !important;
+        border: 1px solid #ccc !important;
+        border-radius: 20px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -173,7 +201,8 @@ time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 def render_top_nav():
     if st.session_state.page == "home": return
     
-    # 指示1：戻る・ホームボタンは一列（左側ホーム、右側戻る）
+    # 🌟 指示1：スマホでも「ホーム」「戻る」を1列（横半分）に強制配置
+    st.markdown('<div class="top-nav-marker" style="margin-bottom: -15px;"></div>', unsafe_allow_html=True)
     col_home, col_back = st.columns(2)
     with col_home:
         if st.button("🏠 ホーム", key=f"nav_home_{st.session_state.page}", use_container_width=True): 
@@ -182,18 +211,17 @@ def render_top_nav():
         if st.button("🔙 戻る", key=f"nav_back_{st.session_state.page}", use_container_width=True): 
             st.session_state.page = "home"; st.rerun()
             
-    # 指示2：その下にログアウトボタン（小さく中央に）
+    # 🌟 指示2：その下にログアウトボタン（小さく中央に配置）
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
-        col_L1, col_L2, col_L3 = st.columns([1, 2, 1])
-        with col_L2:
-            if st.button("🚪 ログアウト", key=f"nav_lo_{st.session_state.page}", use_container_width=True):
-                st.session_state.logged_in_cast = None
-                st.session_state.logged_in_staff = None
-                st.session_state.is_admin = False
-                st.session_state.cast_id = None
-                st.session_state.page = "home"
-                st.rerun()
-    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
+        st.markdown('<div class="logout-marker" style="margin-top:-10px;"></div>', unsafe_allow_html=True)
+        if st.button("🚪 ログアウト", key=f"nav_lo_{st.session_state.page}", use_container_width=True):
+            st.session_state.logged_in_cast = None
+            st.session_state.logged_in_staff = None
+            st.session_state.is_admin = False
+            st.session_state.cast_id = None
+            st.session_state.page = "home"
+            st.rerun()
+    st.markdown("<hr style='margin: 10px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
 # 🏠 ホーム画面
@@ -820,7 +848,7 @@ elif st.session_state.page == "staff_portal":
                 
                 display_count += 1
                 
-                with st.expander(f"店番 {i} : {nm if nm else '未登録'}"):
+                with st.expander(f"店番 {i} : {nm if nm else '未登録'} {mgr}"):
                     nn = st.text_input("名前", value=nm, key=f"cn_{i}")
                     mgr_idx = staff_list.index(mgr) if mgr in staff_list else 0
                     n_mgr = st.selectbox("担当スタッフ", staff_list, index=mgr_idx, key=f"cmgr_{i}")
