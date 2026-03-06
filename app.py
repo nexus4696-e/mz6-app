@@ -125,19 +125,21 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS（パスワード妨害・横スクロールを完全排除した安全版）
+# 🎨 カスタムCSS（すべてのバグを根絶し、安全に装飾）
 # ==========================================
 st.markdown("""
 <style>
-    /* ベースデザイン */
+    /* 🌟 ベースデザイン */
     .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
     
-    /* 🌟 システム由来の不要なゴミ表示を完全に消し去る */
-    header, footer, #MainMenu, .stDeployButton, [data-testid="stToolbar"], [data-testid="manage-app-button"] { 
-        display: none !important; 
-        visibility: hidden !important; 
-    }
+    /* 🌟 右下のゴミ（Built with Streamlit等）と不要なヘッダーを完全に隠滅 */
+    header, footer { visibility: hidden !important; display: none !important; }
+    .stDeployButton { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="manage-app-button"] { display: none !important; }
+    a[href^="https://streamlit.io/cloud"] { display: none !important; }
+    div[class^="viewerBadge"] { display: none !important; }
     
     /* アプリ内の各パーツのデザイン */
     .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
@@ -162,26 +164,27 @@ st.markdown("""
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
     .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
 
-    /* 🌟 パスワード入力や画面全体を絶対に壊さず、上部のナビボタン「だけ」を横一列にする安全なコード */
-    div[data-testid="stHorizontalBlock"]:has(.nav-btn-col) {
+    /* 🌟 【超安全】パスワード入力等に絶対に影響を与えず、一番上のナビだけを横一列にする専用コード */
+    div:has(> #top-nav-anchor) { display: none !important; }
+    div.element-container:has(> div > #top-nav-anchor) + div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 5px !important;
+        max-width: 100% !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(.nav-btn-col) > div[data-testid="column"] {
-        width: auto !important;
+    div.element-container:has(> div > #top-nav-anchor) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
         flex: 1 1 0% !important;
         min-width: 0 !important;
         padding: 0 !important;
     }
-    div[data-testid="stHorizontalBlock"]:has(.nav-btn-col) button {
-        padding: 0 2px !important;
-        font-size: 14px !important;
-        min-height: 42px !important;
-        height: 42px !important;
+    div.element-container:has(> div > #top-nav-anchor) + div[data-testid="stHorizontalBlock"] button {
+        padding: 0px 2px !important;
         width: 100% !important;
+        min-height: 45px !important;
+        font-size: 14px !important;
         white-space: nowrap !important;
+        margin: 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -194,16 +197,17 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 
 # ==========================================
-# 🌟 情報重視・一番上だけ確実に横一列になるナビゲーション
+# 🌟 ナビゲーション（絶対に他の部品を壊さず横一列になります）
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
     
+    # 🌟 この目印の「直後の横並びブロック」だけを対象とするため、パスワード等に一切影響しません
+    st.markdown('<div id="top-nav-anchor"></div>', unsafe_allow_html=True)
+    
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
         with col1:
-            # 🌟 ここに目印を置くことで、このボタンのブロックだけが確実に横並びになります
-            st.markdown('<div class="nav-btn-col"></div>', unsafe_allow_html=True)
             if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
@@ -220,14 +224,13 @@ def render_top_nav():
     else:
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown('<div class="nav-btn-col"></div>', unsafe_allow_html=True)
             if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
             if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
                 
-    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 10px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
 # 🏠 ホーム画面
