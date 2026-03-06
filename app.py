@@ -125,7 +125,7 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS（昨日までの正常なデザインをベースに復元）
+# 🎨 カスタムCSS
 # ==========================================
 st.markdown("""
 <style>
@@ -134,9 +134,7 @@ st.markdown("""
     header, footer { display: none !important; }
     
     .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
-    /* 🌟 ホーム画面のバランスを保つための余白（元通り） */
     .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 50px; }
-    
     .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .driver-card { background: white; border-left: 6px solid #e91e63; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
     .shop-no-badge { background: #ffeb3b; color: #d32f2f; font-weight: 900; padding: 5px 2px; border-radius: 6px; border: 2px solid #d32f2f; font-size: 16px; margin-right: 5px; min-width: 60px; text-align: center; display: inline-block; }
@@ -162,31 +160,23 @@ st.markdown("""
         border: 2px solid #e91e63 !important; box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
     }
 
-    /* 🌟 全体を壊さず「ナビゲーション部分のみ」を横一列に強制する安全なコード */
-    .top-nav-row + div[data-testid="stHorizontalBlock"] {
+    /* 🌟 トップのナビボタン（3つ・または2つ）をスマホでも絶対に横一列に並べる絶対安全なCSS */
+    div.element-container:has(.top-nav-marker) + div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
+        gap: 5px !important;
     }
-    .top-nav-row + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        width: 50% !important;
-        flex: 1 1 50% !important;
+    div.element-container:has(.top-nav-marker) + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 0% !important;
         min-width: 0 !important;
     }
-    
-    /* 🌟 ログアウトボタンを小さく中央に配置するコード */
-    .logout-wrapper + div {
-        display: flex !important;
-        justify-content: center !important;
-    }
-    .logout-wrapper + div button {
-        width: 140px !important;
-        min-height: 32px !important;
-        padding: 0 !important;
-        font-size: 12px !important;
-        background-color: #ffffff !important;
-        color: #555 !important;
-        border: 1px solid #ccc !important;
+    div.element-container:has(.top-nav-marker) + div[data-testid="stHorizontalBlock"] button {
+        padding: 0 2px !important;
+        font-size: 13px !important;
+        min-height: 38px !important;
+        word-break: keep-all !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -199,31 +189,41 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 
 # ==========================================
-# 🌟 情報重視・極小ナビゲーション（全画面上部に配置）
+# 🌟 情報重視・3個のボタンを横一列に等分配置
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
     
-    # 指示1：戻るとホームを横一列（左:ホーム、右:戻る）に強制配置
-    st.markdown('<div class="top-nav-row" style="margin-bottom: -10px;"></div>', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
-            st.session_state.page = "home"; st.rerun()
-    with col2:
-        if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
-            st.session_state.page = "home"; st.rerun()
-            
-    # 指示2：その下にログアウトボタン（ログイン中のみ、中央に小さく）
+    # 🌟 このマーカーの直後の要素だけが、上のCSSで強制的に横一列（折り返しなし）になります
+    st.markdown('<div class="top-nav-marker" style="display:none;"></div>', unsafe_allow_html=True)
+    
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
-        st.markdown('<div class="logout-wrapper" style="margin-top:-10px;"></div>', unsafe_allow_html=True)
-        if st.button("🚪 ログアウト", key=f"nl_{st.session_state.page}", use_container_width=True):
-            st.session_state.logged_in_cast = None
-            st.session_state.logged_in_staff = None
-            st.session_state.is_admin = False
-            st.session_state.cast_id = None
-            st.session_state.page = "home"
-            st.rerun()
+        # 指示通り、3個のボタンを横一列に配置します
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
+                st.session_state.page = "home"; st.rerun()
+        with col2:
+            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
+                st.session_state.page = "home"; st.rerun()
+        with col3:
+            if st.button("🚪 ログアウト", key=f"nl_{st.session_state.page}", use_container_width=True):
+                st.session_state.logged_in_cast = None
+                st.session_state.logged_in_staff = None
+                st.session_state.is_admin = False
+                st.session_state.cast_id = None
+                st.session_state.page = "home"
+                st.rerun()
+    else:
+        # ログイン前は2個のボタンを横一列に配置します
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
+                st.session_state.page = "home"; st.rerun()
+        with col2:
+            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
+                st.session_state.page = "home"; st.rerun()
+                
     st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
@@ -328,7 +328,9 @@ elif st.session_state.page == "cast_mypage":
     db = get_db_data()
     settings = db.get("settings") or {}
     
-    # 🌟 指示通り：お知らせが空欄の場合は枠ごと非表示
+    st.markdown('<div class="app-header" style="margin-bottom:0; border:none; text-align:center;">出勤報告</div>', unsafe_allow_html=True)
+    st.markdown("<hr style='margin-top:0; margin-bottom:15px; border-top: 2px solid #333;'>", unsafe_allow_html=True)
+    
     notice = str(settings.get("notice_text", "")).strip()
     if notice:
         st.markdown(f'<div class="notice-box"><div class="notice-title">📢 お知らせ</div><div style="font-weight:bold;">{notice}</div></div>', unsafe_allow_html=True)
@@ -345,7 +347,6 @@ elif st.session_state.page == "cast_mypage":
     tmr_dt = today_dt + datetime.timedelta(days=1)
     tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
-    # 🌟 指示通り：申請ボタンを当日・翌日・週間の横並び（タブ）で配置
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
     with tab_today:
