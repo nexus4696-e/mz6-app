@@ -125,63 +125,68 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS（余白完全排除・強制横並び版）
+# 🎨 カスタムCSS（昨日までの正常なデザインをベースに復元）
 # ==========================================
 st.markdown("""
 <style>
     .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
-    
-    /* 🌟 余白を限界まで削る */
-    .block-container { padding-top: 0.5rem !important; padding-bottom: 2rem !important; margin-top: 0 !important; max-width: 600px; }
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
     header, footer { display: none !important; }
-    div[data-testid="stVerticalBlock"] { gap: 0.3rem !important; }
-    hr { margin: 5px 0 !important; padding: 0 !important; }
-
-    /* 🌟 スマホでボタンが絶対に縦に並ばないようにする最強の魔法コード */
-    @media (max-width: 768px) {
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 5px !important;
-            align-items: center !important;
-        }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-            width: 100% !important;
-            flex: 1 1 0% !important;
-            min-width: 0 !important;
-        }
-    }
-
-    /* 🌟 すべてのボタンを極小サイズにする（厚みをなくす） */
-    div.stButton > button {
-        min-height: 32px !important;
-        height: 32px !important;
-        padding: 0 5px !important;
-        font-size: 14px !important;
-        margin-bottom: 0 !important;
-        line-height: 1 !important;
-    }
-
-    .app-header { font-size: 18px; font-weight: bold; border-bottom: 2px solid #333; margin-bottom: 5px; padding-bottom: 5px; }
-    .home-title { font-size: 22px; font-weight: bold; text-align: center; margin-bottom: 20px; margin-top: 10px; }
-    .driver-card { background: white; border-left: 6px solid #e91e63; border-radius: 8px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
-    .shop-no-badge-mini { background: #ffeb3b; color: #d32f2f; font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #d32f2f; font-size: 12px; margin-right: 5px; display: inline-block; min-width: 45px; text-align: center; }
-    .notice-box { border: 2px solid #fdd835; background: #fffde7; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center; }
-    .date-header { text-align: center; margin-bottom: 10px; padding: 5px; background: #fff; border: 2px solid #333; border-radius: 8px; }
-    .date-header .main-date { font-size: 20px; font-weight: 900; color: #e91e63; }
-    .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
     
+    .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
+    /* 🌟 ホーム画面のバランスを保つための余白（元通り） */
+    .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 50px; }
+    
+    .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .driver-card { background: white; border-left: 6px solid #e91e63; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+    .shop-no-badge { background: #ffeb3b; color: #d32f2f; font-weight: 900; padding: 5px 2px; border-radius: 6px; border: 2px solid #d32f2f; font-size: 16px; margin-right: 5px; min-width: 60px; text-align: center; display: inline-block; }
+    .shop-no-badge-mini { background: #ffeb3b; color: #d32f2f; font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #d32f2f; font-size: 12px; margin-right: 5px; display: inline-block; min-width: 45px; text-align: center; }
+    .notice-box { border: 2px solid #fdd835; background: #fffde7; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+    .nav-btn { display: block; width: 100%; text-decoration: none; background: #e91e63; color: white; font-weight: bold; font-size: 18px; padding: 15px; text-align: center; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-bottom:20px; }
+    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; }
+    .date-header .main-date { font-size: 26px; font-weight: 900; color: #e91e63; }
     div[role="radiogroup"] { flex-wrap: wrap !important; gap: 5px; justify-content: center; padding-bottom: 5px; }
     div[role="radiogroup"]::-webkit-scrollbar { display: none; }
-    div[role="radiogroup"] > label { background-color: white; border: 2px solid #999; padding: 6px 12px; border-radius: 20px; cursor: pointer; white-space: nowrap; flex-shrink: 0; margin-bottom: 2px; }
+    div[role="radiogroup"] > label { background-color: white; border: 2px solid #999; padding: 8px 15px; border-radius: 20px; cursor: pointer; white-space: nowrap; flex-shrink: 0; margin-bottom: 5px; }
     div[role="radiogroup"] > label[data-checked="true"] { background-color: #009688; border-color: #009688; }
     div[role="radiogroup"] > label[data-checked="true"] p { color: white !important; font-weight: bold; }
     div[role="radiogroup"] > label > div:first-child { display: none; }
-    div[role="radiogroup"] > label p { color: #333; margin: 0; font-size: 13px; font-weight: bold; }
-    
+    div[role="radiogroup"] > label p { color: #333; margin: 0; font-size: 14px; font-weight: bold; }
+    .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
+    .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
+    .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
-        border: 2px solid #333333 !important; border-radius: 6px !important; background-color: #ffffff !important; min-height: 35px !important;
+        border: 2px solid #333333 !important; border-radius: 6px !important; background-color: #ffffff !important;
+    }
+    div[data-baseweb="input"] > div:focus-within, div[data-baseweb="select"] > div:focus-within, div[data-baseweb="textarea"] > div:focus-within {
+        border: 2px solid #e91e63 !important; box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
+    }
+
+    /* 🌟 全体を壊さず「ナビゲーション部分のみ」を横一列に強制する安全なコード */
+    .top-nav-row + div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+    }
+    .top-nav-row + div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: 50% !important;
+        flex: 1 1 50% !important;
+        min-width: 0 !important;
+    }
+    
+    /* 🌟 ログアウトボタンを小さく中央に配置するコード */
+    .logout-wrapper + div {
+        display: flex !important;
+        justify-content: center !important;
+    }
+    .logout-wrapper + div button {
+        width: 140px !important;
+        min-height: 32px !important;
+        padding: 0 !important;
+        font-size: 12px !important;
+        background-color: #ffffff !important;
+        color: #555 !important;
+        border: 1px solid #ccc !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -194,12 +199,13 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 
 # ==========================================
-# 🌟 極小ナビゲーション（1列横並び ＋ 小さなログアウト）
+# 🌟 情報重視・極小ナビゲーション（全画面上部に配置）
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
     
-    # 指示1：戻るとホームを左右半々に横並び
+    # 指示1：戻るとホームを横一列（左:ホーム、右:戻る）に強制配置
+    st.markdown('<div class="top-nav-row" style="margin-bottom: -10px;"></div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
@@ -210,34 +216,33 @@ def render_top_nav():
             
     # 指示2：その下にログアウトボタン（ログイン中のみ、中央に小さく）
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
-        col_L1, col_L2, col_L3 = st.columns([1, 2, 1])
-        with col_L2:
-            if st.button("🚪 ログアウト", key=f"nl_{st.session_state.page}", use_container_width=True):
-                st.session_state.logged_in_cast = None
-                st.session_state.logged_in_staff = None
-                st.session_state.is_admin = False
-                st.session_state.cast_id = None
-                st.session_state.page = "home"
-                st.rerun()
-    st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown('<div class="logout-wrapper" style="margin-top:-10px;"></div>', unsafe_allow_html=True)
+        if st.button("🚪 ログアウト", key=f"nl_{st.session_state.page}", use_container_width=True):
+            st.session_state.logged_in_cast = None
+            st.session_state.logged_in_staff = None
+            st.session_state.is_admin = False
+            st.session_state.cast_id = None
+            st.session_state.page = "home"
+            st.rerun()
+    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
 # 🏠 ホーム画面
 # ==========================================
 if st.session_state.page == "home":
     st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
-    if st.button("🚙 スタッフ業務開始", type="primary", use_container_width=True):
+    if st.button("🚙 スタッフ業務開始\n(配車・送迎設定)", type="primary", use_container_width=True):
         if st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "staff_login"; st.session_state.selected_staff_for_login = None
         st.rerun()
     st.write("") 
-    if st.button("👩 キャスト専用ログイン", use_container_width=True):
+    if st.button("👩 キャスト専用ログイン\n(予定の申請)", use_container_width=True):
         if st.session_state.get("logged_in_cast"): st.session_state.page = "cast_mypage"
         else: st.session_state.page = "cast_login"
         st.rerun()
     st.write("\n\n")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
-    if st.button("⚙️ 管理者ログイン", use_container_width=True):
+    if st.button("<u>⚙️ 管理者ログイン (全権限)</u>", use_container_width=True):
         if st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "admin_login"
         st.rerun()
@@ -249,6 +254,7 @@ if st.session_state.page == "home":
 elif st.session_state.page == "cast_login":
     render_top_nav()
     st.markdown('<div class="app-header">キャストログイン</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.caption("店番とキャスト名を選択し、パスワードを入力してください")
     db = get_db_data()
     casts = db.get("casts", [])
@@ -270,36 +276,40 @@ elif st.session_state.page == "cast_login":
                 else: st.error("⚠️ パスワードが違います。")
             else: st.error("⚠️ キャスト情報が見つかりません。")
         else: st.warning("キャストを選択してください。")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.page == "admin_login":
     render_top_nav()
     db = get_db_data()
     settings = db.get("settings") or {}
     st.markdown('<div class="app-header">👑 管理者認証</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.caption("パスワードを入力してください (初期: 1234)")
-    st.text_input("パスワード", type="password", key="admin_pass_input")
     if st.button("ログイン", type="primary", use_container_width=True):
         db_pass = str(settings.get("admin_password", "")) if isinstance(settings, dict) else "1234"
         if not db_pass: db_pass = "1234"
         if st.session_state.get("admin_pass_input", "") == db_pass: 
             st.session_state.is_admin = True; st.session_state.logged_in_staff = "管理者"; st.session_state.page = "staff_portal"; st.rerun()
         else: st.error("⚠️ パスワードが違います。")
+    st.text_input("パスワード", type="password", key="admin_pass_input")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.page == "staff_login":
     render_top_nav()
     st.markdown('<div class="app-header">スタッフ認証</div>', unsafe_allow_html=True)
-    st.caption("パスワードを入力して開始を押してください")
+    st.caption("自分の名前の横にパスワードを入力してログインしてください")
     db = get_db_data()
     drivers = db.get("drivers", [])
     staff_list = [d for d in drivers if str(d["name"]).strip() != ""]
     
-    if not staff_list: st.warning("※スタッフが未登録です")
+    if not staff_list: st.warning("※管理者が「④ STAFF設定」からスタッフ登録を行ってください")
     else:
         for d in staff_list:
-            st.markdown(f"<div style='font-weight:bold; font-size:15px; background:#fff; padding:5px; border:1px solid #ddd; border-bottom:none;'>👤 {d['name']}</div>", unsafe_allow_html=True)
-            colA, colB = st.columns([3, 1.5])
-            with colA: p_in = st.text_input("パスワード", type="password", key=f"pass_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
-            with colB:
+            st.markdown('<div class="card" style="padding:10px; margin-bottom:5px;">', unsafe_allow_html=True)
+            colA, colB, colC = st.columns([2, 2.5, 1.5])
+            with colA: st.markdown(f"<div style='font-weight:bold; padding-top:8px; font-size:15px;'>👤 {d['name']}</div>", unsafe_allow_html=True)
+            with colB: p_in = st.text_input("パスワード", type="password", key=f"pass_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
+            with colC:
                 if st.button("開始", key=f"btn_{d['driver_id']}", type="primary", use_container_width=True):
                     if p_in == "0000" or p_in.strip() == str(d["password"]).strip() or str(d["password"]) == "":
                         st.session_state.is_admin = False
@@ -307,7 +317,7 @@ elif st.session_state.page == "staff_login":
                         st.session_state.page = "staff_portal"
                         st.rerun()
                     else: st.error("❌ エラー")
-            st.markdown("<hr style='margin-top:0;'>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 👩 出勤報告 / マイページ
@@ -318,14 +328,14 @@ elif st.session_state.page == "cast_mypage":
     db = get_db_data()
     settings = db.get("settings") or {}
     
-    # お知らせが空欄の場合は枠ごと非表示
+    # 🌟 指示通り：お知らせが空欄の場合は枠ごと非表示
     notice = str(settings.get("notice_text", "")).strip()
     if notice:
         st.markdown(f'<div class="notice-box"><div class="notice-title">📢 お知らせ</div><div style="font-weight:bold;">{notice}</div></div>', unsafe_allow_html=True)
         
     st.markdown(f'''
-    <div style="text-align: center; font-weight: bold; font-size: 18px; margin-bottom: 10px; background:#fff; padding:5px; border-radius:5px; border:1px solid #ddd;">
-        店番 {c['店番']}　{c['キャスト名']} 様 <span style="font-size: 12px; color: #555; font-weight: normal;">(担当: {c.get('担当', '未設定')})</span>
+    <div style="text-align: center; font-weight: bold; font-size: 20px; margin-bottom: 15px;">
+        店番 {c['店番']}　{c['キャスト名']} 様<br><span style="font-size: 14px; color: #555; font-weight: normal;">(担当: {c.get('担当', '未設定')})</span>
     </div>
     ''', unsafe_allow_html=True)
     
@@ -335,12 +345,12 @@ elif st.session_state.page == "cast_mypage":
     tmr_dt = today_dt + datetime.timedelta(days=1)
     tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
-    # 申請ボタンの横並び（タブ化）
+    # 🌟 指示通り：申請ボタンを当日・翌日・週間の横並び（タブ）で配置
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
     with tab_today:
         with st.form("cast_report_form"):
-            st.markdown(f'<div style="text-align:center; color:#f57f17; font-weight:bold; margin-bottom:5px;">⚡ 当日出勤申請 ({today_str})</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background-color: #fff9c4; border: 3px solid #fdd835; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center; color: #f57f17; font-weight: bold; font-size: 18px;">⚡ 当日出勤申請 ({today_str})</div>', unsafe_allow_html=True)
             col_t1, col_t2 = st.columns([3, 1.2]) 
             with col_t1:
                 st.radio("状態", ["未定", "出勤", "自走", "休み"], horizontal=True, key="today_s", label_visibility="collapsed")
@@ -356,7 +366,7 @@ elif st.session_state.page == "cast_mypage":
 
     with tab_tmr:
         with st.form("cast_tmr_form"):
-            st.markdown(f'<div style="text-align:center; color:#1565c0; font-weight:bold; margin-bottom:5px;">🌙 翌日申請 ({tmr_str})</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background-color: #e3f2fd; border: 3px solid #64b5f6; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center; color: #1565c0; font-weight: bold; font-size: 18px;">🌙 翌日申請 ({tmr_str})</div>', unsafe_allow_html=True)
             col_tm1, col_tm2 = st.columns([3, 1.2])
             with col_tm1:
                 st.radio("状態", ["未定", "出勤", "自走", "休み"], horizontal=True, key="tmr_s", label_visibility="collapsed")
@@ -387,7 +397,7 @@ elif st.session_state.page == "cast_mypage":
                 with col_w2:
                     pass
                 weekly_data.append({"date": target_val, "attend": w_attend, "memo": w_memo})
-                st.markdown("<hr>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin:5px 0;'>", unsafe_allow_html=True)
                 
             if st.form_submit_button("📤 週間申請を一括送信", type="primary", use_container_width=True):
                 records = []
@@ -433,11 +443,11 @@ elif st.session_state.page == "staff_portal":
 
     col1, col2 = st.columns([4, 2])
     with col1: 
-        if is_admin: st.markdown('<b>送迎管理 (管理者)</b>', unsafe_allow_html=True)
-        else: st.markdown(f'<b>{staff_name} 様</b>', unsafe_allow_html=True)
+        if is_admin: st.markdown('<b>六本木 水島本店<br>送迎管理 (管理者)</b>', unsafe_allow_html=True)
+        else: st.markdown(f'<b>{staff_name} 様<br>ドライバー専用画面</b>', unsafe_allow_html=True)
     with col2: 
         if st.button("🔄 最新"): clear_cache(); st.rerun()
-    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin:5px 0 10px 0;'>", unsafe_allow_html=True)
 
     # ========================================================
     # 🚙 【非管理者】ドライバー専用のナビ直結＆順番入替ルート画面
@@ -457,7 +467,7 @@ elif st.session_state.page == "staff_portal":
             _, dist_first = get_route_line_and_distance(addr_first)
             dep_time = calc_dep_time(first_t['pickup_time'], dist_first)
             
-            st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻（目安）: {dep_time}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 2px solid #f44336;'>🚀 店舗出発時刻（目安）: {dep_time}</div>", unsafe_allow_html=True)
 
             valid_addrs = []
             for t in my_tasks:
@@ -573,7 +583,7 @@ elif st.session_state.page == "staff_portal":
         def on_tab_change(): st.session_state.current_staff_tab = st.session_state.tab_selector
         st.radio("メニュー", tabs, index=tabs.index(st.session_state.current_staff_tab), horizontal=True, label_visibility="collapsed", key="tab_selector", on_change=on_tab_change)
         st.session_state.staff_tab = st.session_state.current_staff_tab
-        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
         
         range_opts = ["全表示"] + [f"{i*10+1}-{i*10+10}" for i in range(15)]
 
@@ -690,7 +700,7 @@ elif st.session_state.page == "staff_portal":
                                     clear_cache()
                                     st.rerun()
                                 else: st.error("エラー")
-                        st.markdown("<hr>", unsafe_allow_html=True)
+                        st.markdown("<hr style='margin:5px 0; border-top:1px dashed #ccc;'>", unsafe_allow_html=True)
 
             st.radio("表示", ["当日", "翌日", "週間"], horizontal=True, label_visibility="collapsed")
             
@@ -708,7 +718,7 @@ elif st.session_state.page == "staff_portal":
                 st.markdown('<div class="warning-box">⚠️ 定員・路線オーバーで未割り当てのキャスト</div><div class="warning-content">', unsafe_allow_html=True)
                 st.caption("※キャストの乗車時間を最小にする基本理念に基づき、逆走や別路線の無理な相乗りを禁止した結果、車が不足しています。手動で割り当てるか、稼働ドライバーを追加してください。")
                 for u in unassigned:
-                    st.markdown(f"**{u['pickup_time'] if u['pickup_time'] else '未定'}**　<span style='font-size:16px; font-weight:bold;'>{u['cast_name']}</span> <br><span style='font-size:12px; color:#555;'>({u['status']})</span><hr>", unsafe_allow_html=True)
+                    st.markdown(f"**{u['pickup_time'] if u['pickup_time'] else '未定'}**　<span style='font-size:16px; font-weight:bold;'>{u['cast_name']}</span> <br><span style='font-size:12px; color:#555;'>({u['status']})</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
                 
             for d_name, t_rows in my_tasks.items():
@@ -743,16 +753,16 @@ elif st.session_state.page == "staff_portal":
                         dest = urllib.parse.quote(dest_addr)
                         waypoints = "/".join([urllib.parse.quote(a) for a in valid_addrs])
                         map_url = f"https://www.google.com/maps/dir/現在地/{waypoints}/{dest}?hl=ja"
-                        st.markdown(f"<a href='{map_url}' target='_blank' class='nav-btn'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
+                        st.markdown(f"<a href='{map_url}' target='_blank' class='line-connect-btn' style='background:#4285f4; margin-top:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
 
-                st.markdown("<hr>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
                 
                 for t in t_rows:
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
                     addr_text = c_info.get("address", "") if c_info else ""
                     clean_single_addr = clean_address_for_map(addr_text)
                     map_btn = f"<a href='https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(clean_single_addr)}' target='_blank' style='text-decoration:none; background:#e3f2fd; padding:2px 8px; border-radius:10px; font-size:12px; border:1px solid #2196f3; margin-left:5px;'>📍 マップ</a>" if addr_text else ""
-                    st.markdown(f"**{t['pickup_time'] if t['pickup_time'] else '未定'}**　<span style='font-size:16px; font-weight:bold;'>{t['cast_name']}</span> {map_btn}<br><span style='font-size:12px; color:#555;'>({t['status']})</span><hr>", unsafe_allow_html=True)
+                    st.markdown(f"**{t['pickup_time'] if t['pickup_time'] else '未定'}**　<span style='font-size:16px; font-weight:bold;'>{t['cast_name']}</span> {map_btn}<br><span style='font-size:12px; color:#555;'>({t['status']})</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
         # ----------------------------------------
@@ -770,7 +780,7 @@ elif st.session_state.page == "staff_portal":
             
             search_query = st.text_input("🔍 キャスト検索 (名前または店番)", placeholder="例: ゆみか, 94", key="search_cast")
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed")
-            st.markdown("<hr>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
             
             display_count = 0
             for cast in casts:
@@ -794,7 +804,7 @@ elif st.session_state.page == "staff_portal":
                 with colB: 
                     if is_dispatch: st.markdown('<div style="color:#e91e63; font-weight:bold; text-align:right; padding-top:5px;">🚙 送迎予定あり</div>', unsafe_allow_html=True)
                     else: st.markdown('<div style="color:#aaa; text-align:right; padding-top:5px;">未定</div>', unsafe_allow_html=True)
-                st.markdown("<hr>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin:5px 0;'>", unsafe_allow_html=True)
                 if is_dispatch:
                     if st.button("❌ この送迎を取り消す", key=f"cancel_{c_id}", use_container_width=True):
                         res = post_api({"action": "cancel_dispatch", "cast_id": c_id})
