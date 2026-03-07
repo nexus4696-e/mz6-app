@@ -152,7 +152,7 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 超安全・堅牢なカスタムCSS
+# 🎨 クリーンで安全なCSS（レイアウト崩れの元凶を完全削除）
 # ==========================================
 st.markdown("""
 <style>
@@ -166,20 +166,6 @@ st.markdown("""
     
     header, footer, [data-testid="stToolbar"], [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
     a[href^="https://streamlit.io/cloud"] { display: none !important; }
-    
-    @media (max-width: 640px) {
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 5px !important;
-        }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-            flex: 1 1 0% !important;
-            min-width: 0 !important;
-            width: auto !important;
-        }
-    }
 
     div.stButton > button {
         padding: 0px 5px !important;
@@ -188,7 +174,6 @@ st.markdown("""
         line-height: 1.2 !important;
         font-size: 14px !important;
         font-weight: bold !important;
-        white-space: nowrap !important;
         width: 100% !important;
     }
 
@@ -207,7 +192,6 @@ st.markdown("""
     
     .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
-    .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
     
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
         border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #fff !important;
@@ -226,12 +210,10 @@ early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px; box-shadow:0 1px 2px rgba(0,0,0,0.2);'>🔍 Googleマップを開いて住所を検索・コピー</a>"""
 
 # ==========================================
-# 🌟 ナビゲーション
+# 🌟 ナビゲーション（標準の縦積み/横並びに任せる安全設計）
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
-    
-    st.markdown('<span id="nav-marker" style="display:none;"></span>', unsafe_allow_html=True)
     
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
@@ -680,6 +662,7 @@ elif st.session_state.page == "staff_portal":
             
             st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 2px solid #f44336;'>🚀 店舗出発時刻（目安）: {dep_time}</div>", unsafe_allow_html=True)
 
+            # 🌟 全体ナビゲーションに立ち寄り先(経由地)を反映
             valid_addrs = []
             for t in my_tasks:
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
@@ -730,6 +713,7 @@ elif st.session_state.page == "staff_portal":
                 if mgr_phone: phone_btn = f"<a href='tel:{mgr_phone}' style='text-decoration:none; background:#4caf50; color:white; padding:4px 10px; border-radius:15px; font-size:12px; font-weight:bold; margin-left:10px; box-shadow:0 1px 3px rgba(0,0,0,0.2);'>📞 担当({mgr_name})</a>"
                 else: phone_btn = f"<span style='font-size:12px; color:#999; margin-left:10px;'>(担当:{mgr_name})</span>"
                 
+                # 🌟 個別マップに立ち寄り先を反映
                 clean_actual_pickup = clean_address_for_map(actual_pickup)
                 clean_stopover = clean_address_for_map(stopover)
                 clean_takuji = clean_address_for_map(takuji_addr) if use_takuji else ""
@@ -751,7 +735,7 @@ elif st.session_state.page == "staff_portal":
                 addr_display = f"🏠 迎え: {home_addr if home_addr else '未登録'}"
                 if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
                 if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {temp_addr}</span>"
-                if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {stopover}</span>"
+                if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り: {stopover}</span>"
                 if use_takuji: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
                 if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
 
@@ -852,8 +836,9 @@ elif st.session_state.page == "staff_portal":
         if st.session_state.staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">配車予定日</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
             
-            st.markdown('<div class="auto-dispatch-box">', unsafe_allow_html=True)
-            st.markdown('<div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（一筆書きAI）</div>', unsafe_allow_html=True)
+            # 🌟 緑の空枠バグを完全修正（安全な単独divに変更）
+            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px;">🤖 自動配車（一筆書きAI）</div><div style="font-size:12px; color:#555;">稼働するドライバーを選択して実行してください。<br>※手動で指定済みのキャストは上書きされません。</div></div>', unsafe_allow_html=True)
+            
             if not d_names:
                 st.warning("⚠️ まだドライバーが登録されていません。「④ STAFF設定」タブを開いて登録してください。")
             else:
@@ -877,7 +862,7 @@ elif st.session_state.page == "staff_portal":
                                 home_addr, _, _, _ = parse_cast_address(raw_addr)
                                 _, temp_addr, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
                                 
-                                # 🌟 【修正】早便に設定されているキャストはAI自動配車の対象から除外（上書きを防止）
+                                # 早便に設定されているキャストはAI自動配車の対象から除外
                                 if e_drv and e_drv != "未定" and e_drv != "":
                                     continue
                                 
@@ -900,7 +885,7 @@ elif st.session_state.page == "staff_portal":
                                 uc["row"]["pickup_time"] = "未定"
                                 continue
                                 
-                            # 🌟 【修正】既に個別でドライバーが指定されているキャストはAIで上書きせず、指定ドライバーに固定する
+                            # 🌟 既に個別でドライバーが指定されているキャストはAIで上書きせず固定
                             already_assigned = uc["row"].get("driver_name")
                             if already_assigned and already_assigned != "未定" and already_assigned in drv_specs:
                                 drv_specs[already_assigned]["assigned_rows"].append(uc)
@@ -908,18 +893,31 @@ elif st.session_state.page == "staff_portal":
                                 
                             assigned_d = None
                             c_line = uc["line"]
+                            
+                            # 1. 方面が同じで空きがあるドライバーを探す
                             for d_name, stat in drv_specs.items():
                                 if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
                                     assigned_d = d_name; break
+                            
+                            # 2. まだ誰も乗せていないドライバーに方面を割り当てる
                             if not assigned_d:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) == 0:
                                         stat["line"] = c_line
                                         assigned_d = d_name; break
+                                        
+                            # 3. 南ルート近距離なら、他の方面のドライバーの空き席にねじ込む
                             if not assigned_d and c_line == "Route_E_South" and uc["dist"] <= 10:
                                 for d_name, stat in drv_specs.items():
-                                    if len(stat["assigned_rows"]) < stat["capacity"] and len(stat["assigned_rows"]) > 0:
+                                    if len(stat["assigned_rows"]) < stat["capacity"]:
                                         assigned_d = d_name; break
+                                        
+                            # 🌟 4. 【完全修正】それでも決まらなければ、とにかく「空きがある」ドライバーに絶対割り当てる（未定放置を防ぐ）
+                            if not assigned_d:
+                                for d_name, stat in drv_specs.items():
+                                    if len(stat["assigned_rows"]) < stat["capacity"]:
+                                        assigned_d = d_name; break
+
                             if assigned_d: drv_specs[assigned_d]["assigned_rows"].append(uc)
                             else:
                                 uc["row"]["driver_name"] = "未定"
@@ -960,7 +958,6 @@ elif st.session_state.page == "staff_portal":
                                 clear_cache(); st.success(f"自動配車が完了しました！"); time.sleep(1.5); st.rerun()
                             else: st.error("エラー: " + res.get("message"))
                         else: st.warning("本日の出勤キャストがいません。")
-            st.markdown('</div>', unsafe_allow_html=True)
             
             with st.expander("✏️ 配車の手動変更・入れ替え (個別更新)"):
                 st.caption("各キャストの項目を変更し、右側の「更新」ボタンを押してください。")
@@ -1132,7 +1129,7 @@ elif st.session_state.page == "staff_portal":
                     elif len(route_points) == 1:
                         ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(route_points[0])}?hl=ja"
 
-                    map_btn = f"<a href='{ind_map_url}' target='_blank' style='text-decoration:none; background:#e3f2fd; color:#1565c0; font-weight:bold; padding:4px 10px; border-radius:15px; font-size:12px; border:1px solid #2196f3; margin-left:5px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>📍 個別マップ</a>" if ind_map_url else ""
+                    map_btn = f"<a href='{ind_map_url}' target='_blank' style='text-decoration:none; background:#e3f2fd; padding:2px 8px; border-radius:10px; font-size:12px; border:1px solid #2196f3; margin-left:5px;'>📍 マップ</a>" if ind_map_url else ""
                     
                     addr_display = f"🏠 迎え: {home_addr if home_addr else '未登録'}"
                     if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
@@ -1214,7 +1211,7 @@ elif st.session_state.page == "staff_portal":
                                     updates.append({
                                         "id": target_row.get("id"),
                                         "cast_id": item["cast_id"], "cast_name": item["cast_name"], "area": target_row["area"],
-                                        "status": "出勤", # 🌟 【修正済】未定のキャストでも強制的に「出勤」として保存し、画面から消えるバグを解消
+                                        "status": "出勤",
                                         "memo": new_memo, "target_date": "当日"
                                     })
                                 else:
