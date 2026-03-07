@@ -165,20 +165,6 @@ st.markdown("""
     
     header, footer, [data-testid="stToolbar"], [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
     a[href^="https://streamlit.io/cloud"] { display: none !important; }
-    
-    @media (max-width: 640px) {
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 5px !important;
-        }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-            flex: 1 1 0% !important;
-            min-width: 0 !important;
-            width: auto !important;
-        }
-    }
 
     div.stButton > button {
         padding: 0px 5px !important;
@@ -187,7 +173,6 @@ st.markdown("""
         line-height: 1.2 !important;
         font-size: 14px !important;
         font-weight: bold !important;
-        white-space: nowrap !important;
         width: 100% !important;
     }
 
@@ -210,6 +195,30 @@ st.markdown("""
     
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
         border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #fff !important;
+    }
+    div[data-baseweb="input"] > div:focus-within, div[data-baseweb="select"] > div:focus-within, div[data-baseweb="textarea"] > div:focus-within {
+        border: 2px solid #e91e63 !important; box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
+    }
+
+    /* パスワード入力を絶対に壊さず、上部のナビボタン「だけ」を横一列に画面内に収める安全なコード */
+    div.element-container:has(#nav-marker) + div.element-container div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 5px !important;
+    }
+    div.element-container:has(#nav-marker) + div.element-container div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+    }
+    div.element-container:has(#nav-marker) + div.element-container button {
+        padding: 0 !important;
+        font-size: 14px !important;
+        width: 100% !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1195,7 +1204,6 @@ elif st.session_state.page == "staff_portal":
             </div>
             ''', unsafe_allow_html=True)
             
-            # 🌟 検索機能の完全改善（検索キーを管理して確実にリセット）
             if "search_cast_key" not in st.session_state:
                 st.session_state.search_cast_key = 0
             if "active_search_query" not in st.session_state:
@@ -1210,7 +1218,6 @@ elif st.session_state.page == "staff_portal":
                     st.session_state.active_search_query = input_q
                     st.rerun()
 
-            # リセット用関数
             def reset_search():
                 st.session_state.active_search_query = ""
                 st.session_state.search_cast_key += 1
@@ -1247,7 +1254,6 @@ elif st.session_state.page == "staff_portal":
                     else: st.markdown('<div style="color:#aaa; text-align:right; padding-top:5px;">未定</div>', unsafe_allow_html=True)
                 st.markdown("<hr style='margin:5px 0;'>", unsafe_allow_html=True)
                 
-                # 🌟 新機能：通常はドライバー指定を表示せず、ボタン(チェック)で展開する
                 current_driver = target_row["driver_name"] if is_dispatch else "未定"
                 if not current_driver: current_driver = "未定"
                 
@@ -1277,7 +1283,7 @@ elif st.session_state.page == "staff_portal":
                             if res.get("status") == "success": 
                                 reset_search()
                                 st.rerun()
-                            else: st.error("取消失敗")
+                            else: st.error("取消失敗: " + res.get("message"))
                 else:
                     specify_driver = st.checkbox("ドライバーを個別に指定する", key=f"sp_drv_{c_id}")
                     if specify_driver:
