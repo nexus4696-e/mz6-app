@@ -32,7 +32,7 @@ def get_db_data():
 
 def clear_cache(): st.cache_data.clear()
 
-# 🌟 追加機能のための特殊データ変換処理（既存APIを変えずに安全に保存するため）
+# 🌟 新機能用：既存のDB構造を壊さず、住所やメモに複数のデータ（託児や当日変更）を隠して保存・復元する処理
 def parse_cast_address(raw_address):
     if not raw_address: return "", "0", "", "0"
     parts = str(raw_address).split("||")
@@ -149,15 +149,15 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS（パスワード破壊の原因を全消去した一番安全なベース）
+# 🎨 カスタムCSS（パスワード破壊・レイアウト崩れを防ぐ安全版を維持）
 # ==========================================
 st.markdown("""
 <style>
     .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
     
-    /* 余計な表示を消去 */
-    header, footer, [data-testid="stToolbar"], [data-testid="manage-app-button"] { visibility: hidden !important; display: none !important; }
+    header { visibility: hidden !important; }
+    footer { visibility: hidden !important; }
     
     .app-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
     .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 30px; }
@@ -180,7 +180,7 @@ st.markdown("""
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
     .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
 
-    /* 🌟 パスワード入力を絶対に壊さず、上部のナビボタン「だけ」を横一列にする安全なコード */
+    /* 入力欄を破壊しない安全なトップナビ横並びコード */
     div.element-container:has(#nav-marker) + div.element-container div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -208,7 +208,7 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 
 # ==========================================
-# 🌟 情報重視・一番上だけ確実に横一列になるナビゲーション
+# 🌟 ナビゲーション
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
@@ -265,7 +265,7 @@ if st.session_state.page == "home":
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
-# 🔐 ログイン画面系（入力欄を破壊しない安全な状態に復元）
+# 🔐 ログイン画面系
 # ==========================================
 elif st.session_state.page == "cast_login":
     render_top_nav()
@@ -359,7 +359,7 @@ elif st.session_state.page == "cast_mypage":
     </div>
     ''', unsafe_allow_html=True)
 
-    # 🌟 新機能：自分の登録情報（自宅・託児所）の確認・変更機能
+    # 🌟 新機能：キャスト本人の登録情報（自宅・託児所）の確認・変更
     with st.expander("🏠 自分の登録情報（自宅・託児所）の確認・変更"):
         my_cast_info = next((cast for cast in casts if str(cast["cast_id"]) == str(c["店番"])), None)
         if my_cast_info:
@@ -377,14 +377,14 @@ elif st.session_state.page == "cast_mypage":
                     new_takuji_addr = st.text_input("託児所の住所", value=takuji_addr, placeholder="託児所の住所を入力してください")
                 
                 if st.form_submit_button("情報を更新する", type="primary", use_container_width=True):
-                    # キャスト本人が更新した証として "1" を立てる
+                    # 本人が更新した証(is_edited="1")を付与
                     encoded_addr = encode_cast_address(new_home, "1" if new_takuji_en else "0", new_takuji_addr, "1")
                     res = post_api({"action": "save_cast", "cast_id": my_cast_info["cast_id"], "name": my_cast_info["name"], "password": my_cast_info.get("password", ""), "phone": my_cast_info.get("phone", ""), "area": my_cast_info.get("area", ""), "address": encoded_addr, "manager": my_cast_info.get("manager", "未設定")})
                     if res.get("status") == "success":
                         clear_cache(); st.success("✅ 登録情報を更新しました！"); time.sleep(1); st.rerun()
                     else:
                         st.error("更新エラーが発生しました。")
-    
+
     today_dt = datetime.datetime.now()
     days = ['月','火','水','木','金','土','日']
     today_str = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
@@ -485,7 +485,6 @@ elif st.session_state.page == "cast_mypage":
                 records = []
                 for w in weekly_data:
                     if w['attend'] != "未定":
-                        # 週間申請はシンプルに基本メモのみ送信
                         encoded_memo_week = encode_attendance_memo(w['memo'], "", "0")
                         records.append({
                             "cast_id": c["店番"],
@@ -533,7 +532,7 @@ elif st.session_state.page == "staff_portal":
         if st.button("🔄 最新"): clear_cache(); st.rerun()
     st.markdown("<hr style='margin:5px 0 10px 0;'>", unsafe_allow_html=True)
 
-    # 🌟 帰り便（夜10時以降）の判定
+    # 🌟 帰り便の自動表示判定（PM10:00〜AM7:00）
     current_hour = datetime.datetime.now().hour
     is_return_time = (current_hour >= 22) or (current_hour <= 7)
 
@@ -549,7 +548,7 @@ elif st.session_state.page == "staff_portal":
         if not my_tasks:
             st.info("現在、割り当てられている送迎予定はありません。管理者の配車をお待ちください。")
         else:
-            # 🌟 新機能：PM10:00以降に自動表示される帰り便（送り班）
+            # 🌟 新機能：帰り便の自動表示
             if is_return_time:
                 st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">行きで送迎したキャストが自動的に帰り班として表示されています。</p>', unsafe_allow_html=True)
                 
@@ -572,7 +571,7 @@ elif st.session_state.page == "staff_portal":
                         "c_name": t['cast_name'], "c_id": t['cast_id']
                     })
                 
-                return_tasks.sort(key=lambda x: x["dist"]) # 店舗に近い順
+                return_tasks.sort(key=lambda x: x["dist"])
                 
                 valid_return_addrs = []
                 for rt in return_tasks:
@@ -593,12 +592,11 @@ elif st.session_state.page == "staff_portal":
                 for idx, rt in enumerate(return_tasks):
                     disp_str = f"<div style='font-size:14px;'><b>降車順 {idx+1}</b>：店番 {rt['c_id']} <b>{rt['c_name']}</b><br>"
                     if rt["use_takuji"]:
-                        disp_str += f"<span style='color:#2196f3;font-size:12px;font-weight:bold;'>👶 託児: {rt['takuji_addr']}</span><br>"
+                        disp_str += f"<span style='color:#2196f3;font-size:12px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
                     disp_str += f"<span style='color:#666;font-size:12px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                     st.markdown(disp_str, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 行き便の店舗出発時刻計算（実際の一番遠い場所ベース）
             first_t = my_tasks[0]
             c_info_first = next((c for c in casts if str(c["cast_id"]) == str(first_t["cast_id"])), None)
             addr_first_raw = c_info_first.get("address", "") if c_info_first else ""
@@ -610,7 +608,6 @@ elif st.session_state.page == "staff_portal":
             
             st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 2px solid #f44336;'>🚀 店舗出発時刻（目安）: {dep_time}</div>", unsafe_allow_html=True)
 
-            # 🌟 新機能：託児所や当日変更を加味した全体ナビ
             valid_addrs = []
             for t in my_tasks:
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
@@ -619,7 +616,6 @@ elif st.session_state.page == "staff_portal":
                     home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
                     raw_memo = t.get("memo", "")
                     _, temp_addr, takuji_cancel = parse_attendance_memo(raw_memo)
-                    
                     actual_pickup = temp_addr if temp_addr else home_addr
                     use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
                     
@@ -643,7 +639,6 @@ elif st.session_state.page == "staff_portal":
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
                 raw_addr = c_info.get("address", "") if c_info else ""
                 home_addr, takuji_en, takuji_addr, is_edited = parse_cast_address(raw_addr)
-                
                 raw_memo = t.get("memo", "")
                 memo_text, temp_addr, takuji_cancel = parse_attendance_memo(raw_memo)
                 
@@ -660,18 +655,6 @@ elif st.session_state.page == "staff_portal":
                 if mgr_phone: phone_btn = f"<a href='tel:{mgr_phone}' style='text-decoration:none; background:#4caf50; color:white; padding:4px 10px; border-radius:15px; font-size:12px; font-weight:bold; margin-left:10px; box-shadow:0 1px 3px rgba(0,0,0,0.2);'>📞 担当({mgr_name})</a>"
                 else: phone_btn = f"<span style='font-size:12px; color:#999; margin-left:10px;'>(担当:{mgr_name})</span>"
                 
-                # 🌟 新機能：詳細な住所とフラグの表示
-                addr_display = f"🏠 自宅: {home_addr if home_addr else '未登録'}"
-                if is_edited == "1":
-                    addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅キャスト更新済)</span>"
-                if temp_addr:
-                    addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日迎え先: {temp_addr}</span>"
-                if use_takuji:
-                    addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
-                if memo_text:
-                    addr_display += f"<br>📝 備考: {memo_text}"
-
-                # 🌟 個別マップURL生成（託児がある場合は2点経由になる）
                 clean_actual_pickup = clean_address_for_map(actual_pickup)
                 clean_takuji = clean_address_for_map(takuji_addr) if use_takuji else ""
                 if clean_takuji and clean_actual_pickup:
@@ -679,6 +662,12 @@ elif st.session_state.page == "staff_portal":
                 else:
                     ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(clean_actual_pickup)}?hl=ja" if clean_actual_pickup else ""
                 map_btn = f"<a href='{ind_map_url}' target='_blank' style='text-decoration:none; background:#e3f2fd; color:#1565c0; font-weight:bold; padding:4px 10px; border-radius:15px; font-size:12px; border:1px solid #2196f3; margin-left:5px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>📍 個別マップ</a>" if ind_map_url else ""
+
+                addr_display = f"🏠 自宅: {home_addr if home_addr else '未登録'}"
+                if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
+                if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日迎え先: {temp_addr}</span>"
+                if use_takuji: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
+                if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
 
                 st.markdown(f"""
                 <div class='driver-card' style='margin-bottom:5px;'>
@@ -778,7 +767,6 @@ elif st.session_state.page == "staff_portal":
         if st.session_state.staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">配車予定日</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
             
-            # 🌟 自動配車AIの完全復旧
             st.markdown('<div class="auto-dispatch-box">', unsafe_allow_html=True)
             st.markdown('<div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（一筆書きAI）</div>', unsafe_allow_html=True)
             if not d_names:
@@ -800,7 +788,7 @@ elif st.session_state.page == "staff_portal":
                         for row in attendance:
                             if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                                 c_info = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
-                                # 新機能対応：当日変更住所を優先して距離を計算
+                                # 新機能：当日変更先があればそちらを距離計算の基準にする
                                 raw_addr = c_info.get("address", "")
                                 home_addr, _, _, _ = parse_cast_address(raw_addr)
                                 _, temp_addr, _ = parse_attendance_memo(row.get("memo", ""))
