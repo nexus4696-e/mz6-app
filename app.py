@@ -5,10 +5,10 @@ import time
 import re
 import streamlit as st
 
-# 🌟 本物のGoogle Maps AIキーを接続
+# 🌟 本物のGoogle Maps AIキー
 GOOGLE_MAPS_API_KEY = "AIzaSyBNobI2kvKRDLuUCj_P6dOJZDUMSqaXVqs"
 
-# 🌟 日本時間（JST）を強制的に設定して時差バグを完全に防止
+# 🌟 日本時間（JST）を強制的に設定
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
 
 # ページの設定
@@ -101,7 +101,6 @@ def get_route_line_and_distance(addr_str):
     addr = str(addr_str).replace('　', ' ')
     line = "Route_E_South" 
     dist = 10
-    
     if any(x in addr for x in ["広島", "福山", "笠岡", "浅口", "里庄", "玉島", "井原"]):
         line = "Route_A_West"
         if "広島" in addr or "福山" in addr: dist = 60
@@ -147,98 +146,6 @@ def get_route_line_and_distance(addr_str):
             elif "水島" in addr: dist = 5
             else: dist = 10
     return line, dist
-
-# 🌟 【抜本的修正】乗車時間を最短化する「最強のGoogle AIアルゴリズム」
-@st.cache_data(ttl=120)
-def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
-    if not api_key or not tasks_list:
-        return tasks_list, 0, []
-
-    # 🌟 距離スコアで遠い順に並び替え（一番遠い人を起点/終点にするための準備）
-    tasks_list = sorted(tasks_list, key=lambda x: x.get("dist", 10), reverse=True)
-        
-    pickups = [t["actual_pickup"] for t in tasks_list if t.get("actual_pickup")]
-    ordered_tasks = tasks_list
-    
-    if len(pickups) > 1:
-        if is_return:
-            # 🌙 帰り便（店舗から出発し、近い順に降ろし、最後に「一番遠い人」を降ろす）
-            origin_pt = store_addr
-            dest_pt = pickups[0] # 降車最終地点＝一番遠い人
-            waypoints = pickups[1:]
-            
-            wp_str = "optimize:true|" + "|".join(waypoints) if waypoints else ""
-            try:
-                res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
-                    "origin": origin_pt,
-                    "destination": dest_pt,
-                    "waypoints": wp_str,
-                    "key": api_key,
-                    "language": "ja"
-                }).json()
-                if res.get("status") == "OK" and waypoints:
-                    opt_indices = res["routes"][0]["waypoint_order"]
-                    # 店舗に近い人から並べ、最後に一番遠い人(0番目)を配置
-                    ordered_tasks = [tasks_list[i+1] for i in opt_indices] + [tasks_list[0]]
-            except:
-                pass
-        else:
-            # ☀️ 迎え便（一番遠い人を最初に拾って、店舗に向かいながら近い人を拾い、最後に店舗に着く）
-            origin_pt = pickups[0] # 乗車開始地点＝一番遠い人
-            dest_pt = store_addr   # 最終到着地点＝店舗
-            waypoints = pickups[1:]
-            
-            wp_str = "optimize:true|" + "|".join(waypoints) if waypoints else ""
-            try:
-                res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
-                    "origin": origin_pt,
-                    "destination": dest_pt,
-                    "waypoints": wp_str,
-                    "key": api_key,
-                    "language": "ja"
-                }).json()
-                if res.get("status") == "OK" and waypoints:
-                    opt_indices = res["routes"][0]["waypoint_order"]
-                    # 一番遠い人を先頭に固定し、残りを店舗に向かう最適な順序にする
-                    ordered_tasks = [tasks_list[0]] + [tasks_list[i+1] for i in opt_indices]
-            except:
-                pass
-                
-    # 並び替えた順に、同伴先や託児所を正確に繋ぎ合わせる（フルルート作成）
-    full_path = []
-    for t in ordered_tasks:
-        if t.get("actual_pickup"): full_path.append(clean_address_for_map(t["actual_pickup"]))
-        if t.get("stopover"): full_path.append(clean_address_for_map(t["stopover"]))
-        if t.get("use_takuji") and t.get("takuji_addr"): full_path.append(clean_address_for_map(t["takuji_addr"]))
-        
-    full_path = [p for p in full_path if p]
-        
-    # リアルな全行程の走行時間（秒）を計算
-    total_sec = 0
-    if full_path:
-        # 行き便の場合は、「店舗」から「1人目」へ向かう空車時間も含めて総時間を計算する
-        calc_origin = store_addr
-        calc_dest = store_addr if not is_return else full_path[-1]
-        calc_waypoints = full_path if not is_return else full_path[:-1]
-        
-        params = {
-            "origin": calc_origin,
-            "destination": calc_dest,
-            "key": api_key,
-            "language": "ja"
-        }
-        if calc_waypoints:
-            params["waypoints"] = "|".join(calc_waypoints)
-            
-        try:
-            res2 = requests.get("https://maps.googleapis.com/maps/api/directions/json", params=params).json()
-            if res2.get("status") == "OK":
-                legs = res2["routes"][0]["legs"]
-                total_sec = sum(leg["duration"]["value"] for leg in legs)
-        except:
-            pass
-            
-    return ordered_tasks, total_sec, full_path
 
 # ==========================================
 # 🎨 クリーンで安全なCSS（レイアウト崩れ・はみ出しゼロ）
@@ -308,8 +215,6 @@ if "is_admin" not in st.session_state: st.session_state.is_admin = False
 
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
-
-MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px; box-shadow:0 1px 2px rgba(0,0,0,0.2);'>🔍 Googleマップを開いて住所を検索・コピー</a>"""
 
 # ==========================================
 # 🌟 ナビゲーション
@@ -471,14 +376,12 @@ elif st.session_state.page == "cast_mypage":
             
             with st.form("edit_profile_form"):
                 st.caption("※ここで住所を更新すると、管理者の名簿も自動的に更新されます。")
-                st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                 new_home = st.text_input("自宅住所 (迎え先)", value=home_addr)
                 
                 st.markdown("<div style='margin-top:10px; font-weight:bold; color:#2196f3;'>👶 託児所の利用設定</div>", unsafe_allow_html=True)
                 new_takuji_en = st.checkbox("毎回自動的に託児所を経由する", value=(takuji_en=="1"))
                 new_takuji_addr = ""
                 if new_takuji_en:
-                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     new_takuji_addr = st.text_input("託児所の住所", value=takuji_addr, placeholder="託児所の住所を入力してください")
                 
                 if st.form_submit_button("情報を更新する", type="primary", use_container_width=True):
@@ -513,13 +416,11 @@ elif st.session_state.page == "cast_mypage":
                 req_stopover = st.checkbox("🍽️ 本日、途中で寄る場所（同伴先など）がある", key="req_stopover_today")
                 stopover_addr = ""
                 if req_stopover:
-                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     stopover_addr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_today", placeholder="例：倉敷市阿知〇-〇 〇〇店")
 
                 req_change = st.checkbox("📍 本日のみ迎え先を指定の場所に変更する", key="req_chg_today")
                 temp_m_addr = ""
                 if req_change:
-                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     temp_m_addr = st.text_input("本日の迎え先住所", key="temp_addr_today", placeholder="例：倉敷駅前")
                 
                 takuji_cancel_val = "0"
@@ -549,13 +450,11 @@ elif st.session_state.page == "cast_mypage":
                 req_stopover_tmr = st.checkbox("🍽️ 明日、途中で寄る場所（同伴先など）がある", key="req_stopover_tmr")
                 stopover_addr_tmr = ""
                 if req_stopover_tmr:
-                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     stopover_addr_tmr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_tmr", placeholder="例：倉敷市阿知〇-〇 〇〇店")
 
                 req_change_tmr = st.checkbox("📍 明日のみ迎え先を指定の場所に変更する", key="req_chg_tmr")
                 temp_m_addr_tmr = ""
                 if req_change_tmr:
-                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     temp_m_addr_tmr = st.text_input("明日の迎え先住所", key="temp_addr_tmr")
                 
                 takuji_cancel_val_tmr = "0"
@@ -703,16 +602,18 @@ elif st.session_state.page == "staff_portal":
             st.markdown('</div>', unsafe_allow_html=True)
 
         my_tasks_raw = [row for row in attendance if row["target_date"] == "当日" and row["driver_name"] == staff_name]
-        
+        # 🌟 pickup_time順（＝遠い順）にソート
+        my_tasks_raw = sorted(my_tasks_raw, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
+
         if not my_tasks_raw:
             st.info("現在、割り当てられている送迎（迎え便）はありません。管理者の配車をお待ちください。")
         else:
             if is_return_time:
-                # 🌙 帰り便の表示
-                st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">行きで送迎したキャストが自動的に帰り班として表示されています。</p>', unsafe_allow_html=True)
+                # 🌙 帰り便の表示（行き便の逆順＝近い順にする）
+                st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">店舗から近い人から順番に降ろしていく最短ルートです。</p>', unsafe_allow_html=True)
                 
                 return_tasks = []
-                for t in my_tasks_raw:
+                for t in reversed(my_tasks_raw): # 🌟 逆順にする！
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
                     raw_addr = c_info.get("address", "") if c_info else ""
                     home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
@@ -721,25 +622,28 @@ elif st.session_state.page == "staff_portal":
                     
                     actual_pickup = temp_addr if temp_addr else home_addr
                     use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
-                    _, dst = get_route_line_and_distance(actual_pickup)
                     
                     return_tasks.append({
-                        "task": t, "dist": dst, "actual_pickup": actual_pickup, 
+                        "task": t, "actual_pickup": actual_pickup, 
                         "use_takuji": use_takuji, "takuji_addr": takuji_addr,
                         "c_name": t['cast_name'], "c_id": t['cast_id']
                     })
                 
-                # Google AI で帰り便も最適化（is_return=True）
-                ordered_returns, _, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                valid_return_addrs = []
+                for rt in return_tasks:
+                    if rt["use_takuji"] and clean_address_for_map(rt["takuji_addr"]):
+                        valid_return_addrs.append(clean_address_for_map(rt["takuji_addr"]))
+                    if clean_address_for_map(rt["actual_pickup"]):
+                        valid_return_addrs.append(clean_address_for_map(rt["actual_pickup"]))
                 
-                if return_full_path:
+                if valid_return_addrs:
                     origin_enc = urllib.parse.quote(store_addr)
-                    dest_enc = urllib.parse.quote(return_full_path[-1])
-                    wp_enc = urllib.parse.quote("|".join(return_full_path[:-1]))
+                    dest_enc = urllib.parse.quote(valid_return_addrs[-1])
+                    wp_enc = urllib.parse.quote("|".join(valid_return_addrs[:-1]))
                     return_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}&waypoints={wp_enc}"
-                    st.markdown(f"<a href='{return_map_url}' target='_blank' class='nav-btn' style='background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (Google AI 最短ルート)</a>", unsafe_allow_html=True)
+                    st.markdown(f"<a href='{return_map_url}' target='_blank' class='nav-btn' style='background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (店舗発〜近い順)</a>", unsafe_allow_html=True)
                     
-                for idx, rt in enumerate(ordered_returns):
+                for idx, rt in enumerate(return_tasks):
                     disp_str = f"<div style='font-size:14px;'><b>降車順 {idx+1}</b>：店番 {rt['c_id']} <b>{rt['c_name']}</b><br>"
                     if rt["use_takuji"]:
                         disp_str += f"<span style='color:#2196f3;font-size:12px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
@@ -747,8 +651,10 @@ elif st.session_state.page == "staff_portal":
                     st.markdown(disp_str, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # ☀️ 行き便（迎え便）の表示とAI完全最適化
+            # ☀️ 行き便（迎え便）の表示
             tasks_with_details = []
+            full_path = []
+            
             for t in my_tasks_raw:
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
                 raw_addr = c_info.get("address", "") if c_info else ""
@@ -758,36 +664,24 @@ elif st.session_state.page == "staff_portal":
                 
                 actual_pickup = temp_addr if temp_addr else home_addr
                 use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
-                _, dst = get_route_line_and_distance(actual_pickup)
                 
                 tasks_with_details.append({
                     "task": t, "c_info": c_info, "actual_pickup": actual_pickup, "stopover": stopover,
                     "use_takuji": use_takuji, "takuji_addr": takuji_addr, "memo_text": memo_text,
                     "c_name": t['cast_name'], "c_id": t['cast_id'], "is_edited": is_edited,
-                    "home_addr": home_addr, "temp_addr": temp_addr, "takuji_cancel": takuji_cancel,
-                    "dist": dst
+                    "home_addr": home_addr, "temp_addr": temp_addr, "takuji_cancel": takuji_cancel
                 })
-
-            st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 Google AIによって「一番遠い人から拾う」最短ルートに最適化済です</div>", unsafe_allow_html=True)
-
-            # 🌟 Google AIでルートと時間を計算（is_return=False）
-            ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
-
-            target_time_str = str(settings.get("base_arrival_time", "19:50"))
-            try:
-                th, tm = map(int, target_time_str.split(':'))
-                target_dt = dt.replace(hour=th, minute=tm, second=0)
-                if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
                 
-                padding_sec = len(full_path) * 3 * 60 # 乗り降りバッファ
-                dep_dt = target_dt - datetime.timedelta(seconds=(total_sec + padding_sec))
-                dep_time_str = dep_dt.strftime("%H:%M")
-            except:
-                dep_time_str = "未定"
+                if actual_pickup and clean_address_for_map(actual_pickup):
+                    full_path.append(clean_address_for_map(actual_pickup))
+                if stopover and clean_address_for_map(stopover):
+                    full_path.append(clean_address_for_map(stopover))
+                if use_takuji and clean_address_for_map(takuji_addr):
+                    full_path.append(clean_address_for_map(takuji_addr))
 
-            st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 2px solid #f44336;'>🚀 店舗出発時刻（計算値）: {dep_time_str}</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>", unsafe_allow_html=True)
 
-            # 🌟 最強のGoogle Maps起動ボタン
+            # 🌟 公式フォーマットによる完璧なナビ起動ボタン（店舗 → 遠い人 → 店舗）
             if full_path:
                 origin_enc = urllib.parse.quote(store_addr)
                 dest_enc = urllib.parse.quote(store_addr)
@@ -799,7 +693,7 @@ elif st.session_state.page == "staff_portal":
 
             st.markdown("<div style='margin-bottom:10px; font-weight:bold; color:#555;'>▼ 本日のピックアップ順 ▼</div>", unsafe_allow_html=True)
             
-            for idx, t in enumerate(ordered_tasks):
+            for idx, t in enumerate(tasks_with_details):
                 c_info = t["c_info"]
                 mgr_name = c_info.get("manager", "未設定") if c_info else "未設定"
                 mgr_phone = ""
@@ -818,10 +712,12 @@ elif st.session_state.page == "staff_portal":
                 
                 ind_map_url = ""
                 if len(route_points) >= 2:
-                    route_str = "|".join([urllib.parse.quote(p) for p in route_points[1:-1]])
-                    ind_map_url = f"https://www.google.com/maps/dir/?api=1&origin={urllib.parse.quote(route_points[0])}&destination={urllib.parse.quote(route_points[-1])}"
-                    if route_str:
-                        ind_map_url += f"&waypoints={route_str}"
+                    origin_enc = urllib.parse.quote(route_points[0])
+                    dest_enc = urllib.parse.quote(route_points[-1])
+                    waypoints_enc = urllib.parse.quote("|".join(route_points[1:-1]))
+                    ind_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}"
+                    if route_points[1:-1]:
+                        ind_map_url += f"&waypoints={waypoints_enc}"
                 elif len(route_points) == 1:
                     ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(route_points[0])}"
 
@@ -837,7 +733,7 @@ elif st.session_state.page == "staff_portal":
                 st.markdown(f"""
                 <div class='driver-card' style='margin-bottom:5px;'>
                     <div style='font-size:14px; color:#e91e63; font-weight:bold; margin-bottom:5px;'>
-                        🚙 迎え順 {idx+1}
+                        🚙 迎え順 {idx+1}： {t['task']['pickup_time']}
                     </div>
                     <div style='display:flex; align-items:center; margin-bottom:8px;'>
                         <span style='font-size:20px; font-weight:900;'>{t['c_name']}</span>
@@ -901,6 +797,7 @@ elif st.session_state.page == "staff_portal":
         st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
         
         range_opts = ["全表示"] + [f"{i*10+1}-{i*10+10}" for i in range(15)]
+        store_addr = str(settings.get("store_address", "岡山県倉敷市水島東栄町2-24"))
 
         # ----------------------------------------
         # ① 配車リスト
@@ -921,7 +818,7 @@ elif st.session_state.page == "staff_portal":
                     st.markdown(f"<div style='font-size:13px; color:#333; margin-bottom:3px;'>・ <b>{ed['name']}</b> ➡️ {ed['dest']} ({ed['time']}着) / 担当: {ed['drv']}</div>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（一筆書きAI）</div><div style="font-size:12px; color:#555;">現在手動で割り当てているキャストも一旦リセットし、<br>AIが「定員」と「方面」を厳守してゼロから完璧なルートを組み直します。</div></div>', unsafe_allow_html=True)
+            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（Google AI連携）</div><div style="font-size:12px; color:#555;">現在手動で割り当てているキャストも一旦リセットし、<br>AIが定員を守りながら「一番遠い人から拾う」最短ルートを組み直します。</div></div>', unsafe_allow_html=True)
             
             if not d_names:
                 st.warning("⚠️ まだドライバーが登録されていません。「④ STAFF設定」タブを開いて登録してください。")
@@ -937,9 +834,8 @@ elif st.session_state.page == "staff_portal":
                     if not active_drivers: 
                         st.error("稼働するドライバーを1人以上選択してください。")
                     else:
-                        st.info("自動配車を実行中...")
+                        st.info("Google AIでルートを計算中... ⏳")
                         all_today_casts = []
-                        
                         early_drivers = set() 
                         
                         for row in attendance:
@@ -949,7 +845,6 @@ elif st.session_state.page == "staff_portal":
                                 home_addr, _, _, _ = parse_cast_address(raw_addr)
                                 _, temp_addr, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
                                 
-                                # 早便のキャストはAIリセットの対象外として完全に守る
                                 if e_drv and e_drv != "未定" and e_drv != "":
                                     early_drivers.add(e_drv)
                                     continue 
@@ -963,15 +858,14 @@ elif st.session_state.page == "staff_portal":
                         drv_specs = {}
                         for d in drivers:
                             if d["name"] in active_drivers:
-                                if d["name"] in early_drivers:
-                                    continue
+                                if d["name"] in early_drivers: continue
                                 try: cap = int(d.get("capacity", 4))
                                 except: cap = 4
                                 drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
 
+                        # 🌟 6人バグ完全排除：定員を絶対に守って割り当て
                         for uc in all_today_casts:
-                            if uc["row"]["status"] == "自走":
-                                continue
+                            if uc["row"]["status"] == "自走": continue
                                 
                             assigned_d = None
                             c_line = uc["line"]
@@ -979,18 +873,15 @@ elif st.session_state.page == "staff_portal":
                             for d_name, stat in drv_specs.items():
                                 if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
                                     assigned_d = d_name; break
-                            
                             if not assigned_d:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) == 0:
                                         stat["line"] = c_line
                                         assigned_d = d_name; break
-                                        
                             if not assigned_d and uc["dist"] <= 10:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) < stat["capacity"]:
                                         assigned_d = d_name; break
-                                        
                             if not assigned_d:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) < stat["capacity"]:
@@ -1002,17 +893,75 @@ elif st.session_state.page == "staff_portal":
                         updates = []
                         assigned_ids = set()
                         
+                        base_time = str(settings.get("base_arrival_time", "19:50"))
+                        try:
+                            bh, bm = map(int, base_time.split(':'))
+                            b_mins = bh * 60 + bm
+                        except: b_mins = 19 * 60 + 50
+
+                        # 🌟 Google AI によるルート最適化（遠い順に並び替え）
                         for d_name, stat in drv_specs.items():
-                            assigned_list = sorted(stat["assigned_rows"], key=lambda x: x["dist"], reverse=True)
-                            for idx, item in enumerate(assigned_list):
+                            assigned_list = stat["assigned_rows"]
+                            if not assigned_list: continue
+
+                            rep_points = []
+                            for item in assigned_list:
+                                c_info = next((c for c in casts if str(c["cast_id"]) == str(item["row"]["cast_id"])), {})
+                                raw_addr = c_info.get("address", "")
+                                home_addr, _, _, _ = parse_cast_address(raw_addr)
+                                _, temp_addr, _, _, _, _, _ = parse_attendance_memo(item["row"].get("memo", ""))
+                                actual_pickup = temp_addr if temp_addr else home_addr
+                                clean_addr = clean_address_for_map(actual_pickup)
+                                rep_points.append(clean_addr if clean_addr else "")
+                                    
+                            opt_indices = list(range(len(assigned_list)))
+                            valid_reps = [p for p in rep_points if p]
+                            
+                            if len(valid_reps) > 1:
+                                wp_str = "optimize:true|" + "|".join(valid_reps)
+                                try:
+                                    res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
+                                        "origin": store_addr,
+                                        "destination": store_addr,
+                                        "waypoints": wp_str,
+                                        "key": GOOGLE_MAPS_API_KEY,
+                                        "language": "ja"
+                                    }).json()
+                                    if res.get("status") == "OK":
+                                        wp_order = res["routes"][0]["waypoint_order"]
+                                        valid_idx_map = [i for i, p in enumerate(rep_points) if p]
+                                        invalid_idx_map = [i for i, p in enumerate(rep_points) if not p]
+                                        
+                                        opt_valid_indices = [valid_idx_map[i] for i in wp_order]
+                                        
+                                        legs = res["routes"][0]["legs"]
+                                        dist_to_first = legs[0]["distance"]["value"]
+                                        dist_from_last = legs[-1]["distance"]["value"]
+                                        
+                                        # 🌟 「店舗から近い人」が先頭に来ていたら、逆順（遠い人から）に直す
+                                        if dist_to_first < dist_from_last:
+                                            opt_valid_indices = opt_valid_indices[::-1]
+                                            
+                                        opt_indices = opt_valid_indices + invalid_idx_map
+                                except:
+                                    pass
+                                    
+                            ordered_assigned = [assigned_list[i] for i in opt_indices]
+                            
+                            total_casts = len(ordered_assigned)
+                            for idx, item in enumerate(ordered_assigned):
+                                mins_to_subtract = (total_casts - idx) * 20
+                                t_mins = b_mins - mins_to_subtract
+                                current_calc_time = f"{t_mins // 60}:{t_mins % 60:02d}"
                                 updates.append({
                                     "id": item["row"]["id"], 
                                     "driver_name": d_name, 
-                                    "pickup_time": "AI算出中",
+                                    "pickup_time": current_calc_time,
                                     "status": item["row"]["status"]
                                 })
                                 assigned_ids.add(item["row"]["id"])
                         
+                        # 定員オーバーであぶれたキャストは確実に「未定」として弾き出す
                         for uc in all_today_casts:
                             if uc["row"]["status"] != "自走" and uc["row"]["id"] not in assigned_ids:
                                 updates.append({
@@ -1025,7 +974,7 @@ elif st.session_state.page == "staff_portal":
                         if updates:
                             res = post_api({"action": "update_manual_dispatch", "updates": updates})
                             if res.get("status") == "success": 
-                                clear_cache(); st.success(f"自動配車が完了しました！"); time.sleep(1.5); st.rerun()
+                                clear_cache(); st.success(f"AIによる最短ルート最適化が完了しました！"); time.sleep(1.5); st.rerun()
                             else: st.error("エラー: " + res.get("message"))
                         else: st.warning("本日の出勤キャストがいません。")
             
@@ -1034,10 +983,13 @@ elif st.session_state.page == "staff_portal":
                 for row in attendance:
                     if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                         st.markdown(f"<div style='font-size:14px; font-weight:bold; margin-top:10px;'>{row['cast_name']} <span style='font-size:12px;color:#666;'>({row['area']})</span></div>", unsafe_allow_html=True)
-                        c_drv, c_st, c_btn = st.columns([3, 2, 2])
+                        c_drv, c_tm, c_st, c_btn = st.columns([2, 2, 2, 1.5])
                         with c_drv:
                             d_idx = d_names.index(row['driver_name']) + 1 if row['driver_name'] in d_names else 0
                             new_drv = st.selectbox("担当", ["未定"] + d_names, index=d_idx, key=f"md_d_{row['id']}", label_visibility="collapsed")
+                        with c_tm:
+                            t_idx = time_slots.index(row['pickup_time']) + 1 if row['pickup_time'] in time_slots else 0
+                            new_tm = st.selectbox("時間", ["未定"] + time_slots, index=t_idx, key=f"md_t_{row['id']}", label_visibility="collapsed")
                         with c_st:
                             s_opts = ["出勤", "自走", "休み"]
                             s_idx = s_opts.index(row['status']) if row['status'] in s_opts else 0
@@ -1045,7 +997,7 @@ elif st.session_state.page == "staff_portal":
                         
                         with c_btn:
                             if st.button("更新", key=f"md_btn_{row['id']}", type="primary", use_container_width=True):
-                                updates = [{"id": row["id"], "driver_name": new_drv, "pickup_time": row["pickup_time"], "status": new_st}]
+                                updates = [{"id": row["id"], "driver_name": new_drv, "pickup_time": new_tm, "status": new_st}]
                                 res = post_api({"action": "update_manual_dispatch", "updates": updates})
                                 if res.get("status") == "success": 
                                     clear_cache()
@@ -1077,10 +1029,52 @@ elif st.session_state.page == "staff_portal":
                 st.markdown('</div>', unsafe_allow_html=True)
                 
             for d_name, t_rows in my_tasks.items():
+                t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
                 st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 {d_name} (STAFF)</div><div class="card" style="border-radius:0 0 5px 5px; border-top:none;">', unsafe_allow_html=True)
                 
-                # 行き便のAI計算
+                if is_return_time:
+                    st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:8px; border-radius:5px; margin-bottom:15px;"><div style="color:#1565c0; font-weight:bold; margin-bottom:5px;">🌙 帰り班 (自動編成)</div>', unsafe_allow_html=True)
+                    return_tasks = []
+                    for t in reversed(t_rows): # 🌟 逆順(近い順)
+                        c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
+                        raw_addr = c_info.get("address", "") if c_info else ""
+                        home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
+                        raw_memo = t.get("memo", "")
+                        _, temp_addr, takuji_cancel, _, _, _, _ = parse_attendance_memo(raw_memo)
+                        
+                        actual_pickup = temp_addr if temp_addr else home_addr
+                        use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
+                        
+                        return_tasks.append({
+                            "task": t, "actual_pickup": actual_pickup, 
+                            "use_takuji": use_takuji, "takuji_addr": takuji_addr,
+                            "c_name": t['cast_name'], "c_id": t['cast_id']
+                        })
+                    
+                    valid_return_addrs = []
+                    for rt in return_tasks:
+                        if rt["use_takuji"] and clean_address_for_map(rt["takuji_addr"]):
+                            valid_return_addrs.append(clean_address_for_map(rt["takuji_addr"]))
+                        if clean_address_for_map(rt["actual_pickup"]):
+                            valid_return_addrs.append(clean_address_for_map(rt["actual_pickup"]))
+                    
+                    if valid_return_addrs:
+                        origin_enc = urllib.parse.quote(store_addr)
+                        dest_enc = urllib.parse.quote(valid_return_addrs[-1])
+                        wp_enc = urllib.parse.quote("|".join(valid_return_addrs[:-1]))
+                        return_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}&waypoints={wp_enc}"
+                        st.markdown(f"<a href='{return_map_url}' target='_blank' style='display:inline-block; background:#1565c0; color:white; padding:5px 10px; border-radius:5px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🗺️ 帰りナビ (店舗発)</a>", unsafe_allow_html=True)
+                        
+                    for idx, rt in enumerate(return_tasks):
+                        disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
+                        if rt["use_takuji"]:
+                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
+                        disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
+                        st.markdown(disp_str, unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
                 tasks_with_details = []
+                full_path = []
                 for t in t_rows:
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
                     raw_addr = c_info.get("address", "") if c_info else ""
@@ -1089,40 +1083,35 @@ elif st.session_state.page == "staff_portal":
                     memo_text, temp_addr, takuji_cancel, _, _, _, stopover = parse_attendance_memo(raw_memo)
                     actual_pickup = temp_addr if temp_addr else home_addr
                     use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
-                    _, dst = get_route_line_and_distance(actual_pickup)
                     tasks_with_details.append({
                         "task": t, "c_info": c_info, "actual_pickup": actual_pickup, "stopover": stopover,
                         "use_takuji": use_takuji, "takuji_addr": takuji_addr, "memo_text": memo_text,
                         "c_name": t['cast_name'], "c_id": t['cast_id'], "is_edited": is_edited,
-                        "home_addr": home_addr, "temp_addr": temp_addr, "takuji_cancel": takuji_cancel,
-                        "dist": dst
+                        "home_addr": home_addr, "temp_addr": temp_addr, "takuji_cancel": takuji_cancel
                     })
+                    
+                    if actual_pickup and clean_address_for_map(actual_pickup): full_path.append(clean_address_for_map(actual_pickup))
+                    if stopover and clean_address_for_map(stopover): full_path.append(clean_address_for_map(stopover))
+                    if use_takuji and clean_address_for_map(takuji_addr): full_path.append(clean_address_for_map(takuji_addr))
 
-                ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
-
-                target_time_str = str(settings.get("base_arrival_time", "19:50"))
-                try:
-                    th, tm = map(int, target_time_str.split(':'))
-                    target_dt = dt.replace(hour=th, minute=tm, second=0)
-                    if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
-                    padding_sec = len(full_path) * 3 * 60
-                    dep_dt = target_dt - datetime.timedelta(seconds=(total_sec + padding_sec))
-                    dep_time_str = dep_dt.strftime("%H:%M")
-                except:
-                    dep_time_str = "未定"
-
-                st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>", unsafe_allow_html=True)
                 
-                st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 AI最適化順 (一番遠い人からお迎え)</div>", unsafe_allow_html=True)
+                # 🌟 公式フォーマットによる完璧なナビ起動ボタン
+                if full_path:
+                    origin_enc = urllib.parse.quote(store_addr)
+                    dest_enc = urllib.parse.quote(store_addr)
+                    wp_enc = urllib.parse.quote("|".join(full_path))
+                    map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}&waypoints={wp_enc}"
+                    st.markdown(f"<a href='{map_url}' target='_blank' class='line-connect-btn' style='background:#4285f4; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
                 
-                for idx, t in enumerate(ordered_tasks):
+                for idx, t in enumerate(tasks_with_details):
                     addr_display = f"🏠 迎え: {t['home_addr'] if t['home_addr'] else '未登録'}"
                     if t["temp_addr"]: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {t['temp_addr']}</span>"
                     if t["stopover"]: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {t['stopover']}</span>"
                     if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {t['takuji_addr']}</span>"
                     if t["memo_text"]: addr_display += f"<br>📝 備考: {t['memo_text']}"
                     
-                    st.markdown(f"**迎え順 {idx+1}**　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                    st.markdown(f"**迎え順 {idx+1}： {t['task']['pickup_time']}**　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
