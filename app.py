@@ -152,7 +152,7 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 クリーンで安全なCSS（レイアウト崩れの元凶を完全削除）
+# 🎨 抜本的に見直した完全安全なCSS（レイアウト崩れ・はみ出しゼロ）
 # ==========================================
 st.markdown("""
 <style>
@@ -166,16 +166,6 @@ st.markdown("""
     
     header, footer, [data-testid="stToolbar"], [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
     a[href^="https://streamlit.io/cloud"] { display: none !important; }
-
-    div.stButton > button {
-        padding: 0px 5px !important;
-        min-height: 42px !important;
-        height: 42px !important;
-        line-height: 1.2 !important;
-        font-size: 14px !important;
-        font-weight: bold !important;
-        width: 100% !important;
-    }
 
     .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
     .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 30px; }
@@ -196,6 +186,25 @@ st.markdown("""
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
         border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #fff !important;
     }
+
+    /* 🌟 上部のナビボタン（ホーム・戻る・ログアウト）だけを絶対に崩さず綺麗に横並びにする安全なCSS */
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 5px !important;
+    }
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: 33% !important;
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+    }
+    div.element-container:has(#nav-marker) + div.element-container button {
+        padding: 0 !important;
+        font-size: 13px !important;
+        width: 100% !important;
+        white-space: nowrap !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -210,10 +219,13 @@ early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px; box-shadow:0 1px 2px rgba(0,0,0,0.2);'>🔍 Googleマップを開いて住所を検索・コピー</a>"""
 
 # ==========================================
-# 🌟 ナビゲーション（標準の縦積み/横並びに任せる安全設計）
+# 🌟 ナビゲーション（巨大化バグ修正済み）
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
+    
+    # このマーカーの直後にあるカラムだけを横並びにする
+    st.markdown('<div id="nav-marker" style="display:none;"></div>', unsafe_allow_html=True)
     
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
@@ -597,7 +609,8 @@ elif st.session_state.page == "staff_portal":
                 st.markdown(disp_str, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-        my_tasks = [row for row in attendance if row["target_date"] == "当日" and row["status"] in ["出勤"] and row["driver_name"] == staff_name]
+        # 🌟 ドライバー画面の表示条件を「担当ドライバー名が一致」していれば確実に表示されるように改善！
+        my_tasks = [row for row in attendance if row["target_date"] == "当日" and row["driver_name"] == staff_name]
         my_tasks = sorted(my_tasks, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
 
         if not my_tasks:
@@ -662,7 +675,6 @@ elif st.session_state.page == "staff_portal":
             
             st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 2px solid #f44336;'>🚀 店舗出発時刻（目安）: {dep_time}</div>", unsafe_allow_html=True)
 
-            # 🌟 全体ナビゲーションに立ち寄り先(経由地)を反映
             valid_addrs = []
             for t in my_tasks:
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
@@ -713,7 +725,6 @@ elif st.session_state.page == "staff_portal":
                 if mgr_phone: phone_btn = f"<a href='tel:{mgr_phone}' style='text-decoration:none; background:#4caf50; color:white; padding:4px 10px; border-radius:15px; font-size:12px; font-weight:bold; margin-left:10px; box-shadow:0 1px 3px rgba(0,0,0,0.2);'>📞 担当({mgr_name})</a>"
                 else: phone_btn = f"<span style='font-size:12px; color:#999; margin-left:10px;'>(担当:{mgr_name})</span>"
                 
-                # 🌟 個別マップに立ち寄り先を反映
                 clean_actual_pickup = clean_address_for_map(actual_pickup)
                 clean_stopover = clean_address_for_map(stopover)
                 clean_takuji = clean_address_for_map(takuji_addr) if use_takuji else ""
@@ -735,7 +746,7 @@ elif st.session_state.page == "staff_portal":
                 addr_display = f"🏠 迎え: {home_addr if home_addr else '未登録'}"
                 if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
                 if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {temp_addr}</span>"
-                if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り: {stopover}</span>"
+                if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {stopover}</span>"
                 if use_takuji: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
                 if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
 
@@ -836,8 +847,8 @@ elif st.session_state.page == "staff_portal":
         if st.session_state.staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">配車予定日</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
             
-            # 🌟 緑の空枠バグを完全修正（安全な単独divに変更）
-            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px;">🤖 自動配車（一筆書きAI）</div><div style="font-size:12px; color:#555;">稼働するドライバーを選択して実行してください。<br>※手動で指定済みのキャストは上書きされません。</div></div>', unsafe_allow_html=True)
+            # 🌟 「空の緑の枠バグ」を完全排除し、安全なタグで構築しました
+            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（一筆書きAI）</div><div style="font-size:12px; color:#555;">稼働するドライバーを選択して実行してください。<br>※手動で指定済みのキャストは上書きされません。</div></div>', unsafe_allow_html=True)
             
             if not d_names:
                 st.warning("⚠️ まだドライバーが登録されていません。「④ STAFF設定」タブを開いて登録してください。")
@@ -881,11 +892,9 @@ elif st.session_state.page == "staff_portal":
 
                         for uc in all_today_casts:
                             if uc["row"]["status"] == "自走":
-                                uc["row"]["driver_name"] = "未定"
-                                uc["row"]["pickup_time"] = "未定"
                                 continue
                                 
-                            # 🌟 既に個別でドライバーが指定されているキャストはAIで上書きせず固定
+                            # 既に個別でドライバーが指定されているキャストはAIで上書きせず固定
                             already_assigned = uc["row"].get("driver_name")
                             if already_assigned and already_assigned != "未定" and already_assigned in drv_specs:
                                 drv_specs[already_assigned]["assigned_rows"].append(uc)
@@ -906,25 +915,27 @@ elif st.session_state.page == "staff_portal":
                                         stat["line"] = c_line
                                         assigned_d = d_name; break
                                         
-                            # 3. 南ルート近距離なら、他の方面のドライバーの空き席にねじ込む
+                            # 3. 南ルート近距離なら、他の方面の空き席にねじ込む
                             if not assigned_d and c_line == "Route_E_South" and uc["dist"] <= 10:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) < stat["capacity"]:
                                         assigned_d = d_name; break
                                         
-                            # 🌟 4. 【完全修正】それでも決まらなければ、とにかく「空きがある」ドライバーに絶対割り当てる（未定放置を防ぐ）
+                            # 4. それでも決まらなければ、とにかく「空きがある」ドライバーに絶対割り当てる（未定放置を防ぐ）
                             if not assigned_d:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) < stat["capacity"]:
                                         assigned_d = d_name; break
 
-                            if assigned_d: drv_specs[assigned_d]["assigned_rows"].append(uc)
-                            else:
-                                uc["row"]["driver_name"] = "未定"
-                                uc["row"]["pickup_time"] = "未定"
-                        
+                            if assigned_d: 
+                                drv_specs[assigned_d]["assigned_rows"].append(uc)
+
                         base_time = str(settings.get("base_arrival_time", "19:50"))
                         updates = []
+                        
+                        # 🌟 【致命的バグ修正】AIが同じキャストを「未定」で上書きして消してしまうループエラーを完全排除しました
+                        assigned_ids = set()
+                        
                         for d_name, stat in drv_specs.items():
                             assigned_list = sorted(stat["assigned_rows"], key=lambda x: x["dist"], reverse=True)
                             try:
@@ -942,9 +953,11 @@ elif st.session_state.page == "staff_portal":
                                     "pickup_time": current_calc_time,
                                     "status": item["row"]["status"]
                                 })
+                                assigned_ids.add(item["row"]["id"])
                         
+                        # AIからあぶれた（定員オーバーの）キャストだけを確実に未定にする
                         for uc in all_today_casts:
-                            if uc["row"]["driver_name"] == "未定":
+                            if uc["row"]["status"] != "自走" and uc["row"]["id"] not in assigned_ids:
                                 updates.append({
                                     "id": uc["row"]["id"], 
                                     "driver_name": "未定", 
@@ -1049,7 +1062,7 @@ elif st.session_state.page == "staff_portal":
                     for idx, rt in enumerate(return_tasks):
                         disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
                         if rt["use_takuji"]:
-                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
+                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児: {rt['takuji_addr']}</span><br>"
                         disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                         st.markdown(disp_str, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
