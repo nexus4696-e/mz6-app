@@ -5,6 +5,9 @@ import time
 import re
 import streamlit as st
 
+# 🌟 日本時間（JST）を強制的に設定して時差バグを完全に防止
+JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
+
 # ページの設定
 st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
 
@@ -152,7 +155,7 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 抜本的に見直した完全安全なCSS（レイアウト崩れ・はみ出しゼロ）
+# 🎨 クリーンで安全なCSS（レイアウト崩れ・はみ出しゼロ）
 # ==========================================
 st.markdown("""
 <style>
@@ -397,7 +400,7 @@ elif st.session_state.page == "cast_mypage":
                     else:
                         st.error("更新エラーが発生しました。")
     
-    today_dt = datetime.datetime.now()
+    today_dt = datetime.datetime.now(JST)
     days = ['月','火','水','木','金','土','日']
     today_str = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
     tmr_dt = today_dt + datetime.timedelta(days=1)
@@ -543,7 +546,7 @@ elif st.session_state.page == "staff_portal":
     drivers = db.get("drivers", [])
     attendance = db.get("attendance", [])
     settings = db.get("settings") or {}
-    dt = datetime.datetime.now()
+    dt = datetime.datetime.now(JST)
     today_str = dt.strftime("%m月%d日")
     dow = ['月','火','水','木','金','土','日'][dt.weekday()]
     d_names = [str(d["name"]) for d in drivers if str(d["name"]).strip() != ""]
@@ -556,8 +559,10 @@ elif st.session_state.page == "staff_portal":
         if st.button("🔄 最新"): clear_cache(); st.rerun()
     st.markdown("<hr style='margin:5px 0 10px 0;'>", unsafe_allow_html=True)
 
-    current_hour = datetime.datetime.now().hour
-    is_return_time = (current_hour >= 22) or (current_hour <= 7)
+    # 🌟【重要修正】日本時間の現在時刻を取得し、20:30〜07:59の間だけを「帰り便」として判定する
+    current_hour = dt.hour
+    current_minute = dt.minute
+    is_return_time = (current_hour > 20) or (current_hour == 20 and current_minute >= 30) or (current_hour <= 7)
 
     # ========================================================
     # 🚙 【非管理者】ドライバー専用のナビ直結＆順番入替ルート画面
@@ -1062,7 +1067,7 @@ elif st.session_state.page == "staff_portal":
                     for idx, rt in enumerate(return_tasks):
                         disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
                         if rt["use_takuji"]:
-                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児: {rt['takuji_addr']}</span><br>"
+                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
                         disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                         st.markdown(disp_str, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
