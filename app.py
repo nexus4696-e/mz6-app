@@ -44,8 +44,9 @@ def parse_cast_address(raw_address):
 def encode_cast_address(home, takuji_enabled, takuji_addr, is_self_edited):
     return f"{home}||{takuji_enabled}||{takuji_addr}||{is_self_edited}"
 
+# 🌟 立ち寄り先（stopover）を安全に追加
 def parse_attendance_memo(raw_memo):
-    if not raw_memo: return "", "", "0", "", "", ""
+    if not raw_memo: return "", "", "0", "", "", "", ""
     parts = str(raw_memo).split("||")
     memo = parts[0]
     temp_addr = parts[1] if len(parts) > 1 else ""
@@ -53,10 +54,11 @@ def parse_attendance_memo(raw_memo):
     early_driver = parts[3] if len(parts) > 3 else ""
     early_time = parts[4] if len(parts) > 4 else ""
     early_dest = parts[5] if len(parts) > 5 else ""
-    return memo, temp_addr, takuji_cancel, early_driver, early_time, early_dest
+    stopover = parts[6] if len(parts) > 6 else ""
+    return memo, temp_addr, takuji_cancel, early_driver, early_time, early_dest, stopover
 
-def encode_attendance_memo(memo, temp_addr, takuji_cancel, early_driver="", early_time="", early_dest=""):
-    return f"{memo}||{temp_addr}||{takuji_cancel}||{early_driver}||{early_time}||{early_dest}"
+def encode_attendance_memo(memo, temp_addr, takuji_cancel, early_driver="", early_time="", early_dest="", stopover=""):
+    return f"{memo}||{temp_addr}||{takuji_cancel}||{early_driver}||{early_time}||{early_dest}||{stopover}"
 
 def is_in_range(val, rng):
     if rng == "全表示": return True
@@ -165,6 +167,20 @@ st.markdown("""
     
     header, footer, [data-testid="stToolbar"], [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
     a[href^="https://streamlit.io/cloud"] { display: none !important; }
+    
+    @media (max-width: 640px) {
+        div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 5px !important;
+        }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+            width: auto !important;
+        }
+    }
 
     div.stButton > button {
         padding: 0px 5px !important;
@@ -173,6 +189,7 @@ st.markdown("""
         line-height: 1.2 !important;
         font-size: 14px !important;
         font-weight: bold !important;
+        white-space: nowrap !important;
         width: 100% !important;
     }
 
@@ -195,30 +212,6 @@ st.markdown("""
     
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
         border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #fff !important;
-    }
-    div[data-baseweb="input"] > div:focus-within, div[data-baseweb="select"] > div:focus-within, div[data-baseweb="textarea"] > div:focus-within {
-        border: 2px solid #e91e63 !important; box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
-    }
-
-    /* パスワード入力を絶対に壊さず、上部のナビボタン「だけ」を横一列に画面内に収める安全なコード */
-    div.element-container:has(#nav-marker) + div.element-container div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 5px !important;
-    }
-    div.element-container:has(#nav-marker) + div.element-container div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        width: 100% !important;
-        flex: 1 1 0% !important;
-        min-width: 0 !important;
-    }
-    div.element-container:has(#nav-marker) + div.element-container button {
-        padding: 0 !important;
-        font-size: 14px !important;
-        width: 100% !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -429,9 +422,16 @@ elif st.session_state.page == "cast_mypage":
             col_t1, col_t2 = st.columns([3, 1.2]) 
             with col_t1:
                 st.radio("状態", ["未定", "出勤", "自走", "休み"], horizontal=True, key="today_s", label_visibility="collapsed")
-                st.text_input("備考 (同伴・送り先など)", placeholder="備考", key="today_m")
+                st.text_input("備考", placeholder="備考", key="today_m")
                 
                 st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
+                # 🌟 新機能：同伴などの立ち寄り先を追加
+                req_stopover = st.checkbox("🍽️ 本日、途中で寄る場所（同伴先など）がある", key="req_stopover_today")
+                stopover_addr = ""
+                if req_stopover:
+                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
+                    stopover_addr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_today", placeholder="例：倉敷市阿知〇-〇 〇〇店")
+
                 req_change = st.checkbox("📍 本日のみ迎え先を指定の場所に変更する", key="req_chg_today")
                 temp_m_addr = ""
                 if req_change:
@@ -447,7 +447,7 @@ elif st.session_state.page == "cast_mypage":
                 st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True) 
                 if st.form_submit_button("📤 送信", type="primary", use_container_width=True):
                     if st.session_state.today_s != "未定":
-                        encoded_memo = encode_attendance_memo(st.session_state.today_m, temp_m_addr, takuji_cancel_val)
+                        encoded_memo = encode_attendance_memo(st.session_state.today_m, temp_m_addr, takuji_cancel_val, "", "", "", stopover_addr)
                         rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": st.session_state.today_s, "memo": encoded_memo, "target_date": "当日"}
                         res = post_api({"action": "save_attendance", "records": [rec]})
                         if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
@@ -462,6 +462,12 @@ elif st.session_state.page == "cast_mypage":
                 st.text_input("明日の備考", placeholder="備考", key="tmr_m")
                 
                 st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
+                req_stopover_tmr = st.checkbox("🍽️ 明日、途中で寄る場所（同伴先など）がある", key="req_stopover_tmr")
+                stopover_addr_tmr = ""
+                if req_stopover_tmr:
+                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
+                    stopover_addr_tmr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_tmr", placeholder="例：倉敷市阿知〇-〇 〇〇店")
+
                 req_change_tmr = st.checkbox("📍 明日のみ迎え先を指定の場所に変更する", key="req_chg_tmr")
                 temp_m_addr_tmr = ""
                 if req_change_tmr:
@@ -477,7 +483,7 @@ elif st.session_state.page == "cast_mypage":
                 st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
                 if st.form_submit_button("📤 送信", type="primary", use_container_width=True):
                     if st.session_state.tmr_s != "未定":
-                        encoded_memo_tmr = encode_attendance_memo(st.session_state.tmr_m, temp_m_addr_tmr, takuji_cancel_val_tmr)
+                        encoded_memo_tmr = encode_attendance_memo(st.session_state.tmr_m, temp_m_addr_tmr, takuji_cancel_val_tmr, "", "", "", stopover_addr_tmr)
                         rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": st.session_state.tmr_s, "memo": encoded_memo_tmr, "target_date": "翌日"}
                         res = post_api({"action": "save_attendance", "records": [rec]})
                         if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
@@ -511,7 +517,7 @@ elif st.session_state.page == "cast_mypage":
                 records = []
                 for w in weekly_data:
                     if w['attend'] != "未定":
-                        encoded_memo_week = encode_attendance_memo(w['memo'], "", "0")
+                        encoded_memo_week = encode_attendance_memo(w['memo'], "", "0", "", "", "", "")
                         records.append({
                             "cast_id": c["店番"],
                             "cast_name": c["キャスト名"],
@@ -570,7 +576,7 @@ elif st.session_state.page == "staff_portal":
         early_tasks_raw = [row for row in attendance if row["target_date"] == "当日" and row["status"] in ["出勤"]]
         my_early_tasks = []
         for t in early_tasks_raw:
-            _, _, _, e_drv, e_time, e_dest = parse_attendance_memo(t.get("memo", ""))
+            _, _, _, e_drv, e_time, e_dest, _ = parse_attendance_memo(t.get("memo", ""))
             if e_drv == staff_name:
                 _, dist = get_route_line_and_distance(e_dest)
                 my_early_tasks.append({
@@ -626,7 +632,7 @@ elif st.session_state.page == "staff_portal":
                     raw_addr = c_info.get("address", "") if c_info else ""
                     home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
                     raw_memo = t.get("memo", "")
-                    _, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
+                    _, temp_addr, takuji_cancel, _, _, _, _ = parse_attendance_memo(raw_memo)
                     
                     actual_pickup = temp_addr if temp_addr else home_addr
                     use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
@@ -669,13 +675,14 @@ elif st.session_state.page == "staff_portal":
             c_info_first = next((c for c in casts if str(c["cast_id"]) == str(first_t["cast_id"])), None)
             addr_first_raw = c_info_first.get("address", "") if c_info_first else ""
             home_first, _, _, _ = parse_cast_address(addr_first_raw)
-            _, temp_first, _, _, _, _ = parse_attendance_memo(first_t.get("memo", ""))
+            _, temp_first, _, _, _, _, _ = parse_attendance_memo(first_t.get("memo", ""))
             actual_first_pickup = temp_first if temp_first else home_first
             _, dist_first = get_route_line_and_distance(actual_first_pickup)
             dep_time = calc_dep_time(first_t['pickup_time'], dist_first)
             
             st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 2px solid #f44336;'>🚀 店舗出発時刻（目安）: {dep_time}</div>", unsafe_allow_html=True)
 
+            # 🌟 全体ナビゲーションに立ち寄り先(経由地)を反映
             valid_addrs = []
             for t in my_tasks:
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
@@ -683,13 +690,15 @@ elif st.session_state.page == "staff_portal":
                     raw_addr = c_info.get("address", "")
                     home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
                     raw_memo = t.get("memo", "")
-                    _, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
+                    _, temp_addr, takuji_cancel, _, _, _, stopover = parse_attendance_memo(raw_memo)
                     
                     actual_pickup = temp_addr if temp_addr else home_addr
                     use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
                     
                     if actual_pickup and clean_address_for_map(actual_pickup):
                         valid_addrs.append(clean_address_for_map(actual_pickup))
+                    if stopover and clean_address_for_map(stopover):
+                        valid_addrs.append(clean_address_for_map(stopover))
                     if use_takuji and clean_address_for_map(takuji_addr):
                         valid_addrs.append(clean_address_for_map(takuji_addr))
             
@@ -709,7 +718,7 @@ elif st.session_state.page == "staff_portal":
                 raw_addr = c_info.get("address", "") if c_info else ""
                 home_addr, takuji_en, takuji_addr, is_edited = parse_cast_address(raw_addr)
                 raw_memo = t.get("memo", "")
-                memo_text, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
+                memo_text, temp_addr, takuji_cancel, e_drv, e_time, e_dest, stopover = parse_attendance_memo(raw_memo)
                 
                 actual_pickup = temp_addr if temp_addr else home_addr
                 use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
@@ -724,17 +733,29 @@ elif st.session_state.page == "staff_portal":
                 if mgr_phone: phone_btn = f"<a href='tel:{mgr_phone}' style='text-decoration:none; background:#4caf50; color:white; padding:4px 10px; border-radius:15px; font-size:12px; font-weight:bold; margin-left:10px; box-shadow:0 1px 3px rgba(0,0,0,0.2);'>📞 担当({mgr_name})</a>"
                 else: phone_btn = f"<span style='font-size:12px; color:#999; margin-left:10px;'>(担当:{mgr_name})</span>"
                 
+                # 🌟 個別マップに立ち寄り先を反映
                 clean_actual_pickup = clean_address_for_map(actual_pickup)
+                clean_stopover = clean_address_for_map(stopover)
                 clean_takuji = clean_address_for_map(takuji_addr) if use_takuji else ""
-                if clean_takuji and clean_actual_pickup:
-                    ind_map_url = f"https://www.google.com/maps/dir/現在地/{urllib.parse.quote(clean_actual_pickup)}/{urllib.parse.quote(clean_takuji)}?hl=ja"
-                else:
-                    ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(clean_actual_pickup)}?hl=ja" if clean_actual_pickup else ""
+                
+                route_points = []
+                if clean_actual_pickup: route_points.append(clean_actual_pickup)
+                if clean_stopover: route_points.append(clean_stopover)
+                if clean_takuji: route_points.append(clean_takuji)
+                
+                ind_map_url = ""
+                if len(route_points) >= 2:
+                    route_str = "/".join([urllib.parse.quote(p) for p in route_points])
+                    ind_map_url = f"https://www.google.com/maps/dir/現在地/{route_str}?hl=ja"
+                elif len(route_points) == 1:
+                    ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(route_points[0])}?hl=ja"
+
                 map_btn = f"<a href='{ind_map_url}' target='_blank' style='text-decoration:none; background:#e3f2fd; color:#1565c0; font-weight:bold; padding:4px 10px; border-radius:15px; font-size:12px; border:1px solid #2196f3; margin-left:5px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>📍 個別マップ</a>" if ind_map_url else ""
 
-                addr_display = f"🏠 自宅: {home_addr if home_addr else '未登録'}"
+                addr_display = f"🏠 迎え: {home_addr if home_addr else '未登録'}"
                 if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
                 if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {temp_addr}</span>"
+                if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り: {stopover}</span>"
                 if use_takuji: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
                 if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
 
@@ -781,7 +802,7 @@ elif st.session_state.page == "staff_portal":
                 
                 if takuji_en == "1" and takuji_cancel == "0":
                     if st.button("👶 本日の託児をキャンセル", key=f"cancel_t_{t['id']}", use_container_width=True):
-                        new_memo = encode_attendance_memo(memo_text, temp_addr, "1")
+                        new_memo = encode_attendance_memo(memo_text, temp_addr, "1", e_drv, e_time, e_dest, stopover)
                         rec = {"cast_id": t["cast_id"], "cast_name": t["cast_name"], "area": c_info["area"], "status": t["status"], "memo": new_memo, "target_date": "当日"}
                         res = post_api({"action": "save_attendance", "records": [rec]})
                         if res.get("status") == "success": clear_cache(); st.rerun()
@@ -858,7 +879,7 @@ elif st.session_state.page == "staff_portal":
                                 c_info = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
                                 raw_addr = c_info.get("address", "")
                                 home_addr, _, _, _ = parse_cast_address(raw_addr)
-                                _, temp_addr, _, _, _, _ = parse_attendance_memo(row.get("memo", ""))
+                                _, temp_addr, _, _, _, _, _ = parse_attendance_memo(row.get("memo", ""))
                                 actual_pickup = temp_addr if temp_addr else home_addr
                                 
                                 line, dst = get_route_line_and_distance(actual_pickup)
@@ -993,7 +1014,7 @@ elif st.session_state.page == "staff_portal":
                         raw_addr = c_info.get("address", "") if c_info else ""
                         home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
                         raw_memo = t.get("memo", "")
-                        _, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
+                        _, temp_addr, takuji_cancel, _, _, _, _ = parse_attendance_memo(raw_memo)
                         
                         actual_pickup = temp_addr if temp_addr else home_addr
                         use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
@@ -1034,7 +1055,7 @@ elif st.session_state.page == "staff_portal":
                 c_info_first = next((c for c in casts if str(c["cast_id"]) == str(first_t["cast_id"])), None)
                 addr_first_raw = c_info_first.get("address", "") if c_info_first else ""
                 home_first, _, _, _ = parse_cast_address(addr_first_raw)
-                _, temp_first, _, _, _, _ = parse_attendance_memo(first_t.get("memo", ""))
+                _, temp_first, _, _, _, _, _ = parse_attendance_memo(first_t.get("memo", ""))
                 actual_first_pickup = temp_first if temp_first else home_first
                 _, dist_first = get_route_line_and_distance(actual_first_pickup)
                 dep_time = calc_dep_time(first_t['pickup_time'], dist_first)
@@ -1058,13 +1079,15 @@ elif st.session_state.page == "staff_portal":
                             raw_addr = c_info.get("address", "")
                             home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
                             raw_memo = r.get("memo", "")
-                            _, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
+                            _, temp_addr, takuji_cancel, _, _, _, stopover = parse_attendance_memo(raw_memo)
                             
                             actual_pickup = temp_addr if temp_addr else home_addr
                             use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
                             
                             if actual_pickup and clean_address_for_map(actual_pickup):
                                 valid_addrs.append(clean_address_for_map(actual_pickup))
+                            if stopover and clean_address_for_map(stopover):
+                                valid_addrs.append(clean_address_for_map(stopover))
                             if use_takuji and clean_address_for_map(takuji_addr):
                                 valid_addrs.append(clean_address_for_map(takuji_addr))
                     
@@ -1082,30 +1105,41 @@ elif st.session_state.page == "staff_portal":
                     home_addr, takuji_en, takuji_addr, is_edited = parse_cast_address(raw_addr)
                     
                     raw_memo = t.get("memo", "")
-                    memo_text, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
+                    memo_text, temp_addr, takuji_cancel, e_drv, e_time, e_dest, stopover = parse_attendance_memo(raw_memo)
                     
                     actual_pickup = temp_addr if temp_addr else home_addr
                     use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
                     
                     clean_actual_pickup = clean_address_for_map(actual_pickup)
+                    clean_stopover = clean_address_for_map(stopover)
                     clean_takuji = clean_address_for_map(takuji_addr) if use_takuji else ""
-                    if clean_takuji and clean_actual_pickup:
-                        ind_map_url = f"https://www.google.com/maps/dir/現在地/{urllib.parse.quote(clean_actual_pickup)}/{urllib.parse.quote(clean_takuji)}?hl=ja"
-                    else:
-                        ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(clean_actual_pickup)}?hl=ja" if clean_actual_pickup else ""
-                    map_btn = f"<a href='{ind_map_url}' target='_blank' style='text-decoration:none; background:#e3f2fd; padding:2px 8px; border-radius:10px; font-size:12px; border:1px solid #2196f3; margin-left:5px;'>📍 マップ</a>" if ind_map_url else ""
                     
-                    addr_display = f"🏠 自宅: {home_addr if home_addr else '未登録'}"
+                    route_points = []
+                    if clean_actual_pickup: route_points.append(clean_actual_pickup)
+                    if clean_stopover: route_points.append(clean_stopover)
+                    if clean_takuji: route_points.append(clean_takuji)
+                    
+                    ind_map_url = ""
+                    if len(route_points) >= 2:
+                        route_str = "/".join([urllib.parse.quote(p) for p in route_points])
+                        ind_map_url = f"https://www.google.com/maps/dir/現在地/{route_str}?hl=ja"
+                    elif len(route_points) == 1:
+                        ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(route_points[0])}?hl=ja"
+
+                    map_btn = f"<a href='{ind_map_url}' target='_blank' style='text-decoration:none; background:#e3f2fd; color:#1565c0; font-weight:bold; padding:4px 10px; border-radius:15px; font-size:12px; border:1px solid #2196f3; margin-left:5px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>📍 個別マップ</a>" if ind_map_url else ""
+                    
+                    addr_display = f"🏠 迎え: {home_addr if home_addr else '未登録'}"
                     if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
                     if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {temp_addr}</span>"
+                    if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {stopover}</span>"
                     if use_takuji: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
                     if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
                     
                     st.markdown(f"**{t['pickup_time'] if t['pickup_time'] else '未定'}**　<span style='font-size:16px; font-weight:bold;'>{t['cast_name']}</span> {map_btn}<br><span style='font-size:12px; color:#555;'>({t['status']})</span><br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
                     
                     if takuji_en == "1" and takuji_cancel == "0":
-                        if st.button("👶 託児キャンセル", key=f"cancel_t_{t['id']}", use_container_width=True):
-                            new_memo = encode_attendance_memo(memo_text, temp_addr, "1")
+                        if st.button("👶 本日の託児をキャンセル", key=f"cancel_t_{t['id']}", use_container_width=True):
+                            new_memo = encode_attendance_memo(memo_text, temp_addr, "1", e_drv, e_time, e_dest, stopover)
                             rec = {"cast_id": t["cast_id"], "cast_name": t["cast_name"], "area": c_info["area"], "status": t["status"], "memo": new_memo, "target_date": "当日"}
                             res = post_api({"action": "save_attendance", "records": [rec]})
                             if res.get("status") == "success": clear_cache(); st.rerun()
@@ -1169,14 +1203,14 @@ elif st.session_state.page == "staff_portal":
                             for item in st.session_state.early_list:
                                 target_row = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(item["cast_id"])), None)
                                 if target_row:
-                                    memo, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(target_row.get("memo", ""))
-                                    new_memo = encode_attendance_memo(memo, temp_addr, takuji_cancel, item["driver"], item["time"], item["dest"])
+                                    memo, temp_addr, takuji_cancel, _, _, _, stopover = parse_attendance_memo(target_row.get("memo", ""))
+                                    new_memo = encode_attendance_memo(memo, temp_addr, takuji_cancel, item["driver"], item["time"], item["dest"], stopover)
                                     updates.append({
                                         "cast_id": item["cast_id"], "cast_name": item["cast_name"], "area": target_row["area"],
                                         "status": target_row["status"], "memo": new_memo, "target_date": "当日"
                                     })
                                 else:
-                                    new_memo = encode_attendance_memo("", "", "0", item["driver"], item["time"], item["dest"])
+                                    new_memo = encode_attendance_memo("", "", "0", item["driver"], item["time"], item["dest"], "")
                                     c_info = next((c for c in casts if str(c["cast_id"]) == str(item["cast_id"])), {})
                                     updates.append({
                                         "cast_id": item["cast_id"], "cast_name": item["cast_name"], "area": c_info.get("area", "他"),
