@@ -32,6 +32,7 @@ def get_db_data():
 
 def clear_cache(): st.cache_data.clear()
 
+# 🌟 新機能用：既存のDB構造を壊さずデータを隠して保存・復元する処理
 def parse_cast_address(raw_address):
     if not raw_address: return "", "0", "", "0"
     parts = str(raw_address).split("||")
@@ -219,7 +220,10 @@ for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_sta
     if k not in st.session_state: st.session_state[k] = None if k != "page" else "home"
 if "is_admin" not in st.session_state: st.session_state.is_admin = False
 
-time_slots = [f"{h}:{m:02d}" for h in range(16, 27) for m in range(0, 60, 10)]
+# 通常便の時間帯
+time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
+# 🌟 早便専用の時間帯（14:00〜20:00）17:00の前後3時間
+early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
 
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px; box-shadow:0 1px 2px rgba(0,0,0,0.2);'>🔍 Googleマップを開いて住所を検索・コピー</a>"""
 
@@ -672,6 +676,7 @@ elif st.session_state.page == "staff_portal":
                     home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
                     raw_memo = t.get("memo", "")
                     _, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
+                    
                     actual_pickup = temp_addr if temp_addr else home_addr
                     use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
                     
@@ -721,7 +726,7 @@ elif st.session_state.page == "staff_portal":
 
                 addr_display = f"🏠 自宅: {home_addr if home_addr else '未登録'}"
                 if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
-                if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日迎え先: {temp_addr}</span>"
+                if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {temp_addr}</span>"
                 if use_takuji: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
                 if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
 
@@ -1089,6 +1094,13 @@ elif st.session_state.page == "staff_portal":
                     if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
                     
                     st.markdown(f"**{t['pickup_time'] if t['pickup_time'] else '未定'}**　<span style='font-size:16px; font-weight:bold;'>{t['cast_name']}</span> {map_btn}<br><span style='font-size:12px; color:#555;'>({t['status']})</span><br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                    
+                    if takuji_en == "1" and takuji_cancel == "0":
+                        if st.button("👶 託児キャンセル", key=f"cancel_t_{t['id']}", use_container_width=True):
+                            new_memo = encode_attendance_memo(memo_text, temp_addr, "1")
+                            rec = {"cast_id": t["cast_id"], "cast_name": t["cast_name"], "area": c_info["area"], "status": t["status"], "memo": new_memo, "target_date": "当日"}
+                            res = post_api({"action": "save_attendance", "records": [rec]})
+                            if res.get("status") == "success": clear_cache(); st.rerun()
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1098,7 +1110,7 @@ elif st.session_state.page == "staff_portal":
         elif st.session_state.staff_tab == "② キャスト送迎":
             st.markdown(f'<div style="text-align:center; font-size:18px; font-weight:bold;">{today_str} ({dow})</div><div style="text-align:center; color:#aaa; font-size:12px; margin-bottom:15px;">▼ 全キャスト送迎管理 ▼</div>', unsafe_allow_html=True)
             
-            # 🌟 新機能：早便設定（入力リセット機能付き）
+            # 🌟 新機能：早便設定（入力リセット機能付き、時間は17:00基準）
             with st.expander("🌅 早便設定（送り便の個別指定）", expanded=False):
                 if "early_form_key" not in st.session_state:
                     st.session_state.early_form_key = 0
@@ -1113,7 +1125,14 @@ elif st.session_state.page == "staff_portal":
                 selected_d = st.selectbox("担当送迎ドライバー", ["未定"] + d_names, key=f"early_driver_{fk}")
                 st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                 early_dest = st.text_input("送迎先（送り先住所）", placeholder="例: 倉敷駅北口", key=f"early_dest_{fk}")
-                early_time = st.selectbox("到着指定時間", time_slots, index=time_slots.index("16:00") if "16:00" in time_slots else 0, key=f"early_time_{fk}")
+                
+                # 🌟 指定通り、早便専用の時間リスト（14:00〜20:00）を使用し、17:00をデフォルトに設定
+                early_time = st.selectbox(
+                    "到着指定時間", 
+                    early_time_slots, 
+                    index=early_time_slots.index("17:00") if "17:00" in early_time_slots else 0, 
+                    key=f"early_time_{fk}"
+                )
                 
                 if st.button("➕ このキャストを早便リストに追加", type="secondary", use_container_width=True, key=f"btn_add_early_{fk}"):
                     if selected_c != "-- 選択 --" and early_dest:
