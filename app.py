@@ -230,6 +230,8 @@ MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style=
 def render_top_nav():
     if st.session_state.page == "home": return
     
+    st.markdown('<span id="nav-marker" style="display:none;"></span>', unsafe_allow_html=True)
+    
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -1014,7 +1016,7 @@ elif st.session_state.page == "staff_portal":
                     for idx, rt in enumerate(return_tasks):
                         disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
                         if rt["use_takuji"]:
-                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児: {rt['takuji_addr']}</span><br>"
+                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
                         disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                         st.markdown(disp_str, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
@@ -1193,18 +1195,27 @@ elif st.session_state.page == "staff_portal":
             </div>
             ''', unsafe_allow_html=True)
             
-            # 🌟 検索機能の完全改善（検索ボタン押下時のみ動作＋操作後に検索枠がクリア）
+            # 🌟 検索機能の完全改善（検索キーを管理して確実にリセット）
+            if "search_cast_key" not in st.session_state:
+                st.session_state.search_cast_key = 0
             if "active_search_query" not in st.session_state:
                 st.session_state.active_search_query = ""
                 
             st.markdown("<div style='font-size:14px; font-weight:bold; color:#555; margin-bottom:5px;'>🔍 キャスト検索</div>", unsafe_allow_html=True)
             col_search1, col_search2 = st.columns([3, 1])
             with col_search1:
-                st.text_input("検索キーワード", placeholder="名前 または 店番", key="search_cast_input", label_visibility="collapsed")
+                input_q = st.text_input("検索キーワード", placeholder="名前 または 店番", key=f"search_input_{st.session_state.search_cast_key}", label_visibility="collapsed")
             with col_search2:
                 if st.button("検索", type="secondary", use_container_width=True):
-                    st.session_state.active_search_query = st.session_state.search_cast_input
-                    
+                    st.session_state.active_search_query = input_q
+                    st.rerun()
+
+            # リセット用関数
+            def reset_search():
+                st.session_state.active_search_query = ""
+                st.session_state.search_cast_key += 1
+                clear_cache()
+
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed")
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
             
@@ -1236,49 +1247,52 @@ elif st.session_state.page == "staff_portal":
                     else: st.markdown('<div style="color:#aaa; text-align:right; padding-top:5px;">未定</div>', unsafe_allow_html=True)
                 st.markdown("<hr style='margin:5px 0;'>", unsafe_allow_html=True)
                 
+                # 🌟 新機能：通常はドライバー指定を表示せず、ボタン(チェック)で展開する
                 current_driver = target_row["driver_name"] if is_dispatch else "未定"
                 if not current_driver: current_driver = "未定"
-                d_idx = d_names.index(current_driver) + 1 if current_driver in d_names else 0
-                
-                col_d_lbl, col_d_sel = st.columns([1.5, 3.5])
-                with col_d_lbl:
-                    st.markdown("<div style='font-size:13px; font-weight:bold; padding-top:10px; color:#555;'>担当ドライバー</div>", unsafe_allow_html=True)
-                with col_d_sel:
-                    selected_driver = st.selectbox("担当ドライバー", ["未定"] + d_names, index=d_idx, key=f"drv_sel_{c_id}", label_visibility="collapsed")
-                
-                st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
                 
                 if is_dispatch:
+                    st.markdown(f"<div style='font-size:13px; margin-bottom:10px;'>現在の担当: <b>{current_driver}</b></div>", unsafe_allow_html=True)
+                    
+                    specify_driver = st.checkbox("担当ドライバーを変更する", key=f"sp_drv_{c_id}")
+                    if specify_driver:
+                        d_idx = d_names.index(current_driver) + 1 if current_driver in d_names else 0
+                        selected_driver = st.selectbox("新しい担当ドライバー", ["未定"] + d_names, index=d_idx, key=f"drv_sel_{c_id}", label_visibility="collapsed")
+                    else:
+                        selected_driver = current_driver
+
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1:
-                        if st.button("🔄 担当を更新", key=f"upd_{c_id}", use_container_width=True):
-                            updates = [{"id": target_row["id"], "driver_name": selected_driver, "pickup_time": target_row["pickup_time"], "status": target_row["status"]}]
-                            res = post_api({"action": "update_manual_dispatch", "updates": updates})
-                            if res.get("status") == "success": 
-                                clear_cache()
-                                st.session_state.active_search_query = ""
-                                st.session_state.search_cast_input = ""
-                                st.rerun()
-                            else: st.error("更新失敗")
+                        if specify_driver:
+                            if st.button("🔄 担当を更新", key=f"upd_{c_id}", type="primary", use_container_width=True):
+                                updates = [{"id": target_row["id"], "driver_name": selected_driver, "pickup_time": target_row["pickup_time"], "status": target_row["status"]}]
+                                res = post_api({"action": "update_manual_dispatch", "updates": updates})
+                                if res.get("status") == "success": 
+                                    reset_search()
+                                    st.rerun()
+                                else: st.error("更新失敗")
                     with col_btn2:
                         if st.button("❌ 取消す", key=f"cancel_{c_id}", use_container_width=True):
                             res = post_api({"action": "cancel_dispatch", "cast_id": c_id})
                             if res.get("status") == "success": 
-                                clear_cache()
-                                st.session_state.active_search_query = ""
-                                st.session_state.search_cast_input = ""
+                                reset_search()
                                 st.rerun()
-                            else: st.error("取消失敗: " + res.get("message"))
+                            else: st.error("取消失敗")
                 else:
-                    if st.button("☑ このドライバーで送迎に追加", key=f"add_{c_id}", type="primary", use_container_width=True):
+                    specify_driver = st.checkbox("ドライバーを個別に指定する", key=f"sp_drv_{c_id}")
+                    if specify_driver:
+                        selected_driver = st.selectbox("担当ドライバー", ["未定"] + d_names, index=0, key=f"drv_sel_{c_id}", label_visibility="collapsed")
+                    else:
+                        selected_driver = "未定"
+
+                    if st.button("☑ 送迎リストに追加する", key=f"add_{c_id}", type="primary", use_container_width=True):
                         payload = {"action": "create_or_update_dispatch", "cast_id": c_id, "cast_name": c_name, "area": pref, "pickup_time": "未定", "driver_name": selected_driver}
                         res = post_api(payload)
                         if res.get("status") == "success": 
-                            clear_cache()
-                            st.session_state.active_search_query = ""
-                            st.session_state.search_cast_input = ""
+                            reset_search()
                             st.rerun()
                         else: st.error("追加失敗: " + res.get("message"))
+                        
                 st.markdown('</div>', unsafe_allow_html=True)
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
