@@ -44,7 +44,6 @@ def parse_cast_address(raw_address):
 def encode_cast_address(home, takuji_enabled, takuji_addr, is_self_edited):
     return f"{home}||{takuji_enabled}||{takuji_addr}||{is_self_edited}"
 
-# 🌟 立ち寄り先（stopover）を安全に追加
 def parse_attendance_memo(raw_memo):
     if not raw_memo: return "", "", "0", "", "", "", ""
     parts = str(raw_memo).split("||")
@@ -425,7 +424,6 @@ elif st.session_state.page == "cast_mypage":
                 st.text_input("備考", placeholder="備考", key="today_m")
                 
                 st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
-                # 🌟 新機能：同伴などの立ち寄り先を追加
                 req_stopover = st.checkbox("🍽️ 本日、途中で寄る場所（同伴先など）がある", key="req_stopover_today")
                 stopover_addr = ""
                 if req_stopover:
@@ -682,7 +680,6 @@ elif st.session_state.page == "staff_portal":
             
             st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 2px solid #f44336;'>🚀 店舗出発時刻（目安）: {dep_time}</div>", unsafe_allow_html=True)
 
-            # 🌟 全体ナビゲーションに立ち寄り先(経由地)を反映
             valid_addrs = []
             for t in my_tasks:
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
@@ -733,7 +730,6 @@ elif st.session_state.page == "staff_portal":
                 if mgr_phone: phone_btn = f"<a href='tel:{mgr_phone}' style='text-decoration:none; background:#4caf50; color:white; padding:4px 10px; border-radius:15px; font-size:12px; font-weight:bold; margin-left:10px; box-shadow:0 1px 3px rgba(0,0,0,0.2);'>📞 担当({mgr_name})</a>"
                 else: phone_btn = f"<span style='font-size:12px; color:#999; margin-left:10px;'>(担当:{mgr_name})</span>"
                 
-                # 🌟 個別マップに立ち寄り先を反映
                 clean_actual_pickup = clean_address_for_map(actual_pickup)
                 clean_stopover = clean_address_for_map(stopover)
                 clean_takuji = clean_address_for_map(takuji_addr) if use_takuji else ""
@@ -755,7 +751,7 @@ elif st.session_state.page == "staff_portal":
                 addr_display = f"🏠 迎え: {home_addr if home_addr else '未登録'}"
                 if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
                 if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {temp_addr}</span>"
-                if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り: {stopover}</span>"
+                if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {stopover}</span>"
                 if use_takuji: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
                 if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
 
@@ -879,9 +875,13 @@ elif st.session_state.page == "staff_portal":
                                 c_info = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
                                 raw_addr = c_info.get("address", "")
                                 home_addr, _, _, _ = parse_cast_address(raw_addr)
-                                _, temp_addr, _, _, _, _, _ = parse_attendance_memo(row.get("memo", ""))
-                                actual_pickup = temp_addr if temp_addr else home_addr
+                                _, temp_addr, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
                                 
+                                # 🌟 【修正】早便に設定されているキャストはAI自動配車の対象から除外（上書きを防止）
+                                if e_drv and e_drv != "未定" and e_drv != "":
+                                    continue
+                                
+                                actual_pickup = temp_addr if temp_addr else home_addr
                                 line, dst = get_route_line_and_distance(actual_pickup)
                                 all_today_casts.append({"row": row, "line": line, "dist": dst})
                         
@@ -898,6 +898,12 @@ elif st.session_state.page == "staff_portal":
                             if uc["row"]["status"] == "自走":
                                 uc["row"]["driver_name"] = "未定"
                                 uc["row"]["pickup_time"] = "未定"
+                                continue
+                                
+                            # 🌟 【修正】既に個別でドライバーが指定されているキャストはAIで上書きせず、指定ドライバーに固定する
+                            already_assigned = uc["row"].get("driver_name")
+                            if already_assigned and already_assigned != "未定" and already_assigned in drv_specs:
+                                drv_specs[already_assigned]["assigned_rows"].append(uc)
                                 continue
                                 
                             assigned_d = None
@@ -1206,8 +1212,10 @@ elif st.session_state.page == "staff_portal":
                                     memo, temp_addr, takuji_cancel, _, _, _, stopover = parse_attendance_memo(target_row.get("memo", ""))
                                     new_memo = encode_attendance_memo(memo, temp_addr, takuji_cancel, item["driver"], item["time"], item["dest"], stopover)
                                     updates.append({
+                                        "id": target_row.get("id"),
                                         "cast_id": item["cast_id"], "cast_name": item["cast_name"], "area": target_row["area"],
-                                        "status": target_row["status"], "memo": new_memo, "target_date": "当日"
+                                        "status": "出勤", # 🌟 【修正済】未定のキャストでも強制的に「出勤」として保存し、画面から消えるバグを解消
+                                        "memo": new_memo, "target_date": "当日"
                                     })
                                 else:
                                     new_memo = encode_attendance_memo("", "", "0", item["driver"], item["time"], item["dest"], "")
@@ -1220,6 +1228,7 @@ elif st.session_state.page == "staff_portal":
                                 res = post_api({"action": "save_attendance", "records": updates})
                                 if res.get("status") == "success":
                                     st.session_state.early_list = []
+                                    st.session_state.early_form_key += 1
                                     clear_cache(); st.success("✅ 早便の割り当てが完了しました！"); time.sleep(1.5); st.rerun()
                                 else: st.error("エラーが発生しました。")
                     with col_eb2:
