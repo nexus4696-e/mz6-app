@@ -219,10 +219,8 @@ for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_sta
     if k not in st.session_state: st.session_state[k] = None if k != "page" else "home"
 if "is_admin" not in st.session_state: st.session_state.is_admin = False
 
-# 🌟 時間の選択肢を「16:00」からに変更
 time_slots = [f"{h}:{m:02d}" for h in range(16, 27) for m in range(0, 60, 10)]
 
-# Googleマップ検索ボタンのHTML（各所に再利用）
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px; box-shadow:0 1px 2px rgba(0,0,0,0.2);'>🔍 Googleマップを開いて住所を検索・コピー</a>"""
 
 # ==========================================
@@ -339,7 +337,7 @@ elif st.session_state.page == "staff_login":
     if not staff_list: st.warning("※管理者が「④ STAFF設定」からスタッフ登録を行ってください")
     else:
         for d in staff_list:
-            st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd;'>👤 {d['name']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-bottom:10px;'>👤 {d['name']}</div>", unsafe_allow_html=True)
             colA, colB = st.columns([3, 2])
             with colA: 
                 p_in = st.text_input("パスワード", type="password", key=f"pass_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
@@ -557,7 +555,6 @@ elif st.session_state.page == "staff_portal":
     if not is_admin:
         st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">本日の配車ルート</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
         
-        # 🌟 早便の抽出・表示
         early_tasks_raw = [row for row in attendance if row["target_date"] == "当日" and row["status"] in ["出勤"]]
         my_early_tasks = []
         for t in early_tasks_raw:
@@ -651,7 +648,7 @@ elif st.session_state.page == "staff_portal":
                 for idx, rt in enumerate(return_tasks):
                     disp_str = f"<div style='font-size:14px;'><b>降車順 {idx+1}</b>：店番 {rt['c_id']} <b>{rt['c_name']}</b><br>"
                     if rt["use_takuji"]:
-                        disp_str += f"<span style='color:#2196f3;font-size:12px;font-weight:bold;'>👶 託児: {rt['takuji_addr']}</span><br>"
+                        disp_str += f"<span style='color:#2196f3;font-size:12px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
                     disp_str += f"<span style='color:#666;font-size:12px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                     st.markdown(disp_str, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -675,7 +672,6 @@ elif st.session_state.page == "staff_portal":
                     home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
                     raw_memo = t.get("memo", "")
                     _, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
-                    
                     actual_pickup = temp_addr if temp_addr else home_addr
                     use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
                     
@@ -699,7 +695,6 @@ elif st.session_state.page == "staff_portal":
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
                 raw_addr = c_info.get("address", "") if c_info else ""
                 home_addr, takuji_en, takuji_addr, is_edited = parse_cast_address(raw_addr)
-                
                 raw_memo = t.get("memo", "")
                 memo_text, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
                 
@@ -716,16 +711,6 @@ elif st.session_state.page == "staff_portal":
                 if mgr_phone: phone_btn = f"<a href='tel:{mgr_phone}' style='text-decoration:none; background:#4caf50; color:white; padding:4px 10px; border-radius:15px; font-size:12px; font-weight:bold; margin-left:10px; box-shadow:0 1px 3px rgba(0,0,0,0.2);'>📞 担当({mgr_name})</a>"
                 else: phone_btn = f"<span style='font-size:12px; color:#999; margin-left:10px;'>(担当:{mgr_name})</span>"
                 
-                addr_display = f"🏠 自宅: {home_addr if home_addr else '未登録'}"
-                if is_edited == "1":
-                    addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅キャスト更新済)</span>"
-                if temp_addr:
-                    addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日迎え先: {temp_addr}</span>"
-                if use_takuji:
-                    addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
-                if memo_text:
-                    addr_display += f"<br>📝 備考: {memo_text}"
-
                 clean_actual_pickup = clean_address_for_map(actual_pickup)
                 clean_takuji = clean_address_for_map(takuji_addr) if use_takuji else ""
                 if clean_takuji and clean_actual_pickup:
@@ -733,6 +718,12 @@ elif st.session_state.page == "staff_portal":
                 else:
                     ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(clean_actual_pickup)}?hl=ja" if clean_actual_pickup else ""
                 map_btn = f"<a href='{ind_map_url}' target='_blank' style='text-decoration:none; background:#e3f2fd; color:#1565c0; font-weight:bold; padding:4px 10px; border-radius:15px; font-size:12px; border:1px solid #2196f3; margin-left:5px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>📍 個別マップ</a>" if ind_map_url else ""
+
+                addr_display = f"🏠 自宅: {home_addr if home_addr else '未登録'}"
+                if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
+                if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日迎え先: {temp_addr}</span>"
+                if use_takuji: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
+                if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
 
                 st.markdown(f"""
                 <div class='driver-card' style='margin-bottom:5px;'>
@@ -1098,13 +1089,6 @@ elif st.session_state.page == "staff_portal":
                     if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
                     
                     st.markdown(f"**{t['pickup_time'] if t['pickup_time'] else '未定'}**　<span style='font-size:16px; font-weight:bold;'>{t['cast_name']}</span> {map_btn}<br><span style='font-size:12px; color:#555;'>({t['status']})</span><br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
-                    
-                    if takuji_en == "1" and takuji_cancel == "0":
-                        if st.button("👶 託児キャンセル", key=f"cancel_t_{t['id']}", use_container_width=True):
-                            new_memo = encode_attendance_memo(memo_text, temp_addr, "1")
-                            rec = {"cast_id": t["cast_id"], "cast_name": t["cast_name"], "area": c_info["area"], "status": t["status"], "memo": new_memo, "target_date": "当日"}
-                            res = post_api({"action": "save_attendance", "records": [rec]})
-                            if res.get("status") == "success": clear_cache(); st.rerun()
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1114,16 +1098,24 @@ elif st.session_state.page == "staff_portal":
         elif st.session_state.staff_tab == "② キャスト送迎":
             st.markdown(f'<div style="text-align:center; font-size:18px; font-weight:bold;">{today_str} ({dow})</div><div style="text-align:center; color:#aaa; font-size:12px; margin-bottom:15px;">▼ 全キャスト送迎管理 ▼</div>', unsafe_allow_html=True)
             
-            # 🌟 新機能：早便設定機能（デフォルト16:00）
+            # 🌟 新機能：早便設定（入力リセット機能付き）
             with st.expander("🌅 早便設定（送り便の個別指定）", expanded=False):
-                c_disp_list = ["-- 選択 --"] + [f"{c['cast_id']} {c['name']}" for c in casts if str(c.get("name", "")).strip() != ""]
-                selected_c = st.selectbox("早便希望キャスト", c_disp_list, key="early_cast")
-                selected_d = st.selectbox("担当送迎ドライバー", ["未定"] + d_names, key="early_driver")
-                st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
-                early_dest = st.text_input("送迎先（送り先住所）", placeholder="例: 倉敷駅北口", key="early_dest")
-                early_time = st.selectbox("到着指定時間", time_slots, index=time_slots.index("16:00") if "16:00" in time_slots else 0, key="early_time")
+                if "early_form_key" not in st.session_state:
+                    st.session_state.early_form_key = 0
+                fk = st.session_state.early_form_key
                 
-                if st.button("➕ このキャストを早便リストに追加", type="secondary", use_container_width=True):
+                if st.session_state.get("early_msg"):
+                    st.success(st.session_state.early_msg)
+                    st.session_state.early_msg = ""
+                    
+                c_disp_list = ["-- 選択 --"] + [f"{c['cast_id']} {c['name']}" for c in casts if str(c.get("name", "")).strip() != ""]
+                selected_c = st.selectbox("早便希望キャスト", c_disp_list, key=f"early_cast_{fk}")
+                selected_d = st.selectbox("担当送迎ドライバー", ["未定"] + d_names, key=f"early_driver_{fk}")
+                st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
+                early_dest = st.text_input("送迎先（送り先住所）", placeholder="例: 倉敷駅北口", key=f"early_dest_{fk}")
+                early_time = st.selectbox("到着指定時間", time_slots, index=time_slots.index("16:00") if "16:00" in time_slots else 0, key=f"early_time_{fk}")
+                
+                if st.button("➕ このキャストを早便リストに追加", type="secondary", use_container_width=True, key=f"btn_add_early_{fk}"):
                     if selected_c != "-- 選択 --" and early_dest:
                         c_id = str(selected_c.split(" ")[0])
                         c_name = str(selected_c.split(" ")[1])
@@ -1132,7 +1124,9 @@ elif st.session_state.page == "staff_portal":
                         st.session_state.early_list.append({
                             "cast_id": c_id, "cast_name": c_name, "driver": selected_d, "dest": early_dest, "time": early_time
                         })
-                        st.success(f"{c_name} を追加しました！")
+                        st.session_state.early_msg = f"✅ {c_name} をリストに追加しました！続けて入力できます。"
+                        st.session_state.early_form_key += 1
+                        st.rerun()
                     else:
                         st.warning("キャストを選択し、送迎先を入力してください。")
                 
@@ -1142,30 +1136,37 @@ elif st.session_state.page == "staff_portal":
                     for idx, item in enumerate(st.session_state.early_list):
                         st.markdown(f"<div style='font-size:14px; margin-bottom:5px;'>・ {item['cast_name']} ➡️ {item['dest']} ({item['time']}着) / 担当: {item['driver']}</div>", unsafe_allow_html=True)
                     
-                    if st.button("🚀 決定（早便の自動振分けを実行）", type="primary", use_container_width=True):
-                        updates = []
-                        for item in st.session_state.early_list:
-                            target_row = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(item["cast_id"])), None)
-                            if target_row:
-                                memo, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(target_row.get("memo", ""))
-                                new_memo = encode_attendance_memo(memo, temp_addr, takuji_cancel, item["driver"], item["time"], item["dest"])
-                                updates.append({
-                                    "cast_id": item["cast_id"], "cast_name": item["cast_name"], "area": target_row["area"],
-                                    "status": target_row["status"], "memo": new_memo, "target_date": "当日"
-                                })
-                            else:
-                                new_memo = encode_attendance_memo("", "", "0", item["driver"], item["time"], item["dest"])
-                                c_info = next((c for c in casts if str(c["cast_id"]) == str(item["cast_id"])), {})
-                                updates.append({
-                                    "cast_id": item["cast_id"], "cast_name": item["cast_name"], "area": c_info.get("area", "他"),
-                                    "status": "出勤", "memo": new_memo, "target_date": "当日"
-                                })
-                        if updates:
-                            res = post_api({"action": "save_attendance", "records": updates})
-                            if res.get("status") == "success":
-                                st.session_state.early_list = []
-                                clear_cache(); st.success("✅ 早便の割り当てが完了しました！"); time.sleep(1.5); st.rerun()
-                            else: st.error("エラーが発生しました。")
+                    st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+                    col_eb1, col_eb2 = st.columns([3, 1.2])
+                    with col_eb1:
+                        if st.button("🚀 決定（自動振分けを実行）", type="primary", use_container_width=True):
+                            updates = []
+                            for item in st.session_state.early_list:
+                                target_row = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(item["cast_id"])), None)
+                                if target_row:
+                                    memo, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(target_row.get("memo", ""))
+                                    new_memo = encode_attendance_memo(memo, temp_addr, takuji_cancel, item["driver"], item["time"], item["dest"])
+                                    updates.append({
+                                        "cast_id": item["cast_id"], "cast_name": item["cast_name"], "area": target_row["area"],
+                                        "status": target_row["status"], "memo": new_memo, "target_date": "当日"
+                                    })
+                                else:
+                                    new_memo = encode_attendance_memo("", "", "0", item["driver"], item["time"], item["dest"])
+                                    c_info = next((c for c in casts if str(c["cast_id"]) == str(item["cast_id"])), {})
+                                    updates.append({
+                                        "cast_id": item["cast_id"], "cast_name": item["cast_name"], "area": c_info.get("area", "他"),
+                                        "status": "出勤", "memo": new_memo, "target_date": "当日"
+                                    })
+                            if updates:
+                                res = post_api({"action": "save_attendance", "records": updates})
+                                if res.get("status") == "success":
+                                    st.session_state.early_list = []
+                                    clear_cache(); st.success("✅ 早便の割り当てが完了しました！"); time.sleep(1.5); st.rerun()
+                                else: st.error("エラーが発生しました。")
+                    with col_eb2:
+                        if st.button("🗑 リセット", use_container_width=True):
+                            st.session_state.early_list = []
+                            st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
             
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
