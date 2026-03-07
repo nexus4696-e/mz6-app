@@ -236,13 +236,13 @@ def render_top_nav():
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}"): 
+            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
-            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}"): 
+            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col3:
-            if st.button("🚪 ログアウト", key=f"nl_{st.session_state.page}"):
+            if st.button("🚪 ログアウト", key=f"nl_{st.session_state.page}", use_container_width=True):
                 st.session_state.logged_in_cast = None
                 st.session_state.logged_in_staff = None
                 st.session_state.is_admin = False
@@ -252,10 +252,10 @@ def render_top_nav():
     else:
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}"): 
+            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
-            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}"): 
+            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
                 
     st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
@@ -853,7 +853,6 @@ elif st.session_state.page == "staff_portal":
         if st.session_state.staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">配車予定日</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
             
-            # 🌟 【新設】反映されていないと誤解されないための「本日の早便一覧」
             early_disp_tasks = []
             for row in attendance:
                 if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
@@ -885,6 +884,9 @@ elif st.session_state.page == "staff_portal":
                     else:
                         st.info("自動配車を実行中...")
                         all_today_casts = []
+                        
+                        early_drivers = set() # 🌟 【抜本的修正】早便担当ドライバーのリスト
+                        
                         for row in attendance:
                             if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                                 c_info = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
@@ -892,9 +894,10 @@ elif st.session_state.page == "staff_portal":
                                 home_addr, _, _, _ = parse_cast_address(raw_addr)
                                 _, temp_addr, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
                                 
-                                # 早便に設定されているキャストはAI自動配車の対象から除外
+                                # 早便の担当ドライバーを記録し、早便のキャスト自体はAIの対象から除外
                                 if e_drv and e_drv != "未定" and e_drv != "":
-                                    continue
+                                    early_drivers.add(e_drv)
+                                    continue 
                                 
                                 actual_pickup = temp_addr if temp_addr else home_addr
                                 line, dst = get_route_line_and_distance(actual_pickup)
@@ -905,6 +908,10 @@ elif st.session_state.page == "staff_portal":
                         drv_specs = {}
                         for d in drivers:
                             if d["name"] in active_drivers:
+                                # 🌟 【安全ロック】早便を担当するドライバーは、AIの通常便自動割り当てから完全に除外する
+                                if d["name"] in early_drivers:
+                                    continue
+                                    
                                 try: cap = int(d.get("capacity", 4))
                                 except: cap = 4
                                 drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
@@ -1017,7 +1024,6 @@ elif st.session_state.page == "staff_portal":
             for row in attendance:
                 if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                     drv = row["driver_name"]
-                    # 🌟 【修正】早便の人は「未定リスト」から完全に除外する
                     _, _, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
                     if e_drv and e_drv != "未定" and e_drv != "":
                         continue
@@ -1320,7 +1326,6 @@ elif st.session_state.page == "staff_portal":
                 colA, colB = st.columns([3, 2])
                 with colA: st.markdown(f'<span class="shop-no-badge-mini">店番 {c_id}</span> <span style="font-weight:bold; font-size:16px;">{c_name}</span> <span style="font-size:12px;color:#777;">({pref})</span>', unsafe_allow_html=True)
                 
-                # 🌟 【新設】カード内で早便状況をハッキリ表示する
                 e_drv = ""
                 e_time = ""
                 if is_dispatch:
@@ -1345,7 +1350,7 @@ elif st.session_state.page == "staff_portal":
                         memo, temp_addr, takuji_cancel, _, _, _, stopover = parse_attendance_memo(target_row.get("memo", ""))
                         new_memo = encode_attendance_memo(memo, temp_addr, takuji_cancel, "", "", "", stopover)
                         updates = [{"id": target_row["id"], "cast_id": c_id, "cast_name": c_name, "area": pref, "status": "出勤", "memo": new_memo, "target_date": "当日"}]
-                        res = post_api({"action": "save_attendance", "records": updates})
+                        res = post_api({"action": "save_attendance", "records": [rec]})
                         if res.get("status") == "success":
                             reset_search(); st.rerun()
 
