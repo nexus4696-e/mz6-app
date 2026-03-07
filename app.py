@@ -32,7 +32,6 @@ def get_db_data():
 
 def clear_cache(): st.cache_data.clear()
 
-# 🌟 新機能用：既存のDB構造を壊さずデータを隠して保存・復元する処理（早便データ追加）
 def parse_cast_address(raw_address):
     if not raw_address: return "", "0", "", "0"
     parts = str(raw_address).split("||")
@@ -152,68 +151,65 @@ def calc_dep_time(pickup_time_str, dist_mins):
         return "未定"
 
 # ==========================================
-# 🎨 カスタムCSS（パスワード破壊・レイアウト崩れを防ぐ安全版）
+# 🎨 超安全・堅牢なカスタムCSS
 # ==========================================
 st.markdown("""
 <style>
-    .stApp { background-color: #f0f2f5; font-family: -apple-system, sans-serif; color: #333; }
+    html, body, [data-testid="stAppViewContainer"], .block-container {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        background-color: #f0f2f5; 
+        font-family: -apple-system, sans-serif;
+    }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
     
-    header { visibility: hidden !important; }
-    footer { visibility: hidden !important; }
+    header, footer, [data-testid="stToolbar"], [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
+    a[href^="https://streamlit.io/cloud"] { display: none !important; }
     
-    .app-header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
+    @media (max-width: 640px) {
+        div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 5px !important;
+        }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+            width: auto !important;
+        }
+    }
+
+    div.stButton > button {
+        padding: 0px 5px !important;
+        min-height: 42px !important;
+        height: 42px !important;
+        line-height: 1.2 !important;
+        font-size: 14px !important;
+        font-weight: bold !important;
+        white-space: nowrap !important;
+        width: 100% !important;
+    }
+
+    .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
     .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; margin-top: 30px; }
-    .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .driver-card { background: white; border-left: 6px solid #e91e63; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
-    .shop-no-badge { background: #ffeb3b; color: #d32f2f; font-weight: 900; padding: 5px 2px; border-radius: 6px; border: 2px solid #d32f2f; font-size: 16px; margin-right: 5px; min-width: 60px; text-align: center; display: inline-block; }
     .shop-no-badge-mini { background: #ffeb3b; color: #d32f2f; font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #d32f2f; font-size: 12px; margin-right: 5px; display: inline-block; min-width: 45px; text-align: center; }
     .notice-box { border: 2px solid #fdd835; background: #fffde7; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
-    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 26px; font-weight: 900; color: #e91e63; }
+    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
     
     div[role="radiogroup"] { flex-wrap: wrap !important; gap: 5px; justify-content: center; padding-bottom: 5px; }
-    div[role="radiogroup"]::-webkit-scrollbar { display: none; }
-    div[role="radiogroup"] > label { background-color: white; border: 2px solid #999; padding: 8px 15px; border-radius: 20px; cursor: pointer; white-space: nowrap; flex-shrink: 0; margin-bottom: 5px; }
+    div[role="radiogroup"] > label { background-color: white; border: 2px solid #999; padding: 8px 15px; border-radius: 20px; cursor: pointer; margin-bottom: 5px; }
     div[role="radiogroup"] > label[data-checked="true"] { background-color: #009688; border-color: #009688; }
-    div[role="radiogroup"] > label[data-checked="true"] p { color: white !important; font-weight: bold; }
+    div[role="radiogroup"] > label[data-checked="true"] p { color: white !important; }
     div[role="radiogroup"] > label > div:first-child { display: none; }
     div[role="radiogroup"] > label p { color: #333; margin: 0; font-size: 14px; font-weight: bold; }
     
     .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
     .auto-dispatch-box { background: #e8f5e9; border: 2px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-
-    /* 🌟 各入力項目の枠をハッキリと見やすい「黒枠」に変更 */
-    div[data-baseweb="input"] > div, 
-    div[data-baseweb="select"] > div, 
-    div[data-baseweb="textarea"] > div {
-        border: 2px solid #000000 !important; 
-        border-radius: 6px !important; 
-        background-color: #ffffff !important;
-    }
-    div[data-baseweb="input"] > div:focus-within, 
-    div[data-baseweb="select"] > div:focus-within, 
-    div[data-baseweb="textarea"] > div:focus-within {
-        border: 2px solid #e91e63 !important; 
-        box-shadow: 0 0 5px rgba(233, 30, 99, 0.5) !important;
-    }
-
-    /* パスワード入力を絶対に壊さず、上部のナビボタン「だけ」を横一列にする安全なコード */
-    div.element-container:has(#nav-marker) + div.element-container div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 5px !important;
-    }
-    div.element-container:has(#nav-marker) + div.element-container div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        width: 100% !important;
-        flex: 1 1 0% !important;
-        min-width: 0 !important;
-    }
-    div.element-container:has(#nav-marker) + div.element-container button {
-        padding: 0 !important;
-        font-size: 14px !important;
-        width: 100% !important;
+    
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
+        border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #fff !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -223,15 +219,17 @@ for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_sta
     if k not in st.session_state: st.session_state[k] = None if k != "page" else "home"
 if "is_admin" not in st.session_state: st.session_state.is_admin = False
 
-time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
+# 🌟 時間の選択肢を「16:00」からに変更
+time_slots = [f"{h}:{m:02d}" for h in range(16, 27) for m in range(0, 60, 10)]
+
+# Googleマップ検索ボタンのHTML（各所に再利用）
+MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px; box-shadow:0 1px 2px rgba(0,0,0,0.2);'>🔍 Googleマップを開いて住所を検索・コピー</a>"""
 
 # ==========================================
 # 🌟 ナビゲーション
 # ==========================================
 def render_top_nav():
     if st.session_state.page == "home": return
-    
-    st.markdown('<span id="nav-marker" style="display:none;"></span>', unsafe_allow_html=True)
     
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
@@ -258,25 +256,25 @@ def render_top_nav():
             if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
                 st.session_state.page = "home"; st.rerun()
                 
-    st.markdown("<hr style='margin: 10px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
 # 🏠 ホーム画面
 # ==========================================
 if st.session_state.page == "home":
     st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
-    if st.button("🚙 スタッフ業務開始\n(配車・送迎設定)", type="primary", use_container_width=True):
+    if st.button("🚙 スタッフ業務開始", type="primary", use_container_width=True):
         if st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "staff_login"; st.session_state.selected_staff_for_login = None
         st.rerun()
     st.write("") 
-    if st.button("👩 キャスト専用ログイン\n(予定の申請)", use_container_width=True):
+    if st.button("👩 キャスト専用ログイン", use_container_width=True):
         if st.session_state.get("logged_in_cast"): st.session_state.page = "cast_mypage"
         else: st.session_state.page = "cast_login"
         st.rerun()
     st.write("\n\n")
     st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
-    if st.button("⚙️ 管理者ログイン (全権限)", use_container_width=True):
+    if st.button("⚙️ 管理者ログイン", use_container_width=True):
         if st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
         else: st.session_state.page = "admin_login"
         st.rerun()
@@ -320,7 +318,7 @@ elif st.session_state.page == "admin_login":
     st.markdown('<div class="app-header">👑 管理者認証</div>', unsafe_allow_html=True)
     st.caption("パスワードを入力してください (初期: 1234)")
     
-    admin_pass = st.text_input("パスワード", type="password", key="admin_pass_input")
+    admin_pass = st.text_input("パスワード", type="password", key="admin_pass_input", label_visibility="collapsed")
     
     if st.button("ログイン", type="primary", use_container_width=True):
         db_pass = str(settings.get("admin_password", "")) if isinstance(settings, dict) else "1234"
@@ -341,7 +339,7 @@ elif st.session_state.page == "staff_login":
     if not staff_list: st.warning("※管理者が「④ STAFF設定」からスタッフ登録を行ってください")
     else:
         for d in staff_list:
-            st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-bottom:10px;'>👤 {d['name']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd;'>👤 {d['name']}</div>", unsafe_allow_html=True)
             colA, colB = st.columns([3, 2])
             with colA: 
                 p_in = st.text_input("パスワード", type="password", key=f"pass_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
@@ -377,7 +375,6 @@ elif st.session_state.page == "cast_mypage":
     </div>
     ''', unsafe_allow_html=True)
 
-    # 🌟 本人による自宅・託児所の登録機能
     with st.expander("🏠 自分の登録情報（自宅・託児所）の確認・変更"):
         my_cast_info = next((cast for cast in casts if str(cast["cast_id"]) == str(c["店番"])), None)
         if my_cast_info:
@@ -386,12 +383,14 @@ elif st.session_state.page == "cast_mypage":
             
             with st.form("edit_profile_form"):
                 st.caption("※ここで住所を更新すると、管理者の名簿も自動的に更新されます。")
+                st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                 new_home = st.text_input("自宅住所 (迎え先)", value=home_addr)
                 
                 st.markdown("<div style='margin-top:10px; font-weight:bold; color:#2196f3;'>👶 託児所の利用設定</div>", unsafe_allow_html=True)
                 new_takuji_en = st.checkbox("毎回自動的に託児所を経由する", value=(takuji_en=="1"))
                 new_takuji_addr = ""
                 if new_takuji_en:
+                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     new_takuji_addr = st.text_input("託児所の住所", value=takuji_addr, placeholder="託児所の住所を入力してください")
                 
                 if st.form_submit_button("情報を更新する", type="primary", use_container_width=True):
@@ -401,7 +400,7 @@ elif st.session_state.page == "cast_mypage":
                         clear_cache(); st.success("✅ 登録情報を更新しました！"); time.sleep(1); st.rerun()
                     else:
                         st.error("更新エラーが発生しました。")
-
+    
     today_dt = datetime.datetime.now()
     days = ['月','火','水','木','金','土','日']
     today_str = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
@@ -422,11 +421,11 @@ elif st.session_state.page == "cast_mypage":
                 st.radio("状態", ["未定", "出勤", "自走", "休み"], horizontal=True, key="today_s", label_visibility="collapsed")
                 st.text_input("備考 (同伴・送り先など)", placeholder="備考", key="today_m")
                 
-                # 🌟 当日のみの場所変更・託児キャンセル機能
                 st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
                 req_change = st.checkbox("📍 本日のみ迎え先を指定の場所に変更する", key="req_chg_today")
                 temp_m_addr = ""
                 if req_change:
+                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     temp_m_addr = st.text_input("本日の迎え先住所", key="temp_addr_today", placeholder="例：倉敷駅前")
                 
                 takuji_cancel_val = "0"
@@ -456,6 +455,7 @@ elif st.session_state.page == "cast_mypage":
                 req_change_tmr = st.checkbox("📍 明日のみ迎え先を指定の場所に変更する", key="req_chg_tmr")
                 temp_m_addr_tmr = ""
                 if req_change_tmr:
+                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     temp_m_addr_tmr = st.text_input("明日の迎え先住所", key="temp_addr_tmr")
                 
                 takuji_cancel_val_tmr = "0"
@@ -557,7 +557,7 @@ elif st.session_state.page == "staff_portal":
     if not is_admin:
         st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">本日の配車ルート</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
         
-        # 🌟 追加機能：早便の表示とナビ生成
+        # 🌟 早便の抽出・表示
         early_tasks_raw = [row for row in attendance if row["target_date"] == "当日" and row["status"] in ["出勤"]]
         my_early_tasks = []
         for t in early_tasks_raw:
@@ -602,12 +602,11 @@ elif st.session_state.page == "staff_portal":
                 st.markdown(disp_str, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-
         my_tasks = [row for row in attendance if row["target_date"] == "当日" and row["status"] in ["出勤"] and row["driver_name"] == staff_name]
         my_tasks = sorted(my_tasks, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
 
         if not my_tasks:
-            st.info("現在、割り当てられている送迎予定はありません。管理者の配車をお待ちください。")
+            st.info("現在、割り当てられている送迎（迎え便）はありません。管理者の配車をお待ちください。")
         else:
             if is_return_time:
                 st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">行きで送迎したキャストが自動的に帰り班として表示されています。</p>', unsafe_allow_html=True)
@@ -652,7 +651,7 @@ elif st.session_state.page == "staff_portal":
                 for idx, rt in enumerate(return_tasks):
                     disp_str = f"<div style='font-size:14px;'><b>降車順 {idx+1}</b>：店番 {rt['c_id']} <b>{rt['c_name']}</b><br>"
                     if rt["use_takuji"]:
-                        disp_str += f"<span style='color:#2196f3;font-size:12px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
+                        disp_str += f"<span style='color:#2196f3;font-size:12px;font-weight:bold;'>👶 託児: {rt['takuji_addr']}</span><br>"
                     disp_str += f"<span style='color:#666;font-size:12px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                     st.markdown(disp_str, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -676,6 +675,7 @@ elif st.session_state.page == "staff_portal":
                     home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
                     raw_memo = t.get("memo", "")
                     _, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
+                    
                     actual_pickup = temp_addr if temp_addr else home_addr
                     use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
                     
@@ -699,6 +699,7 @@ elif st.session_state.page == "staff_portal":
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
                 raw_addr = c_info.get("address", "") if c_info else ""
                 home_addr, takuji_en, takuji_addr, is_edited = parse_cast_address(raw_addr)
+                
                 raw_memo = t.get("memo", "")
                 memo_text, temp_addr, takuji_cancel, _, _, _ = parse_attendance_memo(raw_memo)
                 
@@ -715,6 +716,16 @@ elif st.session_state.page == "staff_portal":
                 if mgr_phone: phone_btn = f"<a href='tel:{mgr_phone}' style='text-decoration:none; background:#4caf50; color:white; padding:4px 10px; border-radius:15px; font-size:12px; font-weight:bold; margin-left:10px; box-shadow:0 1px 3px rgba(0,0,0,0.2);'>📞 担当({mgr_name})</a>"
                 else: phone_btn = f"<span style='font-size:12px; color:#999; margin-left:10px;'>(担当:{mgr_name})</span>"
                 
+                addr_display = f"🏠 自宅: {home_addr if home_addr else '未登録'}"
+                if is_edited == "1":
+                    addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅キャスト更新済)</span>"
+                if temp_addr:
+                    addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日迎え先: {temp_addr}</span>"
+                if use_takuji:
+                    addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
+                if memo_text:
+                    addr_display += f"<br>📝 備考: {memo_text}"
+
                 clean_actual_pickup = clean_address_for_map(actual_pickup)
                 clean_takuji = clean_address_for_map(takuji_addr) if use_takuji else ""
                 if clean_takuji and clean_actual_pickup:
@@ -722,12 +733,6 @@ elif st.session_state.page == "staff_portal":
                 else:
                     ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(clean_actual_pickup)}?hl=ja" if clean_actual_pickup else ""
                 map_btn = f"<a href='{ind_map_url}' target='_blank' style='text-decoration:none; background:#e3f2fd; color:#1565c0; font-weight:bold; padding:4px 10px; border-radius:15px; font-size:12px; border:1px solid #2196f3; margin-left:5px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>📍 個別マップ</a>" if ind_map_url else ""
-
-                addr_display = f"🏠 自宅: {home_addr if home_addr else '未登録'}"
-                if is_edited == "1": addr_display += " <span style='color:#4caf50;font-weight:bold;font-size:11px;'>(✅更新済)</span>"
-                if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日迎え先: {temp_addr}</span>"
-                if use_takuji: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
-                if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
 
                 st.markdown(f"""
                 <div class='driver-card' style='margin-bottom:5px;'>
@@ -1093,6 +1098,13 @@ elif st.session_state.page == "staff_portal":
                     if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
                     
                     st.markdown(f"**{t['pickup_time'] if t['pickup_time'] else '未定'}**　<span style='font-size:16px; font-weight:bold;'>{t['cast_name']}</span> {map_btn}<br><span style='font-size:12px; color:#555;'>({t['status']})</span><br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                    
+                    if takuji_en == "1" and takuji_cancel == "0":
+                        if st.button("👶 託児キャンセル", key=f"cancel_t_{t['id']}", use_container_width=True):
+                            new_memo = encode_attendance_memo(memo_text, temp_addr, "1")
+                            rec = {"cast_id": t["cast_id"], "cast_name": t["cast_name"], "area": c_info["area"], "status": t["status"], "memo": new_memo, "target_date": "当日"}
+                            res = post_api({"action": "save_attendance", "records": [rec]})
+                            if res.get("status") == "success": clear_cache(); st.rerun()
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1102,13 +1114,14 @@ elif st.session_state.page == "staff_portal":
         elif st.session_state.staff_tab == "② キャスト送迎":
             st.markdown(f'<div style="text-align:center; font-size:18px; font-weight:bold;">{today_str} ({dow})</div><div style="text-align:center; color:#aaa; font-size:12px; margin-bottom:15px;">▼ 全キャスト送迎管理 ▼</div>', unsafe_allow_html=True)
             
-            # 🌟 新機能：早便設定
+            # 🌟 新機能：早便設定機能（デフォルト16:00）
             with st.expander("🌅 早便設定（送り便の個別指定）", expanded=False):
                 c_disp_list = ["-- 選択 --"] + [f"{c['cast_id']} {c['name']}" for c in casts if str(c.get("name", "")).strip() != ""]
                 selected_c = st.selectbox("早便希望キャスト", c_disp_list, key="early_cast")
                 selected_d = st.selectbox("担当送迎ドライバー", ["未定"] + d_names, key="early_driver")
+                st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                 early_dest = st.text_input("送迎先（送り先住所）", placeholder="例: 倉敷駅北口", key="early_dest")
-                early_time = st.selectbox("到着指定時間", time_slots, index=time_slots.index("23:00") if "23:00" in time_slots else 0, key="early_time")
+                early_time = st.selectbox("到着指定時間", time_slots, index=time_slots.index("16:00") if "16:00" in time_slots else 0, key="early_time")
                 
                 if st.button("➕ このキャストを早便リストに追加", type="secondary", use_container_width=True):
                     if selected_c != "-- 選択 --" and early_dest:
@@ -1156,7 +1169,7 @@ elif st.session_state.page == "staff_portal":
                     st.markdown("</div>", unsafe_allow_html=True)
             
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
-            
+
             dispatch_count = sum(1 for row in attendance if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"])
             st.markdown(f'''
             <div style="background-color: #e3f2fd; border: 2px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
@@ -1235,7 +1248,6 @@ elif st.session_state.page == "staff_portal":
                     mgr_idx = staff_list.index(mgr) if mgr in staff_list else 0
                     n_mgr = st.selectbox("担当スタッフ", staff_list, index=mgr_idx, key=f"cmgr_{i}")
                     
-                    # 🌟 住所・託児データの復元と表示
                     raw_addr = str(c.get("address", ""))
                     home_addr, takuji_en, takuji_addr, is_edited = parse_cast_address(raw_addr)
                     
@@ -1255,10 +1267,12 @@ elif st.session_state.page == "staff_portal":
                     with colC2:
                         other_val = p_city if p_city and p_city not in c_opts else ""
                         c_other_city = st.text_input("「他」の場合の直接入力", value=other_val, key=f"c_other_city_{i}", placeholder="例: 真庭市")
+                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     c_rest = st.text_input("町名・番地・建物名", value=p_rest, key=f"c_rest_{i}", placeholder="例: 水島東栄町1-11")
                     
                     st.markdown("<div style='font-weight:bold; color:#2196f3; margin-top:10px;'>👶 託児設定</div>", unsafe_allow_html=True)
                     new_takuji_en = st.checkbox("託児所を利用する", value=(takuji_en=="1"), key=f"takuji_en_{i}")
+                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     new_takuji_addr = st.text_input("託児所の住所", value=takuji_addr, key=f"takuji_addr_{i}")
                     
                     st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
@@ -1319,6 +1333,7 @@ elif st.session_state.page == "staff_portal":
                         with colC2:
                             other_val = p_city if p_city and p_city not in d_opts else ""
                             d_other_city = st.text_input("「他」の場合の直接入力", value=other_val, key=f"d_other_city_{i}", placeholder="例: 真庭市")
+                        st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                         d_rest = st.text_input("町名・番地・建物名", value=p_rest, key=f"drs_{i}")
                         n_tel = st.text_input("電話番号", value=str(d.get("phone", "")), key=f"dt_{i}")
                         n_pass = st.text_input("パスワード", value=str(d.get("password", "1234")), key=f"dp_{i}")
