@@ -5,7 +5,7 @@ import time
 import re
 import streamlit as st
 
-# 🌟 日本時間（JST）を強制的に設定して時差バグを完全に防止
+# 🌟 日本時間（JST）を強制的に設定
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
 
 # ページの設定
@@ -236,13 +236,13 @@ def render_top_nav():
     if st.session_state.get("logged_in_cast") or st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"):
         col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
+            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}"): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
-            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
+            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}"): 
                 st.session_state.page = "home"; st.rerun()
         with col3:
-            if st.button("🚪 ログアウト", key=f"nl_{st.session_state.page}", use_container_width=True):
+            if st.button("🚪 ログアウト", key=f"nl_{st.session_state.page}"):
                 st.session_state.logged_in_cast = None
                 st.session_state.logged_in_staff = None
                 st.session_state.is_admin = False
@@ -252,10 +252,10 @@ def render_top_nav():
     else:
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}", use_container_width=True): 
+            if st.button("🏠 ホーム", key=f"nh_{st.session_state.page}"): 
                 st.session_state.page = "home"; st.rerun()
         with col2:
-            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}", use_container_width=True): 
+            if st.button("🔙 戻る", key=f"nb_{st.session_state.page}"): 
                 st.session_state.page = "home"; st.rerun()
                 
     st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
@@ -866,7 +866,7 @@ elif st.session_state.page == "staff_portal":
                     st.markdown(f"<div style='font-size:13px; color:#333; margin-bottom:3px;'>・ <b>{ed['name']}</b> ➡️ {ed['dest']} ({ed['time']}着) / 担当: {ed['drv']}</div>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（一筆書きAI）</div><div style="font-size:12px; color:#555;">稼働するドライバーを選択して実行してください。<br>※手動で指定済みのキャストは上書きされません。</div></div>', unsafe_allow_html=True)
+            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（一筆書きAI）</div><div style="font-size:12px; color:#555;">現在手動で割り当てているキャストも一旦リセットし、<br>AIが「定員」と「方面」を厳守してゼロから完璧なルートを組み直します。</div></div>', unsafe_allow_html=True)
             
             if not d_names:
                 st.warning("⚠️ まだドライバーが登録されていません。「④ STAFF設定」タブを開いて登録してください。")
@@ -878,14 +878,14 @@ elif st.session_state.page == "staff_portal":
                 with st.expander("🛠️ 稼働ドライバーの選択 (タップで開く)", expanded=False):
                     active_drivers = st.multiselect("稼働するドライバーを選択", d_names, default=valid_drv, key="active_drv_ms", on_change=on_drv_change)
                 
-                if st.button("🚀 自動配車を実行", type="primary", use_container_width=True):
+                if st.button("🚀 自動配車を実行（ゼロベースで再編成）", type="primary", use_container_width=True):
                     if not active_drivers: 
                         st.error("稼働するドライバーを1人以上選択してください。")
                     else:
                         st.info("自動配車を実行中...")
                         all_today_casts = []
                         
-                        early_drivers = set() # 🌟 【抜本的修正】早便担当ドライバーのリスト
+                        early_drivers = set() 
                         
                         for row in attendance:
                             if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
@@ -894,7 +894,7 @@ elif st.session_state.page == "staff_portal":
                                 home_addr, _, _, _ = parse_cast_address(raw_addr)
                                 _, temp_addr, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
                                 
-                                # 早便の担当ドライバーを記録し、早便のキャスト自体はAIの対象から除外
+                                # 🌟 早便のキャストはAIリセットの対象外として完全に守る
                                 if e_drv and e_drv != "未定" and e_drv != "":
                                     early_drivers.add(e_drv)
                                     continue 
@@ -908,41 +908,39 @@ elif st.session_state.page == "staff_portal":
                         drv_specs = {}
                         for d in drivers:
                             if d["name"] in active_drivers:
-                                # 🌟 【安全ロック】早便を担当するドライバーは、AIの通常便自動割り当てから完全に除外する
                                 if d["name"] in early_drivers:
                                     continue
-                                    
                                 try: cap = int(d.get("capacity", 4))
                                 except: cap = 4
                                 drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
 
+                        # 🌟 過去の手動指定を一切引き継がず、定員を絶対に守ってゼロから振り分ける
                         for uc in all_today_casts:
                             if uc["row"]["status"] == "自走":
-                                continue
-                                
-                            already_assigned = uc["row"].get("driver_name")
-                            if already_assigned and already_assigned != "未定" and already_assigned in drv_specs:
-                                drv_specs[already_assigned]["assigned_rows"].append(uc)
                                 continue
                                 
                             assigned_d = None
                             c_line = uc["line"]
                             
+                            # 1. 方面が同じで空きがあるドライバーを探す
                             for d_name, stat in drv_specs.items():
                                 if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
                                     assigned_d = d_name; break
                             
+                            # 2. まだ誰も乗せていないドライバーに方面を割り当てる
                             if not assigned_d:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) == 0:
                                         stat["line"] = c_line
                                         assigned_d = d_name; break
                                         
-                            if not assigned_d and c_line == "Route_E_South" and uc["dist"] <= 10:
+                            # 3. 方面が違っても近距離なら空き席にねじ込む
+                            if not assigned_d and uc["dist"] <= 10:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) < stat["capacity"]:
                                         assigned_d = d_name; break
                                         
+                            # 4. 最終手段：とにかく空きがあるドライバーにねじ込む
                             if not assigned_d:
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) < stat["capacity"]:
@@ -975,6 +973,7 @@ elif st.session_state.page == "staff_portal":
                                 })
                                 assigned_ids.add(item["row"]["id"])
                         
+                        # 定員オーバーであぶれたキャストは確実に「未定」として弾き出す
                         for uc in all_today_casts:
                             if uc["row"]["status"] != "自走" and uc["row"]["id"] not in assigned_ids:
                                 updates.append({
