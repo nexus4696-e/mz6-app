@@ -5,8 +5,11 @@ import time
 import re
 import streamlit as st
 
-# 🌟 本物のGoogle Maps AIキーを接続
-GOOGLE_MAPS_API_KEY = "AIzaSyBNobI2kvKRDLuUCj_P6dOJZDUMSqaXVqs"
+# 🌟 漏洩防止！Streamlitの裏側（Secrets）から安全にキーを読み込みます
+try:
+    GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
+except:
+    GOOGLE_MAPS_API_KEY = "" # 設定されていない場合のエラー回避
 
 # 🌟 日本時間（JST）を強制的に設定して時差バグを完全に防止
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -501,13 +504,11 @@ elif st.session_state.page == "cast_mypage":
                 req_stopover = st.checkbox("🍽️ 本日、途中で寄る場所（同伴先など）がある", key="req_stopover_today")
                 stopover_addr = ""
                 if req_stopover:
-                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     stopover_addr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_today", placeholder="例：倉敷市阿知〇-〇 〇〇店")
 
                 req_change = st.checkbox("📍 本日のみ迎え先を指定の場所に変更する", key="req_chg_today")
                 temp_m_addr = ""
                 if req_change:
-                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     temp_m_addr = st.text_input("本日の迎え先住所", key="temp_addr_today", placeholder="例：倉敷駅前")
                 
                 takuji_cancel_val = "0"
@@ -537,13 +538,11 @@ elif st.session_state.page == "cast_mypage":
                 req_stopover_tmr = st.checkbox("🍽️ 明日、途中で寄る場所（同伴先など）がある", key="req_stopover_tmr")
                 stopover_addr_tmr = ""
                 if req_stopover_tmr:
-                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     stopover_addr_tmr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_tmr", placeholder="例：倉敷市阿知〇-〇 〇〇店")
 
                 req_change_tmr = st.checkbox("📍 明日のみ迎え先を指定の場所に変更する", key="req_chg_tmr")
                 temp_m_addr_tmr = ""
                 if req_change_tmr:
-                    st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                     temp_m_addr_tmr = st.text_input("明日の迎え先住所", key="temp_addr_tmr")
                 
                 takuji_cancel_val_tmr = "0"
@@ -697,7 +696,7 @@ elif st.session_state.page == "staff_portal":
         else:
             if is_return_time:
                 # 🌙 帰り便の表示
-                st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">店舗から近い人から順番に降ろしていく最短ルートです。</p>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">行きで送迎したキャストが自動的に帰り班として表示されています。</p>', unsafe_allow_html=True)
                 
                 return_tasks = []
                 for t in my_tasks_raw:
@@ -717,7 +716,6 @@ elif st.session_state.page == "staff_portal":
                         "c_name": t['cast_name'], "c_id": t['cast_id']
                     })
                 
-                # Google AI で帰り便も最適化（is_return=True）
                 ordered_returns, _, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                 
                 if return_full_path:
@@ -758,7 +756,6 @@ elif st.session_state.page == "staff_portal":
 
             st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 Google AIによって「一番遠い人から拾う」最短ルートに最適化済です</div>", unsafe_allow_html=True)
 
-            # 🌟 Google AIでルートと時間を計算（is_return=False）
             ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
             target_time_str = str(settings.get("base_arrival_time", "19:50"))
@@ -775,7 +772,6 @@ elif st.session_state.page == "staff_portal":
 
             st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 2px solid #f44336;'>🚀 店舗出発時刻（計算値）: {dep_time_str}</div>", unsafe_allow_html=True)
 
-            # 🌟 最強のGoogle Maps起動ボタン
             if full_path:
                 origin_enc = urllib.parse.quote(full_path[0])
                 dest_enc = urllib.parse.quote(store_addr)
@@ -1380,8 +1376,8 @@ elif st.session_state.page == "staff_portal":
                     if st.button("❌ 早便設定のみを解除する", key=f"cancel_e_{c_id}", use_container_width=True):
                         memo, temp_addr, takuji_cancel, _, _, _, stopover = parse_attendance_memo(target_row.get("memo", ""))
                         new_memo = encode_attendance_memo(memo, temp_addr, takuji_cancel, "", "", "", stopover)
-                        updates = [{"id": target_row["id"], "cast_id": c_id, "cast_name": c_name, "area": pref, "status": "出勤", "memo": new_memo, "target_date": "当日"}]
                         # 🌟 致命的エラー原因を完全修正済
+                        updates = [{"id": target_row["id"], "cast_id": c_id, "cast_name": c_name, "area": pref, "status": "出勤", "memo": new_memo, "target_date": "当日"}]
                         res = post_api({"action": "save_attendance", "records": updates})
                         if res.get("status") == "success":
                             reset_search(); st.rerun()
@@ -1510,7 +1506,7 @@ elif st.session_state.page == "staff_portal":
                 st.info("条件に一致するキャストが見つかりません。")
 
         # ----------------------------------------
-        # 🌟 【抜本的改善】④ STAFF設定（スクロール不要のプルダウン式）
+        # ④ STAFF設定
         # ----------------------------------------
         elif st.session_state.staff_tab == "④ STAFF設定":
             exist_drvs = {str(d["driver_id"]): d for d in drivers}
