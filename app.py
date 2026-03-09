@@ -151,7 +151,6 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
     if len(valid_pickups) == 1:
         ordered_valid_tasks = valid_tasks
     elif len(valid_pickups) > 1:
-        # Google AIに店舗を起点・終点とした「最適な一筆書きルート」を計算させる
         wp_str = "optimize:true|" + "|".join(valid_pickups)
         try:
             res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
@@ -168,17 +167,14 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
                 ordered_pickups = [valid_pickups[i] for i in wp_order]
                 
                 legs = res["routes"][0]["legs"]
-                # AIが弾き出した、店舗からの「行き」と「帰り」の所要時間を比較
                 dur_to_first = legs[0]["duration"]["value"]
                 dur_from_last = legs[-1]["duration"]["value"]
                 
                 if is_return:
-                    # 帰り便：店舗から「近い人」から降ろしていく
                     if dur_to_first > dur_from_last:
                         ordered_valid_tasks.reverse()
                         ordered_pickups.reverse()
                 else:
-                    # 迎え便：店舗から「一番遠い人」まで空車で向かい、拾いながら帰る（乗車時間最短）
                     if dur_to_first < dur_from_last:
                         ordered_valid_tasks.reverse()
                         ordered_pickups.reverse()
@@ -187,7 +183,6 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             
     final_ordered_tasks = ordered_valid_tasks + invalid_tasks
 
-    # 同伴や託児所を含めた最終的なフルルートを構築
     for t in final_ordered_tasks:
         if t.get("actual_pickup"): full_path.append(clean_address_for_map(t["actual_pickup"]))
         if t.get("stopover"): full_path.append(clean_address_for_map(t["stopover"]))
@@ -195,7 +190,6 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
         
     full_path = [p for p in full_path if p]
     
-    # リアルな走行時間を再計算（出発時間の逆算用）
     if full_path:
         calc_origin = store_addr
         calc_dest = store_addr if not is_return else full_path[-1]
@@ -283,7 +277,6 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
         
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
         
-        # 🌟 ここが「確実に処理を終えてから画面を切り替える」ための心臓部です
         msg_placeholder = st.empty()
         if st.button("💾 この内容で更新する", key=f"btn_upd_{key_suffix}", type="primary", use_container_width=True):
             msg_placeholder.info("⏳ データベースを書き換えています...")
@@ -302,7 +295,6 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
 
             enc_memo = encode_attendance_memo(new_memo, new_temp_addr, tc_val, save_e_drv, save_e_time, save_e_dest, new_stopover)
             
-            # 🌟 「未定」の時は確実に配車から除外
             if new_status in ["未定", "休み"]:
                 post_api({"action": "cancel_dispatch", "cast_id": c_id})
 
@@ -317,7 +309,6 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
             res1 = post_api({"action": "save_attendance", "records": [rec]})
             
             if res1.get("status") == "success":
-                # 🌟 DBが確実に情報を保存し終わるのを1秒待つ（人数が減らないバグを完璧に阻止）
                 time.sleep(1.0)
                 clear_cache()
                 
@@ -543,7 +534,7 @@ elif st.session_state.page == "cast_mypage":
     attendance = db.get("attendance", [])
     
     st.markdown('<div class="app-header" style="margin-bottom:0; border:none; text-align:left;">出勤報告</div>', unsafe_allow_html=True)
-    st.markdown("<hr style='margin-top:0; margin-bottom:15px; border-top: 2px solid #333;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin:top:0; margin-bottom:15px; border-top: 2px solid #333;'>", unsafe_allow_html=True)
     
     notice = str(settings.get("notice_text", "")).strip()
     if notice:
@@ -587,6 +578,7 @@ elif st.session_state.page == "cast_mypage":
 
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
+    # 🌟 【バグ完全排除】キャストの出勤申請で「必ず」画面が切り替わり、保存される修正
     with tab_today:
         with st.form("cast_report_form"):
             st.markdown(f'<div style="background-color: #fff9c4; border: 3px solid #fdd835; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center; color: #f57f17; font-weight: bold; font-size: 18px;">⚡ 当日出勤申請 ({today_str})</div>', unsafe_allow_html=True)
@@ -611,25 +603,25 @@ elif st.session_state.page == "cast_mypage":
             with col_t2:
                 st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True) 
                 if st.form_submit_button("📤 送信", type="primary", use_container_width=True):
-                    if st.session_state.today_s != "未定":
-                        my_task_today = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(c["店番"])), None)
-                        ex_e_drv, ex_e_time, ex_e_dest = "", "", ""
-                        if my_task_today:
-                            _, _, _, ex_e_drv, ex_e_time, ex_e_dest, _ = parse_attendance_memo(my_task_today.get("memo", ""))
+                    # ⚠️ 条件文 `if st.session_state.today_s != "未定":` を削除し、必ず保存処理を走らせる
+                    my_task_today = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(c["店番"])), None)
+                    ex_e_drv, ex_e_time, ex_e_dest = "", "", ""
+                    if my_task_today:
+                        _, _, _, ex_e_drv, ex_e_time, ex_e_dest, _ = parse_attendance_memo(my_task_today.get("memo", ""))
 
-                        encoded_memo = encode_attendance_memo(today_m, temp_m_addr, takuji_cancel_val, ex_e_drv, ex_e_time, ex_e_dest, stopover_addr)
-                        rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": today_s, "memo": encoded_memo, "target_date": "当日"}
+                    encoded_memo = encode_attendance_memo(today_m, temp_m_addr, takuji_cancel_val, ex_e_drv, ex_e_time, ex_e_dest, stopover_addr)
+                    rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": today_s, "memo": encoded_memo, "target_date": "当日"}
+                    
+                    if today_s in ["未定", "休み"]:
+                        post_api({"action": "cancel_dispatch", "cast_id": c["店番"]})
                         
-                        if today_s in ["未定", "休み"]:
-                            post_api({"action": "cancel_dispatch", "cast_id": c["店番"]})
-                            
-                        res = post_api({"action": "save_attendance", "records": [rec]})
-                        if res.get("status") == "success": 
-                            clear_cache()
-                            st.session_state.page = "report_done"
-                            st.rerun()
-                        else: 
-                            st.error(res.get("message"))
+                    res = post_api({"action": "save_attendance", "records": [rec]})
+                    if res.get("status") == "success": 
+                        clear_cache()
+                        st.session_state.page = "report_done"
+                        st.rerun()
+                    else: 
+                        st.error(res.get("message"))
 
     with tab_tmr:
         with st.form("cast_tmr_form"):
@@ -891,7 +883,7 @@ elif st.session_state.page == "staff_portal":
                 target_dt = dt.replace(hour=th, minute=tm, second=0)
                 if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
                 
-                padding_sec = len(full_path) * 3 * 60 
+                padding_sec = len(full_path) * 3 * 60 # 乗り降りバッファ
                 dep_dt = target_dt - datetime.timedelta(seconds=(total_sec + padding_sec))
                 dep_time_str = dep_dt.strftime("%H:%M")
             except:
@@ -1163,7 +1155,7 @@ elif st.session_state.page == "staff_portal":
                                         
                                         opt_valid_indices = [valid_idx_map[0]] + [valid_idx_map[i+1] for i in wp_order]
                                         
-                                        # 🌟 自動配車の「時間割り当て」も完全修正
+                                        # 🌟 時間の割り当ても一番遠い人から確実に計算
                                         legs = res["routes"][0]["legs"]
                                         dur_to_first = legs[0]["duration"]["value"]
                                         dur_from_last = legs[-1]["duration"]["value"]
