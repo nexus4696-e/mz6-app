@@ -243,7 +243,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             
     return ordered_tasks, total_sec, full_path
 
-# 🌟 キャストの一括詳細編集カードを生成する関数（サクサク動作版）
+# 🌟 【抜本的改善】キャストの一括詳細編集カード
 def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots):
     if target_row:
         cur_status = target_row["status"]
@@ -289,46 +289,57 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
         
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
         
-        # 🌟 サクサク実行ボタン：sleepを消してすぐにリロードし、元のリスト画面へ戻る！
+        # 🌟 確実な消去と、明確な画面切り替えロジック
         if st.button("💾 この内容で更新する", key=f"btn_upd_{c_id}_{prefix_key}", type="primary", use_container_width=True):
-            
-            # 【重要】未定や休みにした場合は、不要なドライバー設定を綺麗に消す
-            if new_status in ["未定", "休み"]:
-                new_drv = "未定"
-                new_time = "未定"
-                new_e_drv = "未定"
-                new_e_time = "未定"
-                new_e_dest = ""
+            with st.spinner("データベースを更新中..."):
+                # 【重要】未定や休みにした場合は、不要なドライバー設定を綺麗に消す
+                if new_status in ["未定", "休み"]:
+                    new_drv = "未定"
+                    new_time = "未定"
+                    new_e_drv = "未定"
+                    new_e_time = "未定"
+                    new_e_dest = ""
 
-            tc_val = "1" if new_takuji_cancel else "0"
-            save_e_drv = new_e_drv if new_e_drv != "未定" else ""
-            save_e_time = new_e_time if save_e_drv else ""
-            save_e_dest = new_e_dest if save_e_drv else ""
+                tc_val = "1" if new_takuji_cancel else "0"
+                save_e_drv = new_e_drv if new_e_drv != "未定" else ""
+                save_e_time = new_e_time if save_e_drv else ""
+                save_e_dest = new_e_dest if save_e_drv else ""
 
-            enc_memo = encode_attendance_memo(new_memo, new_temp_addr, tc_val, save_e_drv, save_e_time, save_e_dest, new_stopover)
-            
-            rec = {
-                "cast_id": c_id,
-                "cast_name": c_name,
-                "area": pref,
-                "status": new_status,
-                "memo": enc_memo,
-                "target_date": "当日"
-            }
-            res1 = post_api({"action": "save_attendance", "records": [rec]})
-            if res1.get("status") == "success":
-                clear_cache() # 🌟 キャッシュを確実にクリアして人数を即座に反映させる
-                db_temp = get_db_data()
-                new_row = next((r for r in db_temp.get("attendance", []) if r["target_date"] == "当日" and str(r["cast_id"]) == str(c_id)), None)
-                if new_row:
-                    updates = [{"id": new_row["id"], "driver_name": new_drv, "pickup_time": new_time, "status": new_status}]
-                    post_api({"action": "update_manual_dispatch", "updates": updates})
+                enc_memo = encode_attendance_memo(new_memo, new_temp_addr, tc_val, save_e_drv, save_e_time, save_e_dest, new_stopover)
                 
-                clear_cache()
-                st.session_state.flash_msg = f"{c_name} の情報を更新しました！"
-                st.rerun() # 🌟 待たずに瞬時にリロードしてアコーディオンを閉じ、元のリストに美しく戻る
-            else:
-                st.error("エラー: " + res1.get("message"))
+                # 🌟 「未定」や「休み」にする場合は、配車そのものをキャンセルするAPIを先に確実に叩く
+                if new_status in ["未定", "休み"]:
+                    post_api({"action": "cancel_dispatch", "cast_id": c_id})
+                    time.sleep(0.5) # サーバーの処理を少し待つ
+
+                rec = {
+                    "cast_id": c_id,
+                    "cast_name": c_name,
+                    "area": pref,
+                    "status": new_status,
+                    "memo": enc_memo,
+                    "target_date": "当日"
+                }
+                res1 = post_api({"action": "save_attendance", "records": [rec]})
+                
+                if res1.get("status") == "success":
+                    time.sleep(0.5) # 保存完了を確実に待つ
+                    clear_cache()
+                    
+                    # 出勤状態の場合のみ、手動の配車時間やドライバーを更新する
+                    if new_status not in ["未定", "休み"]:
+                        db_temp = get_db_data()
+                        new_row = next((r for r in db_temp.get("attendance", []) if r["target_date"] == "当日" and str(r["cast_id"]) == str(c_id)), None)
+                        if new_row:
+                            updates = [{"id": new_row["id"], "driver_name": new_drv, "pickup_time": new_time, "status": new_status}]
+                            post_api({"action": "update_manual_dispatch", "updates": updates})
+                            time.sleep(0.5)
+                    
+                    clear_cache()
+                    st.session_state.flash_msg = f"{c_name} の情報を更新しました！"
+                    st.rerun() # 🌟 ここで確実に画面をリロードし、変更を即座に反映させる
+                else:
+                    st.error("エラー: " + res1.get("message"))
 
 # ==========================================
 # 🎨 クリーンで安全なCSS
@@ -390,6 +401,11 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# 状態管理
+for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_staff_for_login"]:
+    if k not in st.session_state: st.session_state[k] = None if k != "page" else "home"
+if "is_admin" not in st.session_state: st.session_state.is_admin = False
 
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
@@ -803,7 +819,8 @@ elif st.session_state.page == "staff_portal":
             st.info("現在、割り当てられている送迎（迎え便）はありません。管理者の配車をお待ちください。")
         else:
             if is_return_time:
-                st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">店舗から近い人から順番に降ろしていく最短ルートです。</p>', unsafe_allow_html=True)
+                # 🌙 帰り便の表示
+                st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">行きで送迎したキャストが自動的に帰り班として表示されています。</p>', unsafe_allow_html=True)
                 
                 return_tasks = []
                 for t in my_tasks_raw:
@@ -840,6 +857,7 @@ elif st.session_state.page == "staff_portal":
                     st.markdown(disp_str, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
+            # ☀️ 行き便（迎え便）の表示とAI完全最適化
             tasks_with_details = []
             for t in my_tasks_raw:
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
@@ -870,7 +888,7 @@ elif st.session_state.page == "staff_portal":
                 target_dt = dt.replace(hour=th, minute=tm, second=0)
                 if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
                 
-                padding_sec = len(full_path) * 3 * 60 
+                padding_sec = len(full_path) * 3 * 60 # 乗り降りバッファ
                 dep_dt = target_dt - datetime.timedelta(seconds=(total_sec + padding_sec))
                 dep_time_str = dep_dt.strftime("%H:%M")
             except:
@@ -1010,7 +1028,7 @@ elif st.session_state.page == "staff_portal":
                         early_disp_tasks.append({"name": row["cast_name"], "drv": e_drv, "time": e_time, "dest": e_dest})
             
             if early_disp_tasks:
-                st.markdown('<div style="background:#fff3e0; border: 2px solid #ff9800; padding:10px; border-radius: 8px; margin-bottom: 15px;"><div style="font-weight:bold; color:#e65100; font-size:15px; margin-bottom:5px;">🌅 本日の早便一覧（設定済）</div>', unsafe_allow_html=True)
+                st.markdown('<div style="background:#fff3e0; border: 2px solid #ff9800; padding: 10px; border-radius: 8px; margin-bottom: 15px;"><div style="font-weight:bold; color:#e65100; font-size:15px; margin-bottom:5px;">🌅 本日の早便一覧（設定済）</div>', unsafe_allow_html=True)
                 for ed in early_disp_tasks:
                     st.markdown(f"<div style='font-size:13px; color:#333; margin-bottom:3px;'>・ <b>{ed['name']}</b> ➡️ {ed['dest']} ({ed['time']}着) / 担当: {ed['drv']}</div>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -1165,8 +1183,7 @@ elif st.session_state.page == "staff_portal":
                             if res.get("status") == "success": 
                                 clear_cache(); st.session_state.flash_msg = "AIによる最短ルート最適化が完了しました！"; st.rerun()
                             else: st.error("エラー: " + res.get("message"))
-                        else: st.warning("本日の出勤キャストがいません。")
-
+            
             st.radio("表示", ["当日", "翌日", "週間"], horizontal=True, label_visibility="collapsed")
             
             unassigned, my_tasks = [], {}
@@ -1321,7 +1338,6 @@ elif st.session_state.page == "staff_portal":
                         "row": row
                     })
 
-            # 店番順にソート
             today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if str(x["id"]).isdigit() else 999)
 
             st.markdown(f'''
@@ -1332,7 +1348,6 @@ elif st.session_state.page == "staff_portal":
             </div>
             ''', unsafe_allow_html=True)
             
-            # 🌟 当日の送迎キャスト一覧（タップで詳細編集）
             with st.expander(f"📋 当日の送迎キャスト一覧を見る・編集する（{dispatch_count}名）"):
                 if today_active_casts:
                     list_search = st.text_input("🔍 一覧からキャストを絞り込み検索", placeholder="名前 または 店番", key="today_list_search")
@@ -1351,7 +1366,6 @@ elif st.session_state.page == "staff_portal":
                         pref = c_dict.get('pref', '他')
                         target_row = c_dict.get('row')
                         
-                        # ✨ カード描画関数呼び出し
                         render_cast_edit_card(c_id, c_name, pref, target_row, "tdy", d_names, time_slots, early_time_slots)
                         
                     if display_c == 0:
@@ -1402,7 +1416,6 @@ elif st.session_state.page == "staff_portal":
                     if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"] and str(row["cast_id"]) == str(c_id):
                         target_row = row; break
                 
-                # ✨ 全キャスト検索からのカード描画
                 render_cast_edit_card(c_id, c_name, pref, target_row, "all", d_names, time_slots, early_time_slots)
 
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
