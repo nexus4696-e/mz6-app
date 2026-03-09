@@ -245,7 +245,6 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
 
 # 🌟 【絶対クラッシュ防止】キャスト詳細編集カード (一意なキーを付与)
 def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots, loop_idx):
-    # loop_idx をキーに混ぜることで重複エラーを完全にシャットアウト
     key_suffix = f"{c_id}_{prefix_key}_{loop_idx}"
     
     if target_row:
@@ -308,7 +307,6 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
 
                 enc_memo = encode_attendance_memo(new_memo, new_temp_addr, tc_val, save_e_drv, save_e_time, save_e_dest, new_stopover)
                 
-                # 🌟 「未定」の時は確実に配車から除外
                 if new_status in ["未定", "休み"]:
                     post_api({"action": "cancel_dispatch", "cast_id": c_id})
                     time.sleep(0.5)
@@ -377,7 +375,6 @@ st.markdown("""
         border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #fff !important;
     }
 
-    /* 🌟 上部のナビボタン（ホーム・戻る・ログアウト）だけを絶対に崩さず綺麗に横並びにする安全なCSS */
     div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -592,6 +589,7 @@ elif st.session_state.page == "cast_mypage":
 
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
+    # 🌟【完全修正】強制読み取りで確実に送信・画面切り替え
     with tab_today:
         with st.form("cast_report_form"):
             st.markdown(f'<div style="background-color: #fff9c4; border: 3px solid #fdd835; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center; color: #f57f17; font-weight: bold; font-size: 18px;">⚡ 当日出勤申請 ({today_str})</div>', unsafe_allow_html=True)
@@ -601,78 +599,74 @@ elif st.session_state.page == "cast_mypage":
 
             col_t1, col_t2 = st.columns([3, 1.2]) 
             with col_t1:
-                st.radio("状態", ["未定", "出勤", "自走", "休み"], horizontal=True, key="today_s", label_visibility="collapsed")
-                st.text_input("備考", placeholder="備考", key="today_m")
+                today_s = st.radio("状態", ["未定", "出勤", "自走", "休み"], horizontal=True, key="today_s", label_visibility="collapsed")
+                today_m = st.text_input("備考", placeholder="備考", key="today_m")
                 
                 st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
                 req_stopover = st.checkbox("🍽️ 本日、途中で寄る場所（同伴先など）がある", key="req_stopover_today")
-                stopover_addr = ""
-                if req_stopover:
-                    stopover_addr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_today", placeholder="例：倉敷市阿知〇-〇 〇〇店")
+                stopover_addr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_today", placeholder="例：倉敷市阿知〇-〇 〇〇店") if req_stopover else ""
 
                 req_change = st.checkbox("📍 本日のみ迎え先を指定の場所に変更する", key="req_chg_today")
-                temp_m_addr = ""
-                if req_change:
-                    temp_m_addr = st.text_input("本日の迎え先住所", key="temp_addr_today", placeholder="例：倉敷駅前")
+                temp_m_addr = st.text_input("本日の迎え先住所", key="temp_addr_today", placeholder="例：倉敷駅前") if req_change else ""
                 
-                takuji_cancel_val = "0"
-                if takuji_en == "1":
-                    if st.checkbox("👶 本日は託児所を利用しない (キャンセル)", key="cancel_takuji_today"):
-                        takuji_cancel_val = "1"
+                takuji_cancel_val = "1" if (takuji_en == "1" and st.checkbox("👶 本日は託児所を利用しない (キャンセル)", key="cancel_takuji_today")) else "0"
 
             with col_t2:
                 st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True) 
                 if st.form_submit_button("📤 送信", type="primary", use_container_width=True):
-                    if st.session_state.today_s != "未定":
-                        my_task_today = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(c["店番"])), None)
-                        ex_e_drv, ex_e_time, ex_e_dest = "", "", ""
-                        if my_task_today:
-                            _, _, _, ex_e_drv, ex_e_time, ex_e_dest, _ = parse_attendance_memo(my_task_today.get("memo", ""))
+                    my_task_today = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(c["店番"])), None)
+                    ex_e_drv, ex_e_time, ex_e_dest = "", "", ""
+                    if my_task_today:
+                        _, _, _, ex_e_drv, ex_e_time, ex_e_dest, _ = parse_attendance_memo(my_task_today.get("memo", ""))
 
-                        encoded_memo = encode_attendance_memo(st.session_state.today_m, temp_m_addr, takuji_cancel_val, ex_e_drv, ex_e_time, ex_e_dest, stopover_addr)
-                        rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": st.session_state.today_s, "memo": encoded_memo, "target_date": "当日"}
-                        res = post_api({"action": "save_attendance", "records": [rec]})
-                        if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
-                        else: st.error(res.get("message"))
+                    encoded_memo = encode_attendance_memo(today_m, temp_m_addr, takuji_cancel_val, ex_e_drv, ex_e_time, ex_e_dest, stopover_addr)
+                    rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": today_s, "memo": encoded_memo, "target_date": "当日"}
+                    
+                    if today_s in ["未定", "休み"]:
+                        post_api({"action": "cancel_dispatch", "cast_id": c["店番"]})
+                        
+                    res = post_api({"action": "save_attendance", "records": [rec]})
+                    if res.get("status") == "success": 
+                        clear_cache()
+                        st.session_state.page = "report_done"
+                        st.rerun()
+                    else: 
+                        st.error(res.get("message"))
 
     with tab_tmr:
         with st.form("cast_tmr_form"):
             st.markdown(f'<div style="background-color: #e3f2fd; border: 3px solid #64b5f6; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center; color: #1565c0; font-weight: bold; font-size: 18px;">🌙 翌日申請 ({tmr_str})</div>', unsafe_allow_html=True)
             col_tm1, col_tm2 = st.columns([3, 1.2])
             with col_tm1:
-                st.radio("状態", ["未定", "出勤", "自走", "休み"], horizontal=True, key="tmr_s", label_visibility="collapsed")
-                st.text_input("明日の備考", placeholder="備考", key="tmr_m")
+                tmr_s = st.radio("状態", ["未定", "出勤", "自走", "休み"], horizontal=True, key="tmr_s", label_visibility="collapsed")
+                tmr_m = st.text_input("明日の備考", placeholder="備考", key="tmr_m")
                 
                 st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
                 req_stopover_tmr = st.checkbox("🍽️ 明日、途中で寄る場所（同伴先など）がある", key="req_stopover_tmr")
-                stopover_addr_tmr = ""
-                if req_stopover_tmr:
-                    stopover_addr_tmr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_tmr", placeholder="例：倉敷市阿知〇-〇 〇〇店")
+                stopover_addr_tmr = st.text_input("立ち寄り先の住所・店名", key="stopover_addr_tmr", placeholder="例：倉敷市阿知〇-〇 〇〇店") if req_stopover_tmr else ""
 
                 req_change_tmr = st.checkbox("📍 明日のみ迎え先を指定の場所に変更する", key="req_chg_tmr")
-                temp_m_addr_tmr = ""
-                if req_change_tmr:
-                    temp_m_addr_tmr = st.text_input("明日の迎え先住所", key="temp_addr_tmr")
+                temp_m_addr_tmr = st.text_input("明日の迎え先住所", key="temp_addr_tmr") if req_change_tmr else ""
                 
-                takuji_cancel_val_tmr = "0"
-                if takuji_en == "1":
-                    if st.checkbox("👶 明日は託児所を利用しない (キャンセル)", key="cancel_takuji_tmr"):
-                        takuji_cancel_val_tmr = "1"
+                takuji_cancel_val_tmr = "1" if (takuji_en == "1" and st.checkbox("👶 明日は託児所を利用しない (キャンセル)", key="cancel_takuji_tmr")) else "0"
 
             with col_tm2:
                 st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
                 if st.form_submit_button("📤 送信", type="primary", use_container_width=True):
-                    if st.session_state.tmr_s != "未定":
-                        my_task_tmr = next((r for r in attendance if r["target_date"] == "翌日" and str(r["cast_id"]) == str(c["店番"])), None)
-                        ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr = "", "", ""
-                        if my_task_tmr:
-                            _, _, _, ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr, _ = parse_attendance_memo(my_task_tmr.get("memo", ""))
+                    my_task_tmr = next((r for r in attendance if r["target_date"] == "翌日" and str(r["cast_id"]) == str(c["店番"])), None)
+                    ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr = "", "", ""
+                    if my_task_tmr:
+                        _, _, _, ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr, _ = parse_attendance_memo(my_task_tmr.get("memo", ""))
 
-                        encoded_memo_tmr = encode_attendance_memo(st.session_state.tmr_m, temp_m_addr_tmr, takuji_cancel_val_tmr, ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr, stopover_addr_tmr)
-                        rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": st.session_state.tmr_s, "memo": encoded_memo_tmr, "target_date": "翌日"}
-                        res = post_api({"action": "save_attendance", "records": [rec]})
-                        if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
-                        else: st.error(res.get("message"))
+                    encoded_memo_tmr = encode_attendance_memo(tmr_m, temp_m_addr_tmr, takuji_cancel_val_tmr, ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr, stopover_addr_tmr)
+                    rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": tmr_s, "memo": encoded_memo_tmr, "target_date": "翌日"}
+                    res = post_api({"action": "save_attendance", "records": [rec]})
+                    if res.get("status") == "success": 
+                        clear_cache()
+                        st.session_state.page = "report_done"
+                        st.rerun()
+                    else: 
+                        st.error(res.get("message"))
 
     with tab_week:
         st.write("※向こう1週間の予定をまとめて申請できます")
@@ -701,25 +695,28 @@ elif st.session_state.page == "cast_mypage":
             if st.form_submit_button("📤 週間申請を一括送信", type="primary", use_container_width=True):
                 records = []
                 for w in weekly_data:
-                    if w['attend'] != "未定":
-                        target_row = next((r for r in attendance if r["target_date"] == w['date'] and str(r["cast_id"]) == str(c["店番"])), None)
-                        ex_e_drv_w, ex_e_time_w, ex_e_dest_w = "", "", ""
-                        if target_row:
-                            _, _, _, ex_e_drv_w, ex_e_time_w, ex_e_dest_w, _ = parse_attendance_memo(target_row.get("memo", ""))
+                    target_row = next((r for r in attendance if r["target_date"] == w['date'] and str(r["cast_id"]) == str(c["店番"])), None)
+                    ex_e_drv_w, ex_e_time_w, ex_e_dest_w = "", "", ""
+                    if target_row:
+                        _, _, _, ex_e_drv_w, ex_e_time_w, ex_e_dest_w, _ = parse_attendance_memo(target_row.get("memo", ""))
 
-                        encoded_memo_week = encode_attendance_memo(w['memo'], "", "0", ex_e_drv_w, ex_e_time_w, ex_e_dest_w, "")
-                        records.append({
-                            "cast_id": c["店番"],
-                            "cast_name": c["キャスト名"],
-                            "area": c["方面"],
-                            "status": w['attend'],
-                            "memo": encoded_memo_week,
-                            "target_date": w['date']
-                        })
+                    encoded_memo_week = encode_attendance_memo(w['memo'], "", "0", ex_e_drv_w, ex_e_time_w, ex_e_dest_w, "")
+                    records.append({
+                        "cast_id": c["店番"],
+                        "cast_name": c["キャスト名"],
+                        "area": c["方面"],
+                        "status": w['attend'],
+                        "memo": encoded_memo_week,
+                        "target_date": w['date']
+                    })
                 if records:
                     res = post_api({"action": "save_attendance", "records": records})
-                    if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
-                    else: st.error(res.get("message"))
+                    if res.get("status") == "success": 
+                        clear_cache()
+                        st.session_state.page = "report_done"
+                        st.rerun()
+                    else: 
+                        st.error(res.get("message"))
                 else:
                     st.warning("出勤の申請がありませんでした。")
 
@@ -896,7 +893,7 @@ elif st.session_state.page == "staff_portal":
                 target_dt = dt.replace(hour=th, minute=tm, second=0)
                 if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
                 
-                padding_sec = len(full_path) * 3 * 60 
+                padding_sec = len(full_path) * 3 * 60 # 乗り降りバッファ
                 dep_dt = target_dt - datetime.timedelta(seconds=(total_sec + padding_sec))
                 dep_time_str = dep_dt.strftime("%H:%M")
             except:
@@ -1417,7 +1414,6 @@ elif st.session_state.page == "staff_portal":
             
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
 
-            # 🌟 出勤人数と早便人数の同時表示（二重カウントを確実に防ぐ）
             dispatch_count = 0
             early_count = 0
             today_active_casts = []
@@ -1475,7 +1471,6 @@ elif st.session_state.page == "staff_portal":
                         pref = c_dict.get('pref', '他')
                         target_row = c_dict.get('row')
                         
-                        # ✨ 絶対にクラッシュしないカード描画
                         render_cast_edit_card(c_id, c_name, pref, target_row, "tdy", d_names, time_slots, early_time_slots, loop_idx)
                         
                     if display_c == 0:
@@ -1516,7 +1511,6 @@ elif st.session_state.page == "staff_portal":
                 c_id, c_name = str(cast["cast_id"]), str(cast["name"])
                 if not c_name: continue
                 
-                # 万が一castsにダブりがあってもブロック
                 if c_id in seen_all_cids: continue
                 seen_all_cids.add(c_id)
                 
@@ -1532,7 +1526,6 @@ elif st.session_state.page == "staff_portal":
                     if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"] and str(row["cast_id"]) == str(c_id):
                         target_row = row; break
                 
-                # ✨ 絶対にクラッシュしないカード描画
                 render_cast_edit_card(c_id, c_name, pref, target_row, "all", d_names, time_slots, early_time_slots, loop_idx)
 
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
