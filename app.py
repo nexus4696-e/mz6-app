@@ -234,7 +234,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
     return ordered_tasks, total_sec, full_path
 
 # ==========================================
-# 🎨 クリーンで安全なCSS
+# 🎨 クリーンで安全なCSS（レイアウト崩れ・はみ出しゼロ）
 # ==========================================
 st.markdown("""
 <style>
@@ -269,6 +269,7 @@ st.markdown("""
         border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #fff !important;
     }
 
+    /* 🌟 上部のナビボタン（ホーム・戻る・ログアウト）だけを絶対に崩さず綺麗に横並びにする安全なCSS */
     div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -520,7 +521,6 @@ elif st.session_state.page == "cast_mypage":
                 st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True) 
                 if st.form_submit_button("📤 送信", type="primary", use_container_width=True):
                     if st.session_state.today_s != "未定":
-                        # 🌟 【致命的バグ修正】管理者が設定した早便情報が消えないように取得して引き継ぐ
                         my_task_today = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(c["店番"])), None)
                         ex_e_drv, ex_e_time, ex_e_dest = "", "", ""
                         if my_task_today:
@@ -560,7 +560,6 @@ elif st.session_state.page == "cast_mypage":
                 st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
                 if st.form_submit_button("📤 送信", type="primary", use_container_width=True):
                     if st.session_state.tmr_s != "未定":
-                        # 🌟 翌日の早便設定も保護
                         my_task_tmr = next((r for r in attendance if r["target_date"] == "翌日" and str(r["cast_id"]) == str(c["店番"])), None)
                         ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr = "", "", ""
                         if my_task_tmr:
@@ -600,7 +599,6 @@ elif st.session_state.page == "cast_mypage":
                 records = []
                 for w in weekly_data:
                     if w['attend'] != "未定":
-                        # 🌟 週間申請時も早便設定を保護
                         target_row = next((r for r in attendance if r["target_date"] == w['date'] and str(r["cast_id"]) == str(c["店番"])), None)
                         ex_e_drv_w, ex_e_time_w, ex_e_dest_w = "", "", ""
                         if target_row:
@@ -713,7 +711,6 @@ elif st.session_state.page == "staff_portal":
             st.info("現在、割り当てられている送迎（迎え便）はありません。管理者の配車をお待ちください。")
         else:
             if is_return_time:
-                # 🌙 帰り便の表示
                 st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">行きで送迎したキャストが自動的に帰り班として表示されています。</p>', unsafe_allow_html=True)
                 
                 return_tasks = []
@@ -751,7 +748,6 @@ elif st.session_state.page == "staff_portal":
                     st.markdown(disp_str, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # ☀️ 行き便（迎え便）の表示とAI完全最適化
             tasks_with_details = []
             for t in my_tasks_raw:
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
@@ -782,7 +778,7 @@ elif st.session_state.page == "staff_portal":
                 target_dt = dt.replace(hour=th, minute=tm, second=0)
                 if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
                 
-                padding_sec = len(full_path) * 3 * 60 # 乗り降りバッファ
+                padding_sec = len(full_path) * 3 * 60 
                 dep_dt = target_dt - datetime.timedelta(seconds=(total_sec + padding_sec))
                 dep_time_str = dep_dt.strftime("%H:%M")
             except:
@@ -922,7 +918,7 @@ elif st.session_state.page == "staff_portal":
                         early_disp_tasks.append({"name": row["cast_name"], "drv": e_drv, "time": e_time, "dest": e_dest})
             
             if early_disp_tasks:
-                st.markdown('<div style="background:#fff3e0; border: 2px solid #ff9800; padding: 10px; border-radius: 8px; margin-bottom: 15px;"><div style="font-weight:bold; color:#e65100; font-size:15px; margin-bottom:5px;">🌅 本日の早便一覧（設定済）</div>', unsafe_allow_html=True)
+                st.markdown('<div style="background:#fff3e0; border: 2px solid #ff9800; padding: 10px; border-radius:8px; margin-bottom: 15px;"><div style="font-weight:bold; color:#e65100; font-size:15px; margin-bottom:5px;">🌅 本日の早便一覧（設定済）</div>', unsafe_allow_html=True)
                 for ed in early_disp_tasks:
                     st.markdown(f"<div style='font-size:13px; color:#333; margin-bottom:3px;'>・ <b>{ed['name']}</b> ➡️ {ed['dest']} ({ed['time']}着) / 担当: {ed['drv']}</div>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -1136,7 +1132,7 @@ elif st.session_state.page == "staff_portal":
                 if is_return_time:
                     st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:8px; border-radius:5px; margin-bottom:15px;"><div style="color:#1565c0; font-weight:bold; margin-bottom:5px;">🌙 帰り班 (自動編成)</div>', unsafe_allow_html=True)
                     return_tasks = []
-                    for t in reversed(t_rows): # 🌟 逆順(近い順)
+                    for t in reversed(t_rows):
                         c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
                         raw_addr = c_info.get("address", "") if c_info else ""
                         home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
@@ -1210,7 +1206,6 @@ elif st.session_state.page == "staff_portal":
 
                 st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>", unsafe_allow_html=True)
 
-                # 🌟 公式フォーマットによる完璧なナビ起動ボタン
                 if full_path:
                     origin_enc = urllib.parse.quote(full_path[0])
                     dest_enc = urllib.parse.quote(store_addr)
@@ -1264,7 +1259,7 @@ elif st.session_state.page == "staff_portal":
                         c_name = str(selected_c.split(" ")[1])
                         if "early_list" not in st.session_state:
                             st.session_state.early_list = []
-                        # 🌟 リストの確実な保存のための書き換え
+                        # 🌟 連続追加で消えないための絶対保存方式
                         new_item = {"cast_id": c_id, "cast_name": c_name, "driver": selected_d, "dest": early_dest, "time": early_time}
                         st.session_state.early_list = st.session_state.early_list + [new_item]
                         
@@ -1318,30 +1313,68 @@ elif st.session_state.page == "staff_portal":
             
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
 
-            # 🌟 【新機能】出勤人数と早便人数の同時表示
+            # 🌟 【新機能】出勤人数と早便人数の同時表示 ＆ 当日の送迎キャスト一覧
             dispatch_count = 0
             early_count = 0
+            today_active_casts = []
+            
             for row in attendance:
                 if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                     dispatch_count += 1
                     _, _, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
-                    if e_drv and e_drv != "未定" and e_drv != "":
+                    is_early = (e_drv and e_drv != "未定" and e_drv != "")
+                    if is_early:
                         early_count += 1
+                    today_active_casts.append({
+                        "id": row["cast_id"], 
+                        "name": row["cast_name"], 
+                        "status": row["status"],
+                        "is_early": is_early
+                    })
+
+            # 店番順にソート
+            today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if str(x["id"]).isdigit() else 999)
 
             st.markdown(f'''
-            <div style="background-color: #e3f2fd; border: 2px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+            <div style="background-color: #e3f2fd; border: 2px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
                 <span style="font-size: 14px; color: #1565c0; font-weight: bold;">🚗 現在の送迎申請数（当日）</span><br>
                 <span style="font-size: 24px; font-weight: bold; color: #e91e63;">{dispatch_count}</span> <span style="font-size: 16px; color: #1565c0; font-weight: bold;">名</span>
                 <div style="font-size: 14px; color: #e65100; font-weight: bold; margin-top: 5px;">🌅 うち早便設定済： {early_count} 名</div>
             </div>
             ''', unsafe_allow_html=True)
             
+            # 🌟 【追加】送迎登録キャストの一覧表示ボタンとキャスト検索項目
+            with st.expander(f"📋 当日の送迎キャスト一覧を見る（{dispatch_count}名）"):
+                if today_active_casts:
+                    list_search = st.text_input("🔍 一覧からキャストを絞り込み検索", placeholder="名前 または 店番", key="today_list_search")
+                    
+                    st.markdown("<div style='background:#f9f9f9; padding:10px; border-radius:5px;'>", unsafe_allow_html=True)
+                    display_c = 0
+                    for c in today_active_casts:
+                        if list_search:
+                            if list_search not in c['name'] and list_search != str(c['id']):
+                                continue
+                        
+                        display_c += 1
+                        e_badge = "<span style='color:#ff9800; font-weight:bold; font-size:12px; float:right;'>🌅 早便</span>" if c["is_early"] else "<span style='color:#2196f3; font-weight:bold; font-size:12px; float:right;'>🚙 通常</span>"
+                        s_badge = " <span style='color:#777; font-size:11px;'>(自走)</span>" if c["status"] == "自走" else ""
+                        
+                        st.markdown(f"<div style='border-bottom: 1px dashed #ccc; padding: 8px 0; font-size:15px;'><b>店番 {c['id']}</b>　{c['name']}{s_badge}{e_badge}</div>", unsafe_allow_html=True)
+                        
+                    if display_c == 0:
+                        st.write("該当するキャストがいません。")
+                    st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.info("本日の送迎申請はまだありません。")
+
+            st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
+            
             if "search_cast_key" not in st.session_state:
                 st.session_state.search_cast_key = 0
             if "active_search_query" not in st.session_state:
                 st.session_state.active_search_query = ""
                 
-            st.markdown("<div style='font-size:14px; font-weight:bold; color:#555; margin-bottom:5px;'>🔍 キャスト検索</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:14px; font-weight:bold; color:#555; margin-bottom:5px;'>🔍 全キャスト検索 (配車の手動追加・変更)</div>", unsafe_allow_html=True)
             col_search1, col_search2 = st.columns([3, 1])
             with col_search1:
                 input_q = st.text_input("検索キーワード", placeholder="名前 または 店番", key=f"search_input_{st.session_state.search_cast_key}", label_visibility="collapsed")
@@ -1406,7 +1439,7 @@ elif st.session_state.page == "staff_portal":
                         memo, temp_addr, takuji_cancel, _, _, _, stopover = parse_attendance_memo(target_row.get("memo", ""))
                         new_memo = encode_attendance_memo(memo, temp_addr, takuji_cancel, "", "", "", stopover)
                         updates = [{"id": target_row["id"], "cast_id": c_id, "cast_name": c_name, "area": pref, "status": "出勤", "memo": new_memo, "target_date": "当日"}]
-                        res = post_api({"action": "save_attendance", "records": updates})
+                        res = post_api({"action": "save_attendance", "records": [updates]})
                         if res.get("status") == "success":
                             reset_search(); st.rerun()
 
