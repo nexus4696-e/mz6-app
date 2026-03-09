@@ -214,7 +214,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             
     return final_ordered_tasks, total_sec, full_path
 
-# 🌟 【バグ完全排除】確実な画面切り替えを行うキャスト詳細編集カード
+# 🌟 キャスト詳細編集カード
 def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots, loop_idx):
     key_suffix = f"{c_id}_{prefix_key}_{loop_idx}"
     
@@ -277,8 +277,10 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
         
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
         
-        # 🌟 フリーズをなくし、かつ確実にデータを反映させる
+        msg_placeholder = st.empty()
         if st.button("💾 この内容で更新する", key=f"btn_upd_{key_suffix}", type="primary", use_container_width=True):
+            msg_placeholder.info("⏳ データベースを書き換えています...")
+            
             if new_status in ["未定", "休み"]:
                 new_drv = "未定"
                 new_time = "未定"
@@ -293,7 +295,6 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
 
             enc_memo = encode_attendance_memo(new_memo, new_temp_addr, tc_val, save_e_drv, save_e_time, save_e_dest, new_stopover)
             
-            # 🌟 「未定」の時は確実に配車から除外
             if new_status in ["未定", "休み"]:
                 post_api({"action": "cancel_dispatch", "cast_id": c_id})
 
@@ -308,7 +309,8 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
             res1 = post_api({"action": "save_attendance", "records": [rec]})
             
             if res1.get("status") == "success":
-                time.sleep(0.5) # 保存が完全に終わるのを一瞬だけ待つ（バグ防止）
+                time.sleep(1.0)
+                clear_cache()
                 
                 if new_status not in ["未定", "休み"]:
                     db_temp = get_db_data()
@@ -317,12 +319,14 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                         updates = [{"id": new_row["id"], "driver_name": new_drv, "pickup_time": new_time, "status": new_status}]
                         post_api({"action": "update_manual_dispatch", "updates": updates})
                         time.sleep(0.5)
+                        clear_cache()
                 
-                clear_cache()
+                msg_placeholder.success("✅ 保存完了！画面を最新に切り替えます...")
+                time.sleep(0.5)
                 st.session_state.flash_msg = f"{c_name} の情報を更新しました！"
                 st.rerun() 
             else:
-                st.error("エラー: " + res1.get("message"))
+                msg_placeholder.error("エラー: " + res1.get("message"))
 
 # ==========================================
 # 🎨 クリーンで安全なCSS (ボタンを押せなくする邪魔なコードを全削除)
@@ -380,7 +384,9 @@ st.markdown("""
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
 
+# 🌟 地図を開くボタン（現在地からの案内開始に対応）
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px; box-shadow:0 1px 2px rgba(0,0,0,0.2);'>🔍 Googleマップを開いて住所を検索・コピー</a>"""
+NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 
 # ==========================================
 # 🌟 ナビゲーション
@@ -523,7 +529,7 @@ elif st.session_state.page == "cast_mypage":
     attendance = db.get("attendance", [])
     
     st.markdown('<div class="app-header" style="margin-bottom:0; border:none; text-align:left;">出勤報告</div>', unsafe_allow_html=True)
-    st.markdown("<hr style='margin-top:0; margin-bottom:15px; border-top: 2px solid #333;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin:top:0; margin-bottom:15px; border-top: 2px solid #333;'>", unsafe_allow_html=True)
     
     notice = str(settings.get("notice_text", "")).strip()
     if notice:
@@ -567,7 +573,6 @@ elif st.session_state.page == "cast_mypage":
 
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
-    # 🌟 【完全修正】フォームを撤廃し、確実にボタンが押せて即座に画面が切り替わる仕様
     with tab_today:
         st.markdown(f'<div style="background-color: #fff9c4; border: 3px solid #fdd835; border-radius: 8px; padding: 10px; margin-bottom: 15px; text-align: center; color: #f57f17; font-weight: bold; font-size: 18px;">⚡ 当日出勤申請 ({today_str})</div>', unsafe_allow_html=True)
         
@@ -580,8 +585,7 @@ elif st.session_state.page == "cast_mypage":
 
         col_t1, col_t2 = st.columns([3, 1.2]) 
         with col_t1:
-            # 自分が今「出勤」なら最初から出勤が選ばれている親切設計
-            today_s = st.radio("状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(cur_status_today) if cur_status_today in ["未定", "出勤", "自走", "休み"] else 0, horizontal=True, key="today_s", label_visibility="collapsed")
+            today_s = st.radio("状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(cur_status_today) if cur_status_today in ["未定", "出勤", "自走", "休み"] else 0, horizontal=True, key="today_s")
             today_m = st.text_input("備考", value=memo_text_tdy, placeholder="備考", key="today_m")
             
             st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
@@ -599,14 +603,13 @@ elif st.session_state.page == "cast_mypage":
                 encoded_memo = encode_attendance_memo(today_m, temp_m_addr, takuji_cancel_val, ex_e_drv_tdy, ex_e_time_tdy, ex_e_dest_tdy, stopover_addr)
                 rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": today_s, "memo": encoded_memo, "target_date": "当日"}
                 
-                # 未定や休みにした場合は確実に配車をリセットする
                 if today_s in ["未定", "休み"]:
                     post_api({"action": "cancel_dispatch", "cast_id": c["店番"]})
                     time.sleep(0.3)
                     
                 res = post_api({"action": "save_attendance", "records": [rec]})
                 if res.get("status") == "success": 
-                    time.sleep(0.5) # 確実な保存を待つ
+                    time.sleep(0.5)
                     clear_cache()
                     st.session_state.page = "report_done"
                     st.rerun()
@@ -622,7 +625,7 @@ elif st.session_state.page == "cast_mypage":
 
         col_tm1, col_tm2 = st.columns([3, 1.2])
         with col_tm1:
-            tmr_s = st.radio("状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(cur_status_tmr) if cur_status_tmr in ["未定", "出勤", "自走", "休み"] else 0, horizontal=True, key="tmr_s", label_visibility="collapsed")
+            tmr_s = st.radio("状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(cur_status_tmr) if cur_status_tmr in ["未定", "出勤", "自走", "休み"] else 0, horizontal=True, key="tmr_s")
             tmr_m = st.text_input("明日の備考", value=memo_text_tmr, placeholder="備考", key="tmr_m")
             
             st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
@@ -664,7 +667,7 @@ elif st.session_state.page == "cast_mypage":
             st.write(f"**{date_disp}**")
             col_w1, col_w2 = st.columns([3, 1.2])
             with col_w1:
-                w_attend = st.radio("状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(cur_status_w) if cur_status_w in ["未定", "出勤", "自走", "休み"] else 0, horizontal=True, key=f"w_s_{i}", label_visibility="collapsed")
+                w_attend = st.radio("状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(cur_status_w) if cur_status_w in ["未定", "出勤", "自走", "休み"] else 0, horizontal=True, key=f"w_s_{i}")
                 w_memo = st.text_input("備考", value=memo_text_w, placeholder="備考", key=f"w_m_{i}")
             with col_w2:
                 pass
@@ -773,11 +776,12 @@ elif st.session_state.page == "staff_portal":
             valid_early_addrs = [clean_address_for_map(x["early_dest"]) for x in my_early_tasks if clean_address_for_map(x["early_dest"])]
             
             if valid_early_addrs:
-                origin_enc = urllib.parse.quote(store_addr)
+                # 🌟 現在地から案内させるため origin を完全に削除
                 dest_enc = urllib.parse.quote(valid_early_addrs[-1])
-                wp_enc = urllib.parse.quote("|".join(valid_early_addrs[:-1]))
-                early_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}&waypoints={wp_enc}"
-                st.markdown(f"<a href='{early_map_url}' target='_blank' class='nav-btn' style='background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始 (店舗発〜近い順)</a>", unsafe_allow_html=True)
+                wp_enc = urllib.parse.quote("|".join(valid_early_addrs[:-1])) if len(valid_early_addrs) > 1 else ""
+                early_map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
+                if wp_enc: early_map_url += f"&waypoints={wp_enc}"
+                st.markdown(f"<a href='{early_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始 (現在地から)</a>", unsafe_allow_html=True)
             
             earliest_dep_mins = 9999
             for rt in my_early_tasks:
@@ -811,7 +815,7 @@ elif st.session_state.page == "staff_portal":
             st.info("現在、割り当てられている送迎（迎え便）はありません。管理者の配車をお待ちください。")
         else:
             if is_return_time:
-                st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">店舗から近い人から順番に降ろしていく最短ルートです。</p>', unsafe_allow_html=True)
+                st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#1565c0; margin-top:0; margin-bottom:5px;">🌙 帰りの送迎便（送り班）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">行きで送迎したキャストが自動的に帰り班として表示されています。</p>', unsafe_allow_html=True)
                 
                 return_tasks = []
                 for t in my_tasks_raw:
@@ -834,11 +838,12 @@ elif st.session_state.page == "staff_portal":
                 ordered_returns, _, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                 
                 if return_full_path:
-                    origin_enc = urllib.parse.quote(store_addr)
+                    # 🌟 現在地から案内させるため origin を完全に削除
                     dest_enc = urllib.parse.quote(return_full_path[-1])
-                    wp_enc = urllib.parse.quote("|".join(return_full_path[:-1]))
-                    return_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}&waypoints={wp_enc}"
-                    st.markdown(f"<a href='{return_map_url}' target='_blank' class='nav-btn' style='background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (Google AI 最短ルート)</a>", unsafe_allow_html=True)
+                    wp_enc = urllib.parse.quote("|".join(return_full_path[:-1])) if len(return_full_path) > 1 else ""
+                    return_map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
+                    if wp_enc: return_map_url += f"&waypoints={wp_enc}"
+                    st.markdown(f"<a href='{return_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>", unsafe_allow_html=True)
                     
                 for idx, rt in enumerate(ordered_returns):
                     disp_str = f"<div style='font-size:14px;'><b>降車順 {idx+1}</b>：店番 {rt['c_id']} <b>{rt['c_name']}</b><br>"
@@ -878,7 +883,7 @@ elif st.session_state.page == "staff_portal":
                 target_dt = dt.replace(hour=th, minute=tm, second=0)
                 if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
                 
-                padding_sec = len(full_path) * 3 * 60 
+                padding_sec = len(full_path) * 3 * 60 # 乗り降りバッファ
                 dep_dt = target_dt - datetime.timedelta(seconds=(total_sec + padding_sec))
                 dep_time_str = dep_dt.strftime("%H:%M")
             except:
@@ -887,12 +892,12 @@ elif st.session_state.page == "staff_portal":
             st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:10px; border-radius:5px; margin-bottom:15px; text-align:center; border: 2px solid #f44336;'>🚀 店舗出発時刻（計算値）: {dep_time_str}</div>", unsafe_allow_html=True)
 
             if full_path:
-                origin_enc = urllib.parse.quote(full_path[0])
+                # 🌟 現在地から案内させるため origin を完全に削除
                 dest_enc = urllib.parse.quote(store_addr)
-                wp_enc = urllib.parse.quote("|".join(full_path[1:])) if len(full_path) > 1 else ""
-                map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}"
+                wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
+                map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
                 if wp_enc: map_url += f"&waypoints={wp_enc}"
-                st.markdown(f"<a href='{map_url}' target='_blank' class='nav-btn'>🗺️ 行きナビ開始 (AI最短ルート)</a>", unsafe_allow_html=True)
+                st.markdown(f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ 行きナビ開始 (AI最短ルート)</a>", unsafe_allow_html=True)
             else:
                 st.warning("キャストの住所が登録されていないため、自動ナビゲーションが起動できません。")
 
@@ -916,15 +921,13 @@ elif st.session_state.page == "staff_portal":
                 if t["use_takuji"] and clean_address_for_map(t["takuji_addr"]): route_points.append(clean_address_for_map(t["takuji_addr"]))
                 
                 ind_map_url = ""
-                if len(route_points) >= 2:
-                    origin_enc = urllib.parse.quote(route_points[0])
+                if len(route_points) >= 1:
+                    # 🌟 個別マップも現在地からの案内に変更
                     dest_enc = urllib.parse.quote(route_points[-1])
-                    waypoints_enc = urllib.parse.quote("|".join(route_points[1:-1]))
-                    ind_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}"
-                    if route_points[1:-1]:
+                    waypoints_enc = urllib.parse.quote("|".join(route_points[:-1])) if len(route_points) > 1 else ""
+                    ind_map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
+                    if waypoints_enc:
                         ind_map_url += f"&waypoints={waypoints_enc}"
-                elif len(route_points) == 1:
-                    ind_map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(route_points[0])}"
 
                 map_btn = f"<a href='{ind_map_url}' target='_blank' style='text-decoration:none; background:#e3f2fd; color:#1565c0; font-weight:bold; padding:4px 10px; border-radius:15px; font-size:12px; border:1px solid #2196f3; margin-left:5px; box-shadow:0 1px 3px rgba(0,0,0,0.1);'>📍 個別マップ</a>" if ind_map_url else ""
 
@@ -1150,7 +1153,6 @@ elif st.session_state.page == "staff_portal":
                                         
                                         opt_valid_indices = [valid_idx_map[0]] + [valid_idx_map[i+1] for i in wp_order]
                                         
-                                        # 🌟 時間の割り当ても一番遠い人から確実に計算
                                         legs = res["routes"][0]["legs"]
                                         dur_to_first = legs[0]["duration"]["value"]
                                         dur_from_last = legs[-1]["duration"]["value"]
@@ -1250,11 +1252,12 @@ elif st.session_state.page == "staff_portal":
                             valid_return_addrs.append(clean_address_for_map(rt["actual_pickup"]))
                     
                     if valid_return_addrs:
-                        origin_enc = urllib.parse.quote(store_addr)
-                        dest_enc = urllib.parse.quote(valid_return_addrs[-1])
-                        wp_enc = urllib.parse.quote("|".join(valid_return_addrs[:-1]))
-                        return_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}&waypoints={wp_enc}"
-                        st.markdown(f"<a href='{return_map_url}' target='_blank' style='display:inline-block; background:#1565c0; color:white; padding:5px 10px; border-radius:5px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🗺️ 帰りナビ (店舗発)</a>", unsafe_allow_html=True)
+                        # 🌟 現在地から案内させるため origin を完全に削除
+                        dest_enc = urllib.parse.quote(store_addr)
+                        wp_enc = urllib.parse.quote("|".join(valid_return_addrs[:-1])) if len(valid_return_addrs) > 1 else ""
+                        return_map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
+                        if wp_enc: return_map_url += f"&waypoints={wp_enc}"
+                        st.markdown(f"<a href='{return_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ (現在地から)</a>", unsafe_allow_html=True)
                         
                     for idx, rt in enumerate(return_tasks):
                         disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
@@ -1301,12 +1304,12 @@ elif st.session_state.page == "staff_portal":
                 st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>", unsafe_allow_html=True)
 
                 if full_path:
-                    origin_enc = urllib.parse.quote(full_path[0])
+                    # 🌟 現在地から案内させるため origin を完全に削除
                     dest_enc = urllib.parse.quote(store_addr)
-                    wp_enc = urllib.parse.quote("|".join(full_path[1:])) if len(full_path) > 1 else ""
-                    map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}"
+                    wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
+                    map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
                     if wp_enc: map_url += f"&waypoints={wp_enc}"
-                    st.markdown(f"<a href='{map_url}' target='_blank' class='line-connect-btn' style='background:#4285f4; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
+                    st.markdown(f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
                 
                 for idx, t in enumerate(ordered_tasks):
                     addr_display = f"🏠 迎え: {t['home_addr'] if t['home_addr'] else '未登録'}"
