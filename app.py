@@ -234,7 +234,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
     return ordered_tasks, total_sec, full_path
 
 # ==========================================
-# 🎨 クリーンで安全なCSS（レイアウト崩れ・はみ出しゼロ）
+# 🎨 クリーンで安全なCSS
 # ==========================================
 st.markdown("""
 <style>
@@ -269,7 +269,6 @@ st.markdown("""
         border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #fff !important;
     }
 
-    /* 上部のナビボタン（ホーム・戻る・ログアウト）安全な横並びCSS */
     div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -442,6 +441,7 @@ elif st.session_state.page == "cast_mypage":
     db = get_db_data()
     settings = db.get("settings") or {}
     casts = db.get("casts", [])
+    attendance = db.get("attendance", [])
     
     st.markdown('<div class="app-header" style="margin-bottom:0; border:none; text-align:left;">出勤報告</div>', unsafe_allow_html=True)
     st.markdown("<hr style='margin-top:0; margin-bottom:15px; border-top: 2px solid #333;'>", unsafe_allow_html=True)
@@ -520,7 +520,13 @@ elif st.session_state.page == "cast_mypage":
                 st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True) 
                 if st.form_submit_button("📤 送信", type="primary", use_container_width=True):
                     if st.session_state.today_s != "未定":
-                        encoded_memo = encode_attendance_memo(st.session_state.today_m, temp_m_addr, takuji_cancel_val, "", "", "", stopover_addr)
+                        # 🌟 【致命的バグ修正】管理者が設定した早便情報が消えないように取得して引き継ぐ
+                        my_task_today = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(c["店番"])), None)
+                        ex_e_drv, ex_e_time, ex_e_dest = "", "", ""
+                        if my_task_today:
+                            _, _, _, ex_e_drv, ex_e_time, ex_e_dest, _ = parse_attendance_memo(my_task_today.get("memo", ""))
+
+                        encoded_memo = encode_attendance_memo(st.session_state.today_m, temp_m_addr, takuji_cancel_val, ex_e_drv, ex_e_time, ex_e_dest, stopover_addr)
                         rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": st.session_state.today_s, "memo": encoded_memo, "target_date": "当日"}
                         res = post_api({"action": "save_attendance", "records": [rec]})
                         if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
@@ -554,7 +560,13 @@ elif st.session_state.page == "cast_mypage":
                 st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
                 if st.form_submit_button("📤 送信", type="primary", use_container_width=True):
                     if st.session_state.tmr_s != "未定":
-                        encoded_memo_tmr = encode_attendance_memo(st.session_state.tmr_m, temp_m_addr_tmr, takuji_cancel_val_tmr, "", "", "", stopover_addr_tmr)
+                        # 🌟 翌日の早便設定も保護
+                        my_task_tmr = next((r for r in attendance if r["target_date"] == "翌日" and str(r["cast_id"]) == str(c["店番"])), None)
+                        ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr = "", "", ""
+                        if my_task_tmr:
+                            _, _, _, ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr, _ = parse_attendance_memo(my_task_tmr.get("memo", ""))
+
+                        encoded_memo_tmr = encode_attendance_memo(st.session_state.tmr_m, temp_m_addr_tmr, takuji_cancel_val_tmr, ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr, stopover_addr_tmr)
                         rec = {"cast_id": c["店番"], "cast_name": c["キャスト名"], "area": c["方面"], "status": st.session_state.tmr_s, "memo": encoded_memo_tmr, "target_date": "翌日"}
                         res = post_api({"action": "save_attendance", "records": [rec]})
                         if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
@@ -588,7 +600,13 @@ elif st.session_state.page == "cast_mypage":
                 records = []
                 for w in weekly_data:
                     if w['attend'] != "未定":
-                        encoded_memo_week = encode_attendance_memo(w['memo'], "", "0", "", "", "", "")
+                        # 🌟 週間申請時も早便設定を保護
+                        target_row = next((r for r in attendance if r["target_date"] == w['date'] and str(r["cast_id"]) == str(c["店番"])), None)
+                        ex_e_drv_w, ex_e_time_w, ex_e_dest_w = "", "", ""
+                        if target_row:
+                            _, _, _, ex_e_drv_w, ex_e_time_w, ex_e_dest_w, _ = parse_attendance_memo(target_row.get("memo", ""))
+
+                        encoded_memo_week = encode_attendance_memo(w['memo'], "", "0", ex_e_drv_w, ex_e_time_w, ex_e_dest_w, "")
                         records.append({
                             "cast_id": c["店番"],
                             "cast_name": c["キャスト名"],
@@ -1246,9 +1264,10 @@ elif st.session_state.page == "staff_portal":
                         c_name = str(selected_c.split(" ")[1])
                         if "early_list" not in st.session_state:
                             st.session_state.early_list = []
-                        st.session_state.early_list.append({
-                            "cast_id": c_id, "cast_name": c_name, "driver": selected_d, "dest": early_dest, "time": early_time
-                        })
+                        # 🌟 リストの確実な保存のための書き換え
+                        new_item = {"cast_id": c_id, "cast_name": c_name, "driver": selected_d, "dest": early_dest, "time": early_time}
+                        st.session_state.early_list = st.session_state.early_list + [new_item]
+                        
                         st.session_state.early_msg = f"✅ {c_name} をリストに追加しました！続けて入力できます。"
                         st.session_state.early_form_key += 1
                         st.rerun()
@@ -1299,11 +1318,21 @@ elif st.session_state.page == "staff_portal":
             
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
 
-            dispatch_count = sum(1 for row in attendance if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"])
+            # 🌟 【新機能】出勤人数と早便人数の同時表示
+            dispatch_count = 0
+            early_count = 0
+            for row in attendance:
+                if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
+                    dispatch_count += 1
+                    _, _, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
+                    if e_drv and e_drv != "未定" and e_drv != "":
+                        early_count += 1
+
             st.markdown(f'''
             <div style="background-color: #e3f2fd; border: 2px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
                 <span style="font-size: 14px; color: #1565c0; font-weight: bold;">🚗 現在の送迎申請数（当日）</span><br>
                 <span style="font-size: 24px; font-weight: bold; color: #e91e63;">{dispatch_count}</span> <span style="font-size: 16px; color: #1565c0; font-weight: bold;">名</span>
+                <div style="font-size: 14px; color: #e65100; font-weight: bold; margin-top: 5px;">🌅 うち早便設定済： {early_count} 名</div>
             </div>
             ''', unsafe_allow_html=True)
             
@@ -1376,7 +1405,6 @@ elif st.session_state.page == "staff_portal":
                     if st.button("❌ 早便設定のみを解除する", key=f"cancel_e_{c_id}", use_container_width=True):
                         memo, temp_addr, takuji_cancel, _, _, _, stopover = parse_attendance_memo(target_row.get("memo", ""))
                         new_memo = encode_attendance_memo(memo, temp_addr, takuji_cancel, "", "", "", stopover)
-                        # 🌟 致命的エラー原因を完全修正済
                         updates = [{"id": target_row["id"], "cast_id": c_id, "cast_name": c_name, "area": pref, "status": "出勤", "memo": new_memo, "target_date": "当日"}]
                         res = post_api({"action": "save_attendance", "records": updates})
                         if res.get("status") == "success":
