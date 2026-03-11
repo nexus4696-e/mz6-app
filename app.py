@@ -280,7 +280,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
             st.markdown(f"<div style='font-size:12px; font-weight:bold; color:#004085; margin-bottom:5px;'>📱 個別LINE送信 (担当: {mgr_name})</div>", unsafe_allow_html=True)
             if line_uid:
                 col_l1, col_l2 = st.columns([3, 1])
-                with col_l1: l_msg = st.text_input("メッセージ", placeholder="忘れ物あります！等", key=f"lmsg_{key_suffix}", label_visibility="collapsed")
+                with col_l1: l_msg = st.text_input("メッセージ内容", placeholder="忘れ物あります！等", key=f"lmsg_{key_suffix}", label_visibility="collapsed")
                 with col_l2:
                     if st.button("送信", key=f"lbtn_{key_suffix}", use_container_width=True, type="primary"):
                         if l_msg:
@@ -630,7 +630,7 @@ elif st.session_state.page == "staff_portal":
         range_opts = ["全表示"] + [f"{i*10+1}-{i*10+10}" for i in range(15)]
         
         # ----------------------------------------
-        # ① 配車リスト（完全復元＋AI追加）
+        # ① 配車リスト
         # ----------------------------------------
         if st.session_state.current_staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header">{today_str} 配車</div>', unsafe_allow_html=True)
@@ -847,7 +847,7 @@ elif st.session_state.page == "staff_portal":
                         latest_name = c_info.get("name", t['cast_name']) if c_info else t['cast_name']
                         
                         return_tasks.append({
-                            "task": t, "actual_pickup": actual_pickup, 
+                            "task": t, "dist": 0, "actual_pickup": actual_pickup, 
                             "use_takuji": use_takuji, "takuji_addr": takuji_addr,
                             "c_name": latest_name, "c_id": t['cast_id']
                         })
@@ -890,7 +890,7 @@ elif st.session_state.page == "staff_portal":
                     st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>", unsafe_allow_html=True)
                     ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                    target_time_str = str(sets.get("base_arrival_time", "19:50"))
+                    target_time_str = str(settings.get("base_arrival_time", "19:50"))
                     try:
                         th, tm = map(int, target_time_str.split(':'))
                         target_dt = dt.replace(hour=th, minute=tm, second=0)
@@ -1057,6 +1057,7 @@ elif st.session_state.page == "staff_portal":
             search_query_reg = st.text_input("🔍 キャスト検索 (名前または店番)", placeholder="例: ゆみか, 94", key="search_cast_reg")
             st.markdown('</div>', unsafe_allow_html=True)
 
+            # 🚨 完全復元：10名ごとの絞り込みボタン
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed", key="reg_rng")
             existing = {str(c["cast_id"]): c for c in casts if str(c["cast_id"]) != ""}
             staff_list = ["未設定"] + d_names
@@ -1073,6 +1074,7 @@ elif st.session_state.page == "staff_portal":
                 
                 display_count += 1
                 
+                # 🚨 完全復元：詳細プロフィールフォーム
                 with st.expander(f"店番 {i} : {nm if nm else '未登録'} {mgr}"):
                     nn = st.text_input("名前", value=nm, key=f"cn_{i}")
                     mgr_idx = staff_list.index(mgr) if mgr in staff_list else 0
