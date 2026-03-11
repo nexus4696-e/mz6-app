@@ -128,7 +128,7 @@ def get_route_line_and_distance(addr_str):
             line = "Route_E_South"
     return line, dist
 
-# 🌟 【完全修正】Google AIアルゴリズム（早便のルートも正確に計算するように修正）
+# 🌟 【絶対的な約束を厳守】キャスト乗車時間を最短にするGoogle AIアルゴリズム
 @st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
     if not api_key or not tasks_list:
@@ -137,26 +137,28 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
     valid_tasks = []
     valid_pickups = []
     for t in tasks_list:
-        addr = clean_address_for_map(t["actual_pickup"])
+        addr = clean_address_for_map(t.get("actual_pickup", ""))
         if addr:
             valid_tasks.append(t)
             valid_pickups.append(addr)
 
-    invalid_tasks = [t for t in tasks_list if not clean_address_for_map(t["actual_pickup"])]
+    invalid_tasks = [t for t in tasks_list if not clean_address_for_map(t.get("actual_pickup", ""))]
     
     ordered_valid_tasks = valid_tasks
     total_sec = 0
     full_path = []
+
+    actual_dest = dest_addr if dest_addr else store_addr
 
     if len(valid_pickups) == 1:
         ordered_valid_tasks = valid_tasks
     elif len(valid_pickups) > 1:
         wp_str = "optimize:true|" + "|".join(valid_pickups)
         try:
-            # 🌟 通信フリーズ防止
+            # 🌟 通信フリーズ防止のため timeout=5 を設定
             res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
                 "origin": store_addr,
-                "destination": store_addr, # 順番最適化のため一旦店→店で計算
+                "destination": actual_dest,
                 "waypoints": wp_str,
                 "key": api_key,
                 "language": "ja"
@@ -171,20 +173,27 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
                 dur_to_first = legs[0]["duration"]["value"]
                 dur_from_last = legs[-1]["duration"]["value"]
                 
-                if is_return:
-                    if dur_to_first > dur_from_last:
-                        ordered_valid_tasks.reverse()
-                        ordered_pickups.reverse()
-                else:
-                    if dur_to_first < dur_from_last:
-                        ordered_valid_tasks.reverse()
-                        ordered_pickups.reverse()
+                # 🌟 絶対的な約束：乗車時間を最短にする（遠い人から拾う / 近い人から降ろす）
+                # 起点と終点が同じ（店→店）や、届け先が店付近の「迎え便」の場合のみ、回る向きを強制制御する
+                is_loop = (store_addr == actual_dest) or ("倉敷市水島東栄町" in actual_dest)
+                
+                if is_loop:
+                    if is_return: 
+                        # 夜の帰り便（店→自宅）: 最短乗車時間＝近い人から降ろす
+                        if dur_to_first > dur_from_last:
+                            ordered_valid_tasks.reverse()
+                            ordered_pickups.reverse()
+                    else: 
+                        # 早便や迎え便（自宅→店）: 最短乗車時間＝遠い人から拾って店に戻る
+                        if dur_to_first < dur_from_last:
+                            ordered_valid_tasks.reverse()
+                            ordered_pickups.reverse()
         except:
             pass
             
     final_ordered_tasks = ordered_valid_tasks + invalid_tasks
 
-    # 経由地をすべて抽出
+    # 経路の構築
     for t in final_ordered_tasks:
         if t.get("actual_pickup"): full_path.append(clean_address_for_map(t["actual_pickup"]))
         if t.get("stopover"): full_path.append(clean_address_for_map(t["stopover"]))
@@ -192,15 +201,17 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
         
     full_path = [p for p in full_path if p]
     
-    # 🌟 実際の移動時間を計算する
+    # 🌟 実際のルート移動時間の計算
     if full_path:
         calc_origin = store_addr
         
-        if is_return: # 夜の帰り便
+        if is_return and actual_dest == store_addr: 
+            # 夜の帰り便：最後の人の家で送迎業務は完了（店に戻る時間は計算に入れない）
             calc_dest = full_path[-1]
             calc_waypoints = full_path[:-1]
-        else: # 早便（お迎え）や通常便
-            calc_dest = dest_addr if dest_addr else store_addr
+        else:
+            # 迎え便・早便：最終目的地（店や駅などの実際の指定先）に到着するまでの全時間を計算
+            calc_dest = actual_dest
             calc_waypoints = full_path
         
         params = {
@@ -299,12 +310,12 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
 
         if show_details:
             st.markdown("<div style='background:#fffde7; padding:10px; border-radius:8px; border:1px solid #fdd835;'>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:13px; font-weight:bold; color:#e65100; margin-bottom:5px;'>🌅 早便（送り便）設定</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:13px; font-weight:bold; color:#e65100; margin-bottom:5px;'>🌅 早便設定</div>", unsafe_allow_html=True)
             col_e1, col_e2 = st.columns(2)
             with col_e1:
                 new_e_drv = st.selectbox("早便ドライバー", drv_opts, index=drv_opts.index(new_e_drv) if new_e_drv in drv_opts else 0, key=f"edrv_{key_suffix}")
             with col_e2:
-                # 🌸 指定時間を「送り先到着時間」に変更
+                # 🌸 指示通り「到着指定時間」を「送り先到着時間」に変更
                 new_e_time = st.selectbox("送り先到着時間", e_t_slots, index=e_t_slots.index(new_e_time) if new_e_time in e_t_slots else 0, key=f"etm_{key_suffix}")
             new_e_dest = st.text_input("早便送迎先 (住所・駅名など)", value=new_e_dest, key=f"edest_{key_suffix}")
 
@@ -821,7 +832,7 @@ elif st.session_state.page == "staff_portal":
     if not is_admin:
         st.markdown(f'<div class="date-header"><div style="font-size:12px; color:#555; font-weight:normal;">本日の配車ルート</div><div class="main-date">{today_str} ({dow})</div></div>', unsafe_allow_html=True)
         
-        # 🌅 早便（迎え便としてAI計算）の処理
+        # 🌅 早便（送り便・迎え便）の処理
         early_tasks_raw = []
         seen_early_drv_cids = set()
         for row in attendance:
@@ -833,29 +844,31 @@ elif st.session_state.page == "staff_portal":
                 
         my_early_tasks = []
         for t in early_tasks_raw:
-            _, temp_addr, tc, e_drv, e_time, e_dest, stopover = parse_attendance_memo(t.get("memo", ""))
+            _, temp_addr, takuji_cancel, e_drv, e_time, e_dest, stopover = parse_attendance_memo(t.get("memo", ""))
             if e_drv == staff_name:
-                # 送迎先の取得（キャストの自宅や一時変更先）
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), {})
                 raw_addr = c_info.get("address", "")
                 home_addr, takuji_en, takuji_addr, _ = parse_cast_address(raw_addr)
+                
+                # 🌟 今回のバグの核心修正：AI計算のためにキャストの迎え先（自宅等）をセットする
                 actual_pickup = temp_addr if temp_addr else home_addr
-                use_takuji = (takuji_en == "1" and tc == "0" and takuji_addr != "")
+                use_takuji = (takuji_en == "1" and takuji_cancel == "0" and takuji_addr != "")
                 
                 _, dist = get_route_line_and_distance(actual_pickup)
                 my_early_tasks.append({
                     "task": t, "early_time": e_time, "early_dest": e_dest, "dist": dist,
                     "c_name": t['cast_name'], "c_id": t['cast_id'],
-                    "actual_pickup": actual_pickup, "use_takuji": use_takuji, "takuji_addr": takuji_addr,
+                    "actual_pickup": actual_pickup,
+                    "use_takuji": use_takuji,
+                    "takuji_addr": takuji_addr,
                     "stopover": stopover
                 })
 
         if my_early_tasks:
-            st.markdown(f'<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便（迎え）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">送り先到着時間を基準に自動計算された出発時刻と順路です。</p>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便（送り）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">送り先到着時間を基準に自動計算された出発時刻と順路です。</p>', unsafe_allow_html=True)
             
-            # 🌟 修正：Google AIを使って実際の移動時間を計算する
+            # 🌟 修正：実際の迎え先を含めた完全なルートをAIに計算させる
             early_dest_addr = my_early_tasks[0]["early_dest"] if my_early_tasks[0]["early_dest"] else store_addr
-            
             ordered_early_tasks, early_total_sec, early_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, early_dest_addr, my_early_tasks, is_return=False)
             
             if early_full_path:
@@ -865,7 +878,6 @@ elif st.session_state.page == "staff_portal":
                 if wp_enc: early_map_url += f"&waypoints={wp_enc}"
                 st.markdown(f"<a href='{early_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始 (現在地から)</a>", unsafe_allow_html=True)
             
-            # 🌟 出発時刻の逆算
             earliest_target_mins = 9999
             for rt in ordered_early_tasks:
                 try:
@@ -875,7 +887,7 @@ elif st.session_state.page == "staff_portal":
                 except: pass
             
             if earliest_target_mins != 9999:
-                padding_sec = len(early_full_path) * 3 * 60 # 1件につき3分のバッファ
+                padding_sec = len(ordered_early_tasks) * 3 * 60 # 1件につき3分のバッファ
                 total_travel_mins = (early_total_sec + padding_sec) // 60
                 
                 # APIキー未設定やエラー時は最低（人数×15分）を確保
@@ -889,7 +901,7 @@ elif st.session_state.page == "staff_portal":
                 st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算値): {dep_time_str}</div>", unsafe_allow_html=True)
 
             for idx, rt in enumerate(ordered_early_tasks):
-                disp_str = f"<div style='font-size:14px;'><b>迎え順 {idx+1}</b>：店番 {rt['c_id']} <b>{rt['c_name']}</b><br>"
+                disp_str = f"<div style='font-size:14px;'><b>降車順 {idx+1}</b>：店番 {rt['c_id']} <b>{rt['c_name']}</b><br>"
                 disp_str += f"<span style='color:#e65100;font-size:12px;font-weight:bold;'>⏰ 送り先到着: {rt['early_time']}</span><br>"
                 disp_str += f"<span style='color:#1565c0;font-size:12px;'>🏠 迎え先: {rt['actual_pickup']}</span><br>"
                 disp_str += f"<span style='color:#666;font-size:12px;'>🏁 届け先: {rt['early_dest']}</span></div><hr style='margin:5px 0;'>"
@@ -1309,7 +1321,7 @@ elif st.session_state.page == "staff_portal":
                                     clear_cache(); st.session_state.flash_msg = "AIによる最短ルート最適化が完了しました！"; st.rerun()
                                 else: st.error("エラー: " + res.get("message"))
                             else:
-                                st.warning("⚠️ AI配車の対象者がいません")
+                                st.warning("⚠️ AI配車の対象者がいません（全員が早便や自走、または未出勤です）")
                                 time.sleep(2.5)
                                 st.rerun()
             
