@@ -648,7 +648,7 @@ elif st.session_state.page == "staff_portal":
             att_tdy = [r for r in atts if r["target_date"] == "当日" and r["status"] in ["出勤", "自走"]]
             with st.expander(f"📋 当日キャスト一覧 ({len(att_tdy)}名)"):
                 for i, r in enumerate(att_tdy):
-                    c_inf = next((c for c in casts if str(c["cast_id"]) == str(r["cast_id"])), {})
+                    c_info = next((c for c in casts if str(c["cast_id"]) == str(r["cast_id"])), {})
                     latest_name = c_info.get("name", r["cast_name"])
                     render_cast_edit_card(r["cast_id"], latest_name, c_info.get("area","他"), r, "tdy", d_names, time_slots, early_time_slots, i)
 
@@ -725,7 +725,7 @@ elif st.session_state.page == "staff_portal":
         # ④ STAFF設定（全機能完全復元）
         # ----------------------------------------
         elif st.session_state.current_staff_tab == "④ STAFF設定":
-            exist_drvs = {str(d["driver_id"]): d for d in drivers}
+            exist_drvs = {str(d["driver_id"]): d for d in drvs}
             staff_disp_list = ["-- 新規・編集するスタッフを選択 --"]
             for i in range(1, 31):
                 nm = exist_drvs.get(str(i), {}).get("name", "")
