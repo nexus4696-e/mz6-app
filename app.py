@@ -838,33 +838,57 @@ elif st.session_state.page == "staff_portal":
             # 🌸 指示通り「到着指定時間を基準に」を「送り先到着時間を基準に」に変更
             st.markdown(f'<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便（送り）</h4><p style="font-size:12px; color:#555; margin-bottom:10px;">送り先到着時間を基準に自動計算された出発時刻と順路です。</p>', unsafe_allow_html=True)
             
-            my_early_tasks.sort(key=lambda x: x["dist"])
-            valid_early_addrs = [clean_address_for_map(x["early_dest"]) for x in my_early_tasks if clean_address_for_map(x["early_dest"])]
+            # 🌟 修正：Google AIを使って実際の移動時間と最適ルートを計算するように変更
+            early_tasks_for_api = []
+            for t in my_early_tasks:
+                early_tasks_for_api.append({
+                    "task": t["task"],
+                    "actual_pickup": t["early_dest"], # 行き先をマップAPIに渡す
+                    "stopover": "",
+                    "use_takuji": False,
+                    "takuji_addr": "",
+                    "c_name": t["c_name"],
+                    "c_id": t["c_id"],
+                    "early_time": t["early_time"]
+                })
+                
+            ordered_early_tasks, early_total_sec, early_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, early_tasks_for_api, is_return=True)
             
-            if valid_early_addrs:
-                dest_enc = urllib.parse.quote(valid_early_addrs[-1])
-                wp_enc = urllib.parse.quote("|".join(valid_early_addrs[:-1])) if len(valid_early_addrs) > 1 else ""
+            if early_full_path:
+                dest_enc = urllib.parse.quote(early_full_path[-1])
+                wp_enc = urllib.parse.quote("|".join(early_full_path[:-1])) if len(early_full_path) > 1 else ""
                 early_map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
                 if wp_enc: early_map_url += f"&waypoints={wp_enc}"
                 st.markdown(f"<a href='{early_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始 (現在地から)</a>", unsafe_allow_html=True)
             
-            earliest_dep_mins = 9999
-            for rt in my_early_tasks:
+            # 🌟 出発時刻の逆算（一番早い指定時間 - (全行程の移動時間 + 乗り降り時間)）
+            earliest_target_mins = 9999
+            for rt in ordered_early_tasks:
                 try:
                     h, m = map(int, rt["early_time"].split(':'))
-                    dep_m = h * 60 + m - rt["dist"]
-                    if dep_m < earliest_dep_mins: earliest_dep_mins = dep_m
+                    t_m = h * 60 + m
+                    if t_m < earliest_target_mins: earliest_target_mins = t_m
                 except: pass
             
-            if earliest_dep_mins != 9999:
-                dep_time_str = f"{earliest_dep_mins // 60}:{earliest_dep_mins % 60:02d}"
-                st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (目安): {dep_time_str}</div>", unsafe_allow_html=True)
+            if earliest_target_mins != 9999:
+                padding_sec = len(early_full_path) * 3 * 60 # 1件につき3分のバッファ
+                total_travel_mins = (early_total_sec + padding_sec) // 60
+                
+                # APIキー未設定や計算エラー時は最低でも 人数×15分 を確保
+                if total_travel_mins == 0:
+                    total_travel_mins = len(ordered_early_tasks) * 15
+                    
+                dep_m = earliest_target_mins - total_travel_mins
+                dep_h = dep_m // 60
+                dep_min = dep_m % 60
+                dep_time_str = f"{dep_h}:{dep_min:02d}"
+                st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算値): {dep_time_str}</div>", unsafe_allow_html=True)
 
-            for idx, rt in enumerate(my_early_tasks):
+            for idx, rt in enumerate(ordered_early_tasks):
                 disp_str = f"<div style='font-size:14px;'><b>降車順 {idx+1}</b>：店番 {rt['c_id']} <b>{rt['c_name']}</b><br>"
                 # 🌸 指示通り「指定到着」を「送り先到着」に変更
                 disp_str += f"<span style='color:#e65100;font-size:12px;font-weight:bold;'>⏰ 送り先到着: {rt['early_time']}</span><br>"
-                disp_str += f"<span style='color:#666;font-size:12px;'>🏠 届け先: {rt['early_dest']}</span></div><hr style='margin:5px 0;'>"
+                disp_str += f"<span style='color:#666;font-size:12px;'>🏠 届け先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                 st.markdown(disp_str, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1225,6 +1249,7 @@ elif st.session_state.page == "staff_portal":
                                     
                                     wp_str = "optimize:true|" + "|".join(waypoints) if waypoints else ""
                                     try:
+                                        # 🌟 通信フリーズ防止のため timeout=5 を設定
                                         res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
                                             "origin": origin_pt,
                                             "destination": dest_pt,
@@ -1278,10 +1303,6 @@ elif st.session_state.page == "staff_portal":
                                 if res.get("status") == "success": 
                                     clear_cache(); st.session_state.flash_msg = "AIによる最短ルート最適化が完了しました！"; st.rerun()
                                 else: st.error("エラー: " + res.get("message"))
-                            else:
-                                st.warning("⚠️ AI配車の対象者がいません（全員が早便や自走、または未出勤です）")
-                                time.sleep(2.5)
-                                st.rerun()
             
             st.radio("表示", ["当日", "翌日", "週間"], horizontal=True, label_visibility="collapsed")
             
@@ -1769,6 +1790,7 @@ elif st.session_state.page == "staff_portal":
                 s_line = settings.get("line_bot_id", "") if isinstance(settings, dict) else ""
                 s_addr = settings.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(settings, dict) else "岡山県倉敷市水島東栄町2-24"
                 s_time = settings.get("base_arrival_time", "19:50") if isinstance(settings, dict) else "19:50"
+                # 🌸 新規追加：長文アクセストークン用
                 s_line_token = settings.get("line_access_token", "") if isinstance(settings, dict) else ""
                 
                 st.markdown('<div class="section-title" style="color:#2196f3; margin-top:0;">📍 送迎基本設定 (店舗・到着時間)</div>', unsafe_allow_html=True)
@@ -1785,11 +1807,85 @@ elif st.session_state.page == "staff_portal":
                 
                 st.markdown('<div class="section-title" style="color:#00c300;">📱 LINE Bot設定</div>', unsafe_allow_html=True)
                 l_id = st.text_input("Bot ID (表示用)", value=s_line, placeholder="@123abcde")
+                # 🌸 新規追加
                 l_token = st.text_input("LINE アクセストークン (通知用・長文)", value=s_line_token, type="password", placeholder="非常に長い英数字の文字列です")
                 
                 if st.form_submit_button("保存して反映", type="primary", use_container_width=True):
+                    # 🌸 新規追加： l_token を payloadに含める
                     res = post_api({"action": "save_settings", "admin_password": a_pass, "notice_text": n_text, "line_bot_id": l_id, "store_address": n_addr, "base_arrival_time": n_time, "line_access_token": l_token})
                     if res.get("status") == "success": 
                         clear_cache()
                         st.session_state.flash_msg = "設定を保存しました"
                         st.rerun()
+
+# ==========================================
+# 🎨 クリーンで安全なCSS (枠線＆余白の完全復元)
+# ==========================================
+st.markdown("""
+<style>
+    html, body, [data-testid="stAppViewContainer"], .block-container {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        background-color: #f0f2f5; 
+        font-family: -apple-system, sans-serif;
+    }
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
+    
+    header, footer, [data-testid="stToolbar"], [data-testid="manage-app-button"] { display: none !important; visibility: hidden !important; }
+    a[href^="https://streamlit.io/cloud"] { display: none !important; }
+
+    .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
+    
+    /* 🌟 ホーム画面のタイトルとボタンの余白を昨日の状態に復元 */
+    .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 40px; margin-top: 60px; }
+    
+    .shop-no-badge-mini { background: #ffeb3b; color: #d32f2f; font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #d32f2f; font-size: 12px; margin-right: 5px; display: inline-block; min-width: 45px; text-align: center; }
+    .notice-box { border: 2px solid #fdd835; background: #fffde7; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
+    
+    .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
+    .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
+    
+    /* 🌟 全ての入力枠をハッキリと黒枠で表示 */
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
+        border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #fff !important;
+    }
+
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 5px !important;
+    }
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: 33% !important;
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+    }
+    div.element-container:has(#nav-marker) + div.element-container button {
+        padding: 0 !important;
+        font-size: 13px !important;
+        width: 100% !important;
+        white-space: nowrap !important;
+        min-height: 42px !important;
+        height: 42px !important;
+        line-height: 1.2 !important;
+        font-weight: bold !important;
+    }
+
+    /* 🌟 AI到着ボタン用の点滅アニメーション */
+    @keyframes pulse-red {
+        0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); color: white;}
+        70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); color: white;}
+        100% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); color: white;}
+    }
+    div.element-container:has(button p:contains("📍 ここをタップして【到着】を記録")) button {
+        animation: pulse-red 1.5s infinite !important;
+        border: 2px solid white !important; font-size: 18px !important; padding: 15px !important;
+    }
+    div.element-container:has(button p:contains("🟢 乗車完了")) button {
+        background-color: #00cc66 !important; color: white !important;
+        font-size: 18px !important; padding: 15px !important; border: 2px solid white !important;
+    }
+</style>
+""", unsafe_allow_html=True)
