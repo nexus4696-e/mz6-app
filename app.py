@@ -18,7 +18,7 @@ JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
 st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
 
 # 状態管理とフラッシュメッセージ（ポップアップ通知）
-for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_staff_for_login", "flash_msg"]:
+for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_staff_for_login", "flash_msg", "current_staff_tab"]:
     if k not in st.session_state: st.session_state[k] = None if k != "page" else "home"
 if "is_admin" not in st.session_state: st.session_state.is_admin = False
 
@@ -246,7 +246,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
     
     with st.expander(f"店番 {c_id} : {c_name} ({pref}) - {title_badge}"):
         
-        # 🌸 個別LINE送信フォーム（指示に基づき追加、かつ権限制限）
+        # 🌸 個別LINE送信フォーム
         if is_authorized:
             st.markdown("<div style='background:#f0f7ff; padding:10px; border-radius:8px; border:1px solid #cce5ff; margin-bottom:10px;'>", unsafe_allow_html=True)
             st.markdown(f"<div style='font-size:12px; font-weight:bold; color:#004085; margin-bottom:5px;'>📱 個別LINE送信 (担当: {mgr_name})</div>", unsafe_allow_html=True)
@@ -257,6 +257,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                 with col_l2:
                     if st.button("送信", key=f"line_btn_{key_suffix}", use_container_width=True, type="primary"):
                         if line_msg:
+                            # ダミー更新でLINE通知を発火させる
                             updates = [{"id": target_row["id"] if target_row else -1, "driver_name": cur_drv, "pickup_time": cur_time, "status": cur_status}]
                             st.info("送信中...")
                             post_api({"action": "update_manual_dispatch", "updates": updates})
@@ -361,7 +362,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                 msg_placeholder.error("エラー: " + res1.get("message"))
 
 # ==========================================
-# 🎨 クリーンで安全なCSS (枠線＆センター配置の復元)
+# 🎨 クリーンで安全なCSS (枠線＆余白の復元)
 # ==========================================
 st.markdown("""
 <style>
@@ -378,7 +379,7 @@ st.markdown("""
 
     .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
     
-    /* 🌟 ホーム画面のタイトルとボタンの余白を昨日の状態に復元（センター） */
+    /* 🌟 ホーム画面のタイトルとボタンの余白を昨日の状態に復元 */
     .home-title { font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 40px; margin-top: 60px; }
     
     .shop-no-badge-mini { background: #ffeb3b; color: #d32f2f; font-weight: bold; padding: 2px 4px; border-radius: 4px; border: 1px solid #d32f2f; font-size: 12px; margin-right: 5px; display: inline-block; min-width: 45px; text-align: center; }
@@ -481,22 +482,23 @@ def render_top_nav():
 # ==========================================
 if st.session_state.page == "home":
     st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
-    if st.button("🚙 スタッフ業務開始", type="primary", use_container_width=True):
-        if st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
-        else: st.session_state.page = "staff_login"; st.session_state.selected_staff_for_login = None
-        st.rerun()
-    st.write("") 
-    if st.button("👩 キャスト専用ログイン", use_container_width=True):
-        if st.session_state.get("logged_in_cast"): st.session_state.page = "cast_mypage"
-        else: st.session_state.page = "cast_login"
-        st.rerun()
-    st.write("\n\n")
-    st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
-    if st.button("⚙️ 管理者ログイン", use_container_width=True):
-        if st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
-        else: st.session_state.page = "admin_login"
-        st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 4, 1])
+    with col2:
+        if st.button("🚙 スタッフ業務開始", type="primary", use_container_width=True):
+            if st.session_state.get("logged_in_staff") or st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
+            else: st.session_state.page = "staff_login"; st.session_state.selected_staff_for_login = None
+            st.rerun()
+        st.write("") 
+        if st.button("👩 キャスト専用ログイン", use_container_width=True):
+            if st.session_state.get("logged_in_cast"): st.session_state.page = "cast_mypage"
+            else: st.session_state.page = "cast_login"
+            st.rerun()
+        st.write("\n\n")
+        if st.button("⚙️ 管理者ログイン", use_container_width=True):
+            if st.session_state.get("is_admin"): st.session_state.page = "staff_portal"
+            else: st.session_state.page = "admin_login"
+            st.rerun()
 
 # ==========================================
 # 🔐 ログイン画面系
@@ -1072,13 +1074,14 @@ elif st.session_state.page == "staff_portal":
     else:
         tabs = ["① 配車リスト", "② キャスト送迎", "③ キャスト登録", "④ STAFF設定", "⚙️ 管理設定"]
         
-        # 🚨 エラー解消：session_stateの現在のタブがリスト内に無い場合は初期化する
-        if st.session_state.current_staff_tab not in tabs:
-            st.session_state.current_staff_tab = "① 配車リスト"
+        # 🚨 エラー解消：安全なタブ状態の取得と設定
+        current_tab = st.session_state.get("current_staff_tab", "① 配車リスト")
+        if current_tab not in tabs:
+            current_tab = "① 配車リスト"
             
-        def on_tab_change(): st.session_state.current_staff_tab = st.session_state.tab_selector
-        st.radio("メニュー", tabs, index=tabs.index(st.session_state.current_staff_tab), horizontal=True, label_visibility="collapsed", key="tab_selector", on_change=on_tab_change)
-        st.session_state.staff_tab = st.session_state.current_staff_tab
+        selected_tab = st.radio("メニュー", tabs, index=tabs.index(current_tab), horizontal=True, label_visibility="collapsed")
+        st.session_state.current_staff_tab = selected_tab
+        st.session_state.staff_tab = selected_tab
         st.markdown("<hr style='margin:10px 0;'>", unsafe_allow_html=True)
         
         range_opts = ["全表示"] + [f"{i*10+1}-{i*10+10}" for i in range(15)]
@@ -1147,134 +1150,138 @@ elif st.session_state.page == "staff_portal":
                                 line, dst = get_route_line_and_distance(actual_pickup)
                                 all_today_casts.append({"row": row, "line": line, "dist": dst})
                         
-                        all_today_casts.sort(key=lambda x: x["dist"], reverse=True)
-                        
-                        drv_specs = {}
-                        for d in drivers:
-                            if d["name"] in active_drivers:
-                                if d["name"] in early_drivers: continue
-                                try: cap = int(d.get("capacity", 4))
-                                except: cap = 4
-                                drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
-
-                        for uc in all_today_casts:
-                            if uc["row"]["status"] == "自走": continue
-                                
-                            assigned_d = None
-                            c_line = uc["line"]
-                            
-                            for d_name, stat in drv_specs.items():
-                                if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
-                                    assigned_d = d_name; break
-                            if not assigned_d:
-                                for d_name, stat in drv_specs.items():
-                                    if len(stat["assigned_rows"]) == 0:
-                                        stat["line"] = c_line
-                                        assigned_d = d_name; break
-                            if not assigned_d and uc["dist"] <= 10:
-                                for d_name, stat in drv_specs.items():
-                                    if len(stat["assigned_rows"]) < stat["capacity"]:
-                                        assigned_d = d_name; break
-                            if not assigned_d:
-                                for d_name, stat in drv_specs.items():
-                                    if len(stat["assigned_rows"]) < stat["capacity"]:
-                                        assigned_d = d_name; break
-
-                            if assigned_d: 
-                                drv_specs[assigned_d]["assigned_rows"].append(uc)
-
-                        updates = []
-                        assigned_ids = set()
-                        
-                        base_time = str(settings.get("base_arrival_time", "19:50"))
-                        try:
-                            bh, bm = map(int, base_time.split(':'))
-                            b_mins = bh * 60 + bm
-                        except: b_mins = 19 * 60 + 50
-
-                        for d_name, stat in drv_specs.items():
-                            assigned_list = stat["assigned_rows"]
-                            if not assigned_list: continue
-
-                            rep_points = []
-                            for item in assigned_list:
-                                c_info = next((c for c in casts if str(c["cast_id"]) == str(item["row"]["cast_id"])), {})
-                                raw_addr = c_info.get("address", "")
-                                home_addr, _, _, _ = parse_cast_address(raw_addr)
-                                _, temp_addr, _, _, _, _, _ = parse_attendance_memo(item["row"].get("memo", ""))
-                                actual_pickup = temp_addr if temp_addr else home_addr
-                                clean_addr = clean_address_for_map(actual_pickup)
-                                rep_points.append(clean_addr if clean_addr else "")
-                                    
-                            opt_indices = list(range(len(assigned_list)))
-                            valid_reps = [p for p in rep_points if p]
-                            
-                            if len(valid_reps) > 1:
-                                origin_pt = valid_reps[0]
-                                dest_pt = store_addr
-                                waypoints = valid_reps[1:]
-                                
-                                wp_str = "optimize:true|" + "|".join(waypoints) if waypoints else ""
-                                try:
-                                    # 🌟 通信フリーズ防止のため timeout=5 を設定
-                                    res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
-                                        "origin": origin_pt,
-                                        "destination": dest_pt,
-                                        "waypoints": wp_str,
-                                        "key": GOOGLE_MAPS_API_KEY,
-                                        "language": "ja"
-                                    }, timeout=5).json()
-                                    if res.get("status") == "OK" and waypoints:
-                                        wp_order = res["routes"][0]["waypoint_order"]
-                                        valid_idx_map = [i for i, p in enumerate(rep_points) if p]
-                                        invalid_idx_map = [i for i, p in enumerate(rep_points) if not p]
-                                        
-                                        opt_valid_indices = [valid_idx_map[0]] + [valid_idx_map[i+1] for i in wp_order]
-                                        
-                                        legs = res["routes"][0]["legs"]
-                                        dur_to_first = legs[0]["duration"]["value"]
-                                        dur_from_last = legs[-1]["duration"]["value"]
-                                        if dur_to_first < dur_from_last:
-                                            opt_valid_indices.reverse()
-                                            
-                                        opt_indices = opt_valid_indices + invalid_idx_map
-                                except:
-                                    pass
-                                    
-                            ordered_assigned = [assigned_list[i] for i in opt_indices]
-                            
-                            total_casts = len(ordered_assigned)
-                            for idx, item in enumerate(ordered_assigned):
-                                mins_to_subtract = (total_casts - idx) * 20
-                                t_mins = b_mins - mins_to_subtract
-                                current_calc_time = f"{t_mins // 60}:{t_mins % 60:02d}"
-                                updates.append({
-                                    "id": item["row"]["id"], 
-                                    "driver_name": d_name, 
-                                    "pickup_time": current_calc_time,
-                                    "status": item["row"]["status"]
-                                })
-                                assigned_ids.add(item["row"]["id"])
-                        
-                        for uc in all_today_casts:
-                            if uc["row"]["status"] != "自走" and uc["row"]["id"] not in assigned_ids:
-                                updates.append({
-                                    "id": uc["row"]["id"], 
-                                    "driver_name": "未定", 
-                                    "pickup_time": "未定",
-                                    "status": uc["row"]["status"]
-                                })
-                                        
-                        # 🌟 フリーズ解消：誰も配車対象がいなかった場合の表示を分岐
-                        if updates:
-                            res = post_api({"action": "update_manual_dispatch", "updates": updates})
-                            if res.get("status") == "success": 
-                                clear_cache(); st.session_state.flash_msg = "AIによる最短ルート最適化が完了しました！"; st.rerun()
-                            else: st.error("エラー: " + res.get("message"))
-                        else:
+                        # 🌟 フリーズ解消：誰も配車対象がいなかった場合の処理
+                        if not all_today_casts:
                             st.warning("⚠️ AI配車の対象者がいません（全員が早便や自走、または未出勤です）")
                             time.sleep(2.5)
                             st.rerun()
+                        else:
+                            all_today_casts.sort(key=lambda x: x["dist"], reverse=True)
+                            
+                            drv_specs = {}
+                            for d in drivers:
+                                if d["name"] in active_drivers:
+                                    if d["name"] in early_drivers: continue
+                                    try: cap = int(d.get("capacity", 4))
+                                    except: cap = 4
+                                    drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
+
+                            for uc in all_today_casts:
+                                if uc["row"]["status"] == "自走": continue
+                                    
+                                assigned_d = None
+                                c_line = uc["line"]
+                                
+                                for d_name, stat in drv_specs.items():
+                                    if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
+                                        assigned_d = d_name; break
+                                if not assigned_d:
+                                    for d_name, stat in drv_specs.items():
+                                        if len(stat["assigned_rows"]) == 0:
+                                            stat["line"] = c_line
+                                            assigned_d = d_name; break
+                                if not assigned_d and uc["dist"] <= 10:
+                                    for d_name, stat in drv_specs.items():
+                                        if len(stat["assigned_rows"]) < stat["capacity"]:
+                                            assigned_d = d_name; break
+                                if not assigned_d:
+                                    for d_name, stat in drv_specs.items():
+                                        if len(stat["assigned_rows"]) < stat["capacity"]:
+                                            assigned_d = d_name; break
+
+                                if assigned_d: 
+                                    drv_specs[assigned_d]["assigned_rows"].append(uc)
+
+                            updates = []
+                            assigned_ids = set()
+                            
+                            base_time = str(settings.get("base_arrival_time", "19:50"))
+                            try:
+                                bh, bm = map(int, base_time.split(':'))
+                                b_mins = bh * 60 + bm
+                            except: b_mins = 19 * 60 + 50
+
+                            for d_name, stat in drv_specs.items():
+                                assigned_list = stat["assigned_rows"]
+                                if not assigned_list: continue
+
+                                rep_points = []
+                                for item in assigned_list:
+                                    c_info = next((c for c in casts if str(c["cast_id"]) == str(item["row"]["cast_id"])), {})
+                                    raw_addr = c_info.get("address", "")
+                                    home_addr, _, _, _ = parse_cast_address(raw_addr)
+                                    _, temp_addr, _, _, _, _, _ = parse_attendance_memo(item["row"].get("memo", ""))
+                                    actual_pickup = temp_addr if temp_addr else home_addr
+                                    clean_addr = clean_address_for_map(actual_pickup)
+                                    rep_points.append(clean_addr if clean_addr else "")
+                                        
+                                opt_indices = list(range(len(assigned_list)))
+                                valid_reps = [p for p in rep_points if p]
+                                
+                                if len(valid_reps) > 1:
+                                    origin_pt = valid_reps[0]
+                                    dest_pt = store_addr
+                                    waypoints = valid_reps[1:]
+                                    
+                                    wp_str = "optimize:true|" + "|".join(waypoints) if waypoints else ""
+                                    try:
+                                        res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
+                                            "origin": origin_pt,
+                                            "destination": dest_pt,
+                                            "waypoints": wp_str,
+                                            "key": GOOGLE_MAPS_API_KEY,
+                                            "language": "ja"
+                                        }, timeout=5).json()
+                                        if res.get("status") == "OK" and waypoints:
+                                            wp_order = res["routes"][0]["waypoint_order"]
+                                            valid_idx_map = [i for i, p in enumerate(rep_points) if p]
+                                            invalid_idx_map = [i for i, p in enumerate(rep_points) if not p]
+                                            
+                                            opt_valid_indices = [valid_idx_map[0]] + [valid_idx_map[i+1] for i in wp_order]
+                                            
+                                            legs = res["routes"][0]["legs"]
+                                            dur_to_first = legs[0]["duration"]["value"]
+                                            dur_from_last = legs[-1]["duration"]["value"]
+                                            if dur_to_first < dur_from_last:
+                                                opt_valid_indices.reverse()
+                                                
+                                            opt_indices = opt_valid_indices + invalid_idx_map
+                                    except:
+                                        pass
+                                        
+                                ordered_assigned = [assigned_list[i] for i in opt_indices]
+                                
+                                total_casts = len(ordered_assigned)
+                                for idx, item in enumerate(ordered_assigned):
+                                    mins_to_subtract = (total_casts - idx) * 20
+                                    t_mins = b_mins - mins_to_subtract
+                                    current_calc_time = f"{t_mins // 60}:{t_mins % 60:02d}"
+                                    updates.append({
+                                        "id": item["row"]["id"], 
+                                        "driver_name": d_name, 
+                                        "pickup_time": current_calc_time,
+                                        "status": item["row"]["status"]
+                                    })
+                                    assigned_ids.add(item["row"]["id"])
+                            
+                            for uc in all_today_casts:
+                                if uc["row"]["status"] != "自走" and uc["row"]["id"] not in assigned_ids:
+                                    updates.append({
+                                        "id": uc["row"]["id"], 
+                                        "driver_name": "未定", 
+                                        "pickup_time": "未定",
+                                        "status": uc["row"]["status"]
+                                    })
+                                            
+                            if updates:
+                                res = post_api({"action": "update_manual_dispatch", "updates": updates})
+                                if res.get("status") == "success": 
+                                    clear_cache(); st.session_state.flash_msg = "AIによる最短ルート最適化が完了しました！"; st.rerun()
+                                else: st.error("エラー: " + res.get("message"))
+                            else:
+                                st.warning("⚠️ AI配車の対象者がいません（全員が早便や自走、または未出勤です）")
+                                time.sleep(2.5)
+                                st.rerun()
             
             st.radio("表示", ["当日", "翌日", "週間"], horizontal=True, label_visibility="collapsed")
             
@@ -1762,7 +1769,6 @@ elif st.session_state.page == "staff_portal":
                 s_line = settings.get("line_bot_id", "") if isinstance(settings, dict) else ""
                 s_addr = settings.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(settings, dict) else "岡山県倉敷市水島東栄町2-24"
                 s_time = settings.get("base_arrival_time", "19:50") if isinstance(settings, dict) else "19:50"
-                # 🌸 新規追加：長文アクセストークン用
                 s_line_token = settings.get("line_access_token", "") if isinstance(settings, dict) else ""
                 
                 st.markdown('<div class="section-title" style="color:#2196f3; margin-top:0;">📍 送迎基本設定 (店舗・到着時間)</div>', unsafe_allow_html=True)
@@ -1779,11 +1785,9 @@ elif st.session_state.page == "staff_portal":
                 
                 st.markdown('<div class="section-title" style="color:#00c300;">📱 LINE Bot設定</div>', unsafe_allow_html=True)
                 l_id = st.text_input("Bot ID (表示用)", value=s_line, placeholder="@123abcde")
-                # 🌸 新規追加
                 l_token = st.text_input("LINE アクセストークン (通知用・長文)", value=s_line_token, type="password", placeholder="非常に長い英数字の文字列です")
                 
                 if st.form_submit_button("保存して反映", type="primary", use_container_width=True):
-                    # 🌸 新規追加： l_token を payloadに含める
                     res = post_api({"action": "save_settings", "admin_password": a_pass, "notice_text": n_text, "line_bot_id": l_id, "store_address": n_addr, "base_arrival_time": n_time, "line_access_token": l_token})
                     if res.get("status") == "success": 
                         clear_cache()
