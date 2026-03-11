@@ -520,7 +520,7 @@ elif st.session_state.page == "staff_portal":
                 act_pickup = temp_addr if temp_addr else home_addr
                 use_tkj = (takuji_en == "1" and tc == "0" and takuji_addr != "")
                 latest_name = c_info.get("name", t['cast_name'])
-                my_early.append({"task": t, "early_time": e_time, "early_dest": e_dest, "c_name": latest_name, "c_id": t['cast_id'], "actual_pickup": act_pickup, "use_takuji": use_tkj, "takuji_addr": takuji_addr, "stopover": so})
+                my_early.append({"task": t, "early_time": e_time, "early_dest": e_dest, "c_name": latest_name, "c_id": t['cast_id'], "actual_pickup": act_pickup, "use_tkj": use_tkj, "takuji_addr": takuji_addr, "stopover": so})
 
         if my_early:
             st.markdown(f'<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便</h4>', unsafe_allow_html=True)
@@ -645,7 +645,13 @@ elif st.session_state.page == "staff_portal":
                     st.session_state.early_list = []; clear_cache(); st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            att_tdy = [r for r in atts if r["target_date"] == "当日" and r["status"] in ["出勤", "自走"]]
+            # 重複する過去の履歴を排除し、各キャストの最新のデータのみを抽出
+            att_tdy_raw = [r for r in atts if r["target_date"] == "当日" and r["status"] in ["出勤", "自走"]]
+            att_tdy_dict = {}
+            for r in att_tdy_raw:
+                att_tdy_dict[str(r["cast_id"])] = r
+            att_tdy = list(att_tdy_dict.values())
+
             with st.expander(f"📋 当日キャスト一覧 ({len(att_tdy)}名)"):
                 for i, r in enumerate(att_tdy):
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(r["cast_id"])), {})
