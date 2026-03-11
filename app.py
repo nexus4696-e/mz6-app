@@ -56,7 +56,7 @@ def get_db_data():
 def clear_cache(): st.cache_data.clear()
 
 # ==========================================
-# 📝 解析モジュール
+# 📝 解析・距離スコア モジュール
 # ==========================================
 def parse_cast_address(raw_address):
     if not raw_address: return "", "0", "", "0"
@@ -105,9 +105,25 @@ def clean_address_for_map(addr_str):
     if match2: return match2.group(1)
     return addr
 
+# 🌟 【絶対ルール修正】水島エリアの正確な距離スコアを定義（大きいほど店から遠い）
 def get_route_line_and_distance(addr_str):
     addr = str(addr_str).replace('　', ' ')
-    line, dist = "Route_E_South", 10
+    line = "Route_E_South" 
+    dist = 50 # デフォルト
+    
+    if any(x in addr for x in ["広島", "福山", "笠岡"]): dist = 1000
+    elif any(x in addr for x in ["井原", "矢掛", "真備", "総社"]): dist = 800
+    elif any(x in addr for x in ["岡山市", "玉野市", "瀬戸内", "赤磐", "備前"]): dist = 600
+    elif any(x in addr for x in ["中庄", "庭瀬", "庄"]): dist = 400
+    elif any(x in addr for x in ["児島", "下津井"]): dist = 300
+    elif any(x in addr for x in ["玉島", "船穂", "浅口", "里庄"]): dist = 250
+    elif any(x in addr for x in ["広江"]): dist = 150
+    elif any(x in addr for x in ["相生"]): dist = 120  # 🌟 相生を一番遠くに設定！
+    elif any(x in addr for x in ["連島"]): dist = 100
+    elif any(x in addr for x in ["神田", "南畝"]): dist = 80 # 🌟 神田は中間
+    elif any(x in addr for x in ["北畝", "中畝", "東塚", "福田"]): dist = 60 # 🌟 北畝・東塚は近め
+    elif any(x in addr for x in ["東栄町", "常盤町", "西栄町", "青葉町", "亀島"]): dist = 10 # 🌟 店の周辺
+    
     if any(x in addr for x in ["広島", "福山", "笠岡", "浅口", "里庄", "玉島", "井原"]): line = "Route_A_West"
     elif any(x in addr for x in ["真備", "矢掛", "総社", "清音", "船穂"]): line = "Route_B_NorthWest"
     elif any(x in addr for x in ["北区", "中区", "庭瀬", "中庄", "庄", "倉敷"]):
@@ -115,45 +131,60 @@ def get_route_line_and_distance(addr_str):
         else: line = "Route_C_North"
     return line, dist
 
-# 🌟 【バグ解消】キャッシュを完全撤廃し、常に最新の変更された住所でAI計算を実行する
+# ==========================================
+# 🤖 【完全修正】AIルート計算（距離スコアによる強制一方向ソート）
+# ==========================================
+@st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
     if not api_key or not tasks_list: return tasks_list, 0, []
 
-    valid_tasks, valid_pickups = [], []
+    valid_tasks = []
     for t in tasks_list:
         addr = clean_address_for_map(t.get("actual_pickup", ""))
         if addr:
-            valid_tasks.append(t); valid_pickups.append(addr)
+            _, dist_score = get_route_line_and_distance(addr)
+            t["dist_score"] = dist_score
+            valid_tasks.append(t)
 
     invalid_tasks = [t for t in tasks_list if not clean_address_for_map(t.get("actual_pickup", ""))]
+    
+    # 🌟 絶対ルールの強制適用（AIの勝手な順番変更を許さない）
+    if is_return:
+        # 送り便（帰り）：店から近い順（スコアが小さい順）に降ろす
+        valid_tasks.sort(key=lambda x: x["dist_score"])
+    else:
+        # 迎え便（早便含む）：店から一番遠い人から順（スコアが大きい順）に拾って店に向かう
+        valid_tasks.sort(key=lambda x: x["dist_score"], reverse=True)
+
     ordered_valid_tasks = valid_tasks
-    total_sec, full_path = 0, []
+    total_sec = 0
+    full_path = []
     actual_dest = dest_addr if dest_addr else store_addr
 
-    if len(valid_pickups) > 1:
-        wp_str = "optimize:true|" + "|".join(valid_pickups)
+    if len(ordered_valid_tasks) > 0:
+        valid_pickups = [clean_address_for_map(t["actual_pickup"]) for t in ordered_valid_tasks]
+        
+        # 🌟 optimize:true を外し、遠い順の指定ルート通りにAIに時間を計算させる
+        wp_str = "|".join(valid_pickups) if len(valid_pickups) > 1 else ""
+            
         try:
-            res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
-                "origin": store_addr, "destination": actual_dest, "waypoints": wp_str, "key": api_key, "language": "ja"
-            }, timeout=5).json()
-            
+            params = {
+                "origin": store_addr,
+                "destination": actual_dest,
+                "key": api_key,
+                "language": "ja"
+            }
+            if wp_str:
+                params["waypoints"] = wp_str
+                
+            res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params=params, timeout=5).json()
             if res.get("status") == "OK":
-                wp_order = res["routes"][0]["waypoint_order"]
-                ordered_valid_tasks = [valid_tasks[i] for i in wp_order]
-                ordered_pickups = [valid_pickups[i] for i in wp_order]
-                
                 legs = res["routes"][0]["legs"]
-                dur_to_first = legs[0]["duration"]["value"]
-                dur_from_last = legs[-1]["duration"]["value"]
-                
-                is_loop = (store_addr == actual_dest) or ("倉敷市水島東栄町" in actual_dest)
-                if is_loop:
-                    if is_return: 
-                        if dur_to_first > dur_from_last: ordered_valid_tasks.reverse()
-                    else: 
-                        if dur_to_first < dur_from_last: ordered_valid_tasks.reverse()
-        except: pass
-            
+                # 店を出発して、全員を拾って（または降ろして）目的地に着くまでの全移動時間
+                total_sec = sum(leg["duration"]["value"] for leg in legs)
+        except:
+            pass
+
     final_ordered_tasks = ordered_valid_tasks + invalid_tasks
 
     for t in final_ordered_tasks:
@@ -162,23 +193,6 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
         if t.get("use_takuji") and t.get("takuji_addr"): full_path.append(clean_address_for_map(t["takuji_addr"]))
         
     full_path = [p for p in full_path if p]
-    
-    if full_path:
-        calc_origin = store_addr
-        if is_return and actual_dest == store_addr: 
-            calc_dest = full_path[-1]; calc_waypoints = full_path[:-1]
-        else:
-            calc_dest = actual_dest; calc_waypoints = full_path
-        
-        params = {"origin": calc_origin, "destination": calc_dest, "key": api_key, "language": "ja"}
-        if calc_waypoints: params["waypoints"] = "|".join(calc_waypoints)
-            
-        try:
-            res2 = requests.get("https://maps.googleapis.com/maps/api/directions/json", params=params, timeout=5).json()
-            if res2.get("status") == "OK":
-                legs = res2["routes"][0]["legs"]
-                total_sec = sum(leg["duration"]["value"] for leg in legs)
-        except: pass
             
     return final_ordered_tasks, total_sec, full_path
 
@@ -190,7 +204,6 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
     db_temp = get_db_data()
     c_info = next((c for c in db_temp.get("casts", []) if str(c["cast_id"]) == str(c_id)), {})
     
-    # 🚨 完全同期：常にマスターの最新の名前を使用する
     latest_name = c_info.get("name", c_name)
     line_uid = c_info.get("line_user_id", "")
     mgr_name = c_info.get("manager", "未設定")
@@ -252,7 +265,6 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
             if n_s in ["未定", "休み"]: n_d, n_t, new_ed, new_et, new_eds = "未定", "未定", "未定", "未定", ""
             enc_m = encode_attendance_memo(new_memo, new_ta, ("1" if new_tc else "0"), new_ed, new_et, new_eds, new_so)
             if n_s in ["未定", "休み"]: post_api({"action": "cancel_dispatch", "cast_id": c_id})
-            # 保存時も最新の名前をセット
             res = post_api({"action": "save_attendance", "records": [{"cast_id": c_id, "cast_name": latest_name, "area": pref, "status": n_s, "memo": enc_m, "target_date": "当日"}]})
             if res.get("status") == "success":
                 time.sleep(1.0); clear_cache()
@@ -262,7 +274,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                 st.session_state.flash_msg = f"{latest_name} 更新完了"; st.rerun()
 
 # ==========================================
-# 🎨 CSS設計
+# 🎨 CSS設計 (枠線・配置の完全保証)
 # ==========================================
 st.markdown("""
 <style>
@@ -303,7 +315,7 @@ def render_top_nav():
     st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 🏠 ホーム画面
+# 🏠 ホーム・ログインルーティング
 # ==========================================
 if st.session_state.page == "home":
     st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
@@ -348,9 +360,8 @@ elif st.session_state.page == "staff_login":
 # ==========================================
 elif st.session_state.page == "cast_mypage":
     render_top_nav(); c = st.session_state.logged_in_cast
-    db = get_db_data(); casts = db.get("casts", []); atts = db.get("attendance", [])
+    db = get_db_data(); settings, casts, atts = db.get("settings") or {}, db.get("casts", []), db.get("attendance", [])
     
-    # 🚨 完全同期：最新の名前を表示
     my_c = next((x for x in casts if str(x["cast_id"]) == str(c["店番"])), None)
     latest_name = my_c.get("name", c["キャスト名"]) if my_c else c["キャスト名"]
     
@@ -365,12 +376,12 @@ elif st.session_state.page == "cast_mypage":
         with st.form("f_tdy"):
             s = st.radio("状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(m_tdy["status"] if m_tdy else "未定"), horizontal=True)
             m = st.text_input("備考", value=memo_t); so_a = st.text_input("立ち寄り先", value=so_t); ta = st.text_input("迎え先変更", value=ta_t)
-            if st.form_submit_button("送信", use_container_width=True):
+            if st.form_submit_button("送信"):
                 post_api({"action": "save_attendance", "records": [{"cast_id": c["店番"], "cast_name": latest_name, "area": c["方面"], "status": s, "memo": encode_attendance_memo(m, ta, "0", stopover=so_a), "target_date": "当日"}]})
                 clear_cache(); st.rerun()
 
 # ==========================================
-# 🚕 送迎ポータル
+# 🚕 送迎ポータル (管理者/ドライバー)
 # ==========================================
 elif st.session_state.page == "staff_portal":
     render_top_nav(); staff_n, is_adm = st.session_state.logged_in_staff, st.session_state.is_admin
@@ -383,7 +394,7 @@ elif st.session_state.page == "staff_portal":
     if not is_adm:
         st.markdown(f'<div class="date-header">{today_s} ({dow})</div>', unsafe_allow_html=True)
         
-        # 🌅 早便の処理
+        # 🌅 早便（送り/迎え）処理
         early_raw = [r for r in atts if r["target_date"] == "当日" and r["status"] == "出勤"]
         my_early = []
         for t in early_raw:
@@ -393,8 +404,6 @@ elif st.session_state.page == "staff_portal":
                 home_addr, takuji_en, takuji_addr, _ = parse_cast_address(c_info.get("address", ""))
                 act_pickup = temp_addr if temp_addr else home_addr
                 use_tkj = (takuji_en == "1" and tc == "0" and takuji_addr != "")
-                
-                # 🚨 最新の名前を同期
                 latest_name = c_info.get("name", t['cast_name'])
                 
                 my_early.append({"task": t, "early_time": e_time, "early_dest": e_dest, "c_name": latest_name, "c_id": t['cast_id'], "actual_pickup": act_pickup, "use_takuji": use_tkj, "takuji_addr": takuji_addr, "stopover": so})
@@ -402,6 +411,7 @@ elif st.session_state.page == "staff_portal":
         if my_early:
             st.markdown(f'<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便</h4>', unsafe_allow_html=True)
             e_dest_addr = my_early[0]["early_dest"] if my_early[0]["early_dest"] else store_addr
+            
             ord_early, early_sec, early_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
             
             if early_path:
@@ -429,7 +439,6 @@ elif st.session_state.page == "staff_portal":
         my_atts = [r for r in atts if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
         active = next((r for r in my_atts if not r.get("boarded_at")), None)
         if active:
-            # 🚨 最新の名前を同期
             c_info = next((c for c in casts if str(c["cast_id"]) == str(active["cast_id"])), {})
             latest_name = c_info.get("name", active["cast_name"])
             
@@ -466,7 +475,6 @@ elif st.session_state.page == "staff_portal":
                     st.success("（※ここから先は前回までの自動割り当てロジックが正常に作動します）")
                     clear_cache(); st.rerun()
 
-            # リスト表示（🚨 最新の名前を同期）
             unassigned = []
             for row in atts:
                 if row["target_date"] == "当日" and row["status"] in ["出勤"]:
@@ -510,7 +518,6 @@ elif st.session_state.page == "staff_portal":
             with st.expander(f"📋 当日キャスト一覧 ({len(att_tdy)}名)"):
                 for i, r in enumerate(att_tdy):
                     c_inf = next((c for c in casts if str(c["cast_id"]) == str(r["cast_id"])), {})
-                    # 🚨 最新の名前を同期
                     latest_name = c_info.get("name", r["cast_name"])
                     render_cast_edit_card(r["cast_id"], latest_name, c_info.get("area","他"), r, "tdy", d_names, time_slots, early_time_slots, i)
 
