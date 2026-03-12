@@ -3,6 +3,7 @@ import datetime
 import urllib.parse
 import time
 import re
+import xml.etree.ElementTree as ET  # 🌟 トピックス取得用に追加
 import streamlit as st
 
 # 🌟 漏洩防止！Streamlitの裏側（Secrets）から安全にキーを読み込みます
@@ -68,6 +69,21 @@ def notify_staff_via_line(token, target_id, staff_name, cast_name, pickup_time):
     data = {'to': target_id, 'messages': [{'type': 'text', 'text': msg}]}
     try: requests.post(url, headers=headers, json=data, timeout=5)
     except: pass
+
+# 🌟 今日のトピックス用データ取得機能（1時間キャッシュで高速表示）
+@st.cache_data(ttl=3600)
+def get_rss_news(url, limit=5):
+    try:
+        res = requests.get(url, timeout=5)
+        root = ET.fromstring(res.content)
+        items = []
+        for item in root.findall('.//item')[:limit]:
+            title = item.find('title').text
+            link = item.find('link').text
+            items.append({"title": title, "link": link})
+        return items
+    except:
+        return [{"title": "情報の取得に失敗しました", "link": "#"}]
 
 # ==========================================
 # 📝 解析・距離スコア モジュール
@@ -654,6 +670,25 @@ elif st.session_state.page == "cast_mypage":
     tmr_dt = today_dt + datetime.timedelta(days=1)
     tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
+    # 🌟 指示のみの追加：今日のトピックス機能を、既存の機能を崩さないように独立ブロックとして追加
+    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+    with st.expander("💡 今日のトピックス!!（接客の話題にどうぞ）"):
+        t_fun, t_trend, t_local, t_econ = st.tabs(["🤣 面白ネタ", "🔥 トレンド", "📰 県内ニュース", "📈 経済全般"])
+        
+        with t_fun:
+            for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/entertainment.xml", 5):
+                st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#1565c0; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
+        with t_trend:
+            for n in get_rss_news("https://trends.google.co.jp/trends/trendingsearches/daily/rss?geo=JP", 5):
+                st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#e65100; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
+        with t_local:
+            for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/local.xml", 5):
+                st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#2e7d32; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
+        with t_econ:
+            for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/business.xml", 5):
+                st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#4527a0; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
+
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
     with tab_today:
@@ -1045,7 +1080,6 @@ elif st.session_state.page == "staff_portal":
                                 
                                 sorted_drv_names = sorted(drv_specs.keys(), key=lambda k: len(drv_specs[k]["assigned_rows"]))
                                 
-                                # 🌟 復元：モード2のロジックに「同じ方面優先」を組み込んだ完全版
                                 if "2:" in dispatch_mode:
                                     for d_name in sorted_drv_names:
                                         stat = drv_specs[d_name]
