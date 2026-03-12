@@ -119,7 +119,7 @@ def clean_address_for_map(addr_str):
     if match2: return match2.group(1)
     return addr
 
-# 🌟 水島エリアの距離スコア定義（大きいほど店から遠い）
+# 🌟 水島エリアの距離スコア定義
 def get_route_line_and_distance(addr_str):
     addr = str(addr_str).replace('　', ' ')
     line = "Route_E_South" 
@@ -146,7 +146,7 @@ def get_route_line_and_distance(addr_str):
     return line, dist
 
 # ==========================================
-# 🤖 AIルート計算（絶対ルール＋AI学習対応）
+# 🤖 AIルート計算
 # ==========================================
 @st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
@@ -162,11 +162,10 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
 
     invalid_tasks = [t for t in tasks_list if not clean_address_for_map(t.get("actual_pickup", ""))]
     
-    # 🌟 絶対ルール：キャストの乗車時間を最短にする強制ソート
     if is_return:
-        valid_tasks.sort(key=lambda x: x["dist_score"]) # 帰り便：近い順
+        valid_tasks.sort(key=lambda x: x["dist_score"])
     else:
-        valid_tasks.sort(key=lambda x: x["dist_score"], reverse=True) # 迎え/早便：遠い順
+        valid_tasks.sort(key=lambda x: x["dist_score"], reverse=True)
 
     ordered_valid_tasks = valid_tasks
     total_sec = 0
@@ -221,7 +220,6 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             calc_dest = actual_dest
             calc_waypoints = full_path
         
-        # 🌟 departure_time="now" でAIの渋滞予測学習を有効化し、順番を固定
         params = {
             "origin": calc_origin,
             "destination": calc_dest,
@@ -243,7 +241,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
     return final_ordered_tasks, total_sec, full_path
 
 # ==========================================
-# 🌟 UIパーツ生成（キャスト詳細カード）
+# 🌟 UIパーツ生成
 # ==========================================
 def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots, loop_idx):
     key_suffix = f"{c_id}_{prefix_key}_{loop_idx}"
@@ -349,56 +347,14 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
 # ==========================================
 st.markdown("""
 <style>
-    /* 全体の背景と基本スタイル */
-    html, body, [data-testid="stAppViewContainer"], .block-container {
-        max-width: 100vw !important;
-        overflow-x: hidden !important;
-        background-color: #f0f2f5;
-        font-family: -apple-system, sans-serif;
-    }
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 5rem;
-        max-width: 600px;
-    }
-    header, footer, [data-testid="stToolbar"] {
-        display: none !important;
-    }
-    .app-header {
-        border-bottom: 2px solid #333;
-        padding-bottom: 5px;
-        margin-bottom: 10px;
-        font-size: 20px;
-        font-weight: bold;
-    }
-    .home-title {
-        font-size: 24px;
-        font-weight: bold;
-        text-align: center;
-        margin: 40px 0 30px 0;
-    }
-    .date-header {
-        text-align: center;
-        margin-bottom: 15px;
-        padding: 10px;
-        background: #fff;
-        border: 2px solid #333;
-        border-radius: 8px;
-        font-size: 24px;
-        font-weight: 900;
-        color: #e91e63;
-    }
-    div.element-container:has(.home-title) ~ div.element-container button {
-        height: 55px !important;
-        font-size: 18px !important;
-        margin-bottom: 12px !important;
-    }
-    
-    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
-        border: 2px solid #000000 !important;
-        border-radius: 6px !important;
-        background-color: #ffffff !important;
-    }
+    html, body, [data-testid="stAppViewContainer"], .block-container { max-width: 100vw !important; overflow-x: hidden !important; background-color: #f0f2f5; font-family: -apple-system, sans-serif; }
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
+    header, footer, [data-testid="stToolbar"] { display: none !important; }
+    .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
+    .home-title { font-size: 24px; font-weight: bold; text-align: center; margin: 40px 0 30px 0; }
+    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
+    div.element-container:has(.home-title) ~ div.element-container button { height: 55px !important; font-size: 18px !important; margin-bottom: 12px !important; }
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div { border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #ffffff !important; }
     
     div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
         display: flex !important;
@@ -460,32 +416,10 @@ st.markdown("""
         display: none !important;
     }
 
-    @keyframes pulse-red {
-        0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); }
-        70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }
-        100% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
-    }
-    div.element-container:has(button p:contains("📍 到着を記録")) button {
-        animation: pulse-red 1.5s infinite !important;
-        border: 2px solid white !important;
-        color: white !important;
-        font-size: 18px !important;
-    }
-    
-    .warning-box {
-        background: #f44336;
-        color: white;
-        padding: 10px;
-        font-weight: bold;
-        border-radius: 5px 5px 0 0;
-    }
-    .warning-content {
-        background: #ffebee;
-        border-left: 4px solid #d32f2f;
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 0 0 5px 5px;
-    }
+    @keyframes pulse-red { 0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); } 70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); } 100% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); } }
+    div.element-container:has(button p:contains("📍 到着を記録")) button { animation: pulse-red 1.5s infinite !important; border: 2px solid white !important; color: white !important; font-size: 18px !important; }
+    .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
+    .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -609,12 +543,6 @@ elif st.session_state.page == "cast_mypage":
                     encoded_addr = encode_cast_address(new_home, "1" if new_takuji_en else "0", new_takuji_addr, "1")
                     res = post_api({"action": "save_cast", "cast_id": my_c["cast_id"], "name": my_c["name"], "password": my_c.get("password", ""), "phone": my_c.get("phone", ""), "area": my_c.get("area", ""), "address": encoded_addr, "manager": my_c.get("manager", "未設定")})
                     if res.get("status") == "success": clear_cache(); st.success("登録情報を更新しました！"); time.sleep(1); st.rerun()
-
-    today_dt = datetime.datetime.now(JST)
-    days = ['月','火','水','木','金','土','日']
-    today_str_local = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
-    tmr_dt = today_dt + datetime.timedelta(days=1)
-    tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
@@ -748,10 +676,22 @@ elif st.session_state.page == "staff_portal":
                 t_m = (early_sec // 60) + pad_m
                 if early_sec == 0: t_m = len(ord_early) * 15 # フェイルセーフ
                 dep_m = earliest_m - t_m
-                st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚀 店舗出発 (計算): {(dep_m // 60) % 24:02d}:{dep_m % 60:02d}</div>", unsafe_allow_html=True)
+                
+                # 🌟 安全な計算展開
+                dep_h = (dep_m // 60) % 24
+                dep_min = dep_m % 60
+                dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
+                st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚀 店舗出発 (計算): {dep_time_str}</div>", unsafe_allow_html=True)
 
             for idx, rt in enumerate(ord_early):
-                st.markdown(f"<div style='font-size:14px;'><b>順 {idx+1}</b>: {rt['c_name']}<br><span style='color:#e65100;font-size:12px;font-weight:bold;'>⏰ 送り先到着: {rt['early_time']}</span><br><span style='color:#1565c0;font-size:12px;'>🏠 迎え: {rt['actual_pickup']}</span><br><span style='color:#666;font-size:12px;'>🏁 届け先: {rt['early_dest']}</span></div><hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                c_name = rt['c_name']
+                e_time = rt['early_time']
+                a_pickup = rt['actual_pickup']
+                e_dest = rt['early_dest']
+                
+                # 🌟 堅牢な文字列構築
+                disp_str = f"<div style='font-size:14px;'><b>順 {idx+1}</b>: {c_name}<br><span style='color:#e65100;font-size:12px;font-weight:bold;'>⏰ 送り先到着: {e_time}</span><br><span style='color:#1565c0;font-size:12px;'>🏠 迎え: {a_pickup}</span><br><span style='color:#666;font-size:12px;'>🏁 届け先: {e_dest}</span></div><hr style='margin:5px 0;'>"
+                st.markdown(disp_str, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
         my_atts = [r for r in attendance if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
@@ -929,7 +869,11 @@ elif st.session_state.page == "staff_portal":
                                     
                                     if t_mins < 0: t_mins += 24 * 60
                                     
-                                    current_calc_time = f"{(t_mins // 60) % 24:02d}:{t_mins % 60:02d}"
+                                    # 🌟 安全な計算展開
+                                    t_h = (t_mins // 60) % 24
+                                    t_m = t_mins % 60
+                                    current_calc_time = f"{t_h:02d}:{t_m:02d}"
+                                    
                                     updates.append({
                                         "id": item["task"]["id"], 
                                         "driver_name": d_name, 
@@ -1020,10 +964,16 @@ elif st.session_state.page == "staff_portal":
                         st.markdown(f"<a href='{return_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>", unsafe_allow_html=True)
                         
                     for idx, rt in enumerate(ordered_returns):
-                        disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
+                        c_name = rt['c_name']
+                        takuji_addr = rt['takuji_addr']
+                        a_pickup = rt['actual_pickup']
+                        
+                        # 🌟 堅牢な文字列構築
+                        disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{c_name}</b><br>"
                         if rt["use_takuji"]:
-                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
-                        disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {takuji_addr}</span><br>"
+                        disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {a_pickup}</span></div><hr style='margin:5px 0;'>"
+                        st.markdown(disp_str, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
                 else:
@@ -1073,13 +1023,22 @@ elif st.session_state.page == "staff_portal":
                         st.markdown(f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
                     
                     for idx, t in enumerate(ordered_tasks):
-                        addr_display = f"🏠 迎え: {t['home_addr'] if t['home_addr'] else '未登録'}"
-                        if t["temp_addr"]: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {t['temp_addr']}</span>"
-                        if t["stopover"]: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {t['stopover']}</span>"
-                        if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {t['takuji_addr']}</span>"
-                        if t["memo_text"]: addr_display += f"<br>📝 備考: {t['memo_text']}"
+                        home_addr = t['home_addr']
+                        temp_addr = t['temp_addr']
+                        stopover = t['stopover']
+                        takuji_addr = t['takuji_addr']
+                        memo_text = t['memo_text']
+                        c_name = t['c_name']
+                        pickup_time = t['task']['pickup_time']
                         
-                        st.markdown(f"**迎え順 {idx+1}： {t['task']['pickup_time']}**　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                        # 🌟 堅牢な文字列構築
+                        addr_display = f"🏠 迎え: {home_addr if home_addr else '未登録'}"
+                        if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {temp_addr}</span>"
+                        if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {stopover}</span>"
+                        if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
+                        if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
+                        
+                        st.markdown(f"**迎え順 {idx+1}： {pickup_time}**　<span style='font-size:16px; font-weight:bold;'>{c_name}</span> <br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1244,7 +1203,7 @@ elif st.session_state.page == "staff_portal":
                     p_pref, p_city, p_rest = parse_address(home_addr)
                     c_pref = st.selectbox("県", ["", "岡山県", "広島県", "香川県"], index=["", "岡山県", "広島県", "香川県"].index(p_pref) if p_pref in ["", "岡山県", "広島県", "香川県"] else 0, key=f"c_pref_{i}")
                     c_opts = [""]
-                    if c_pref == "岡山県": c_opts = ["", "岡山市", "倉敷市", "玉野市", "総社市", "瀬戸市", "浅口市", "笠岡市", "他"]
+                    if c_pref == "岡山県": c_opts = ["", "岡山市", "仓敷市", "玉野市", "総社市", "瀬戸市", "浅口市", "笠岡市", "他"]
                     elif c_pref == "広島県": c_opts = ["", "福山市", "尾道市", "三原市", "府中市", "東広島市", "他"]
                     elif c_pref == "香川県": c_opts = ["", "他"]
                     colC1, colC2 = st.columns(2)
