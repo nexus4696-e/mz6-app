@@ -445,14 +445,14 @@ elif st.session_state.page == "cast_mypage":
     
     st.markdown(f'<div style="text-align: center; font-weight: bold; font-size: 20px;">店番 {c["店番"]} {latest_name} 様</div>', unsafe_allow_html=True)
     
-    # 🌟 バグ修正：LINE未連携時の「合言葉」案内を完全復元
+    # 🌟 バグ修正：LINE未連携時の「合言葉」を「店番＋ログイン時の名前」に完全固定し、住所混入を防ぐ
     line_uid = my_c.get("line_user_id", "") if my_c else ""
     bot_id = str(settings.get("line_bot_id", ""))
     
     if line_uid:
         st.markdown('<div style="text-align:center; background:#e8f5e9; color:#2e7d32; padding:8px; border-radius:8px; margin-bottom:15px; font-weight:bold; font-size:14px; border:2px solid #4caf50;">✅ LINE通知：連携済み<br><span style="font-size:11px; font-weight:normal;">(配車決定などがLINEにお知らせされます)</span></div>', unsafe_allow_html=True)
     else:
-        passphrase = f"{c['店番']}{latest_name}"
+        passphrase = f"{c['店番']}{c['キャスト名']}"
         st.markdown(f'<div style="text-align:center; background:#ffebee; color:#d32f2f; padding:8px; border-radius:8px; margin-bottom:15px; font-size:13px; border:2px solid #f44336;"><b>⚠️ LINE未連携</b><br>お店のLINE({bot_id})に<br>合言葉「<b>{passphrase}</b>」とメッセージを送ってください。</div>', unsafe_allow_html=True)
 
     with st.expander("🏠 自分の登録情報（自宅・託児所）の確認・変更"):
@@ -472,7 +472,7 @@ elif st.session_state.page == "cast_mypage":
 
     today_dt = datetime.datetime.now(JST)
     days = ['月','火','水','木','金','土','日']
-    today_str = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
+    today_str_local = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
     tmr_dt = today_dt + datetime.timedelta(days=1)
     tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
@@ -646,7 +646,7 @@ elif st.session_state.page == "staff_portal":
         # ① 配車リスト
         # ----------------------------------------
         if st.session_state.current_staff_tab == "① 配車リスト":
-            # 🌟 バグ修正：変数名を統一
+            # 🌟 バグ修正：today_s を today_str に修正
             st.markdown(f'<div class="date-header">{today_str} 配車</div>', unsafe_allow_html=True)
             
             early_disp_tasks = []
@@ -882,7 +882,8 @@ elif st.session_state.page == "staff_portal":
                         
                     for idx, rt in enumerate(ordered_returns):
                         disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
-                        if rt["use_takuji"]: disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
+                        if rt["use_takuji"]:
+                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
                         disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                         st.markdown(disp_str, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
@@ -1204,12 +1205,12 @@ elif st.session_state.page == "staff_portal":
         elif st.session_state.current_staff_tab == "⚙️ 管理設定":
             st.markdown('<div class="app-header" style="border:none;">📢 アプリ全体設定</div>', unsafe_allow_html=True)
             with st.form("adm_form"):
-                s_notice = sets.get("notice_text", "") if isinstance(settings, dict) else ""
-                s_pass = sets.get("admin_password", "1234") if isinstance(settings, dict) else "1234"
-                s_line = sets.get("line_bot_id", "") if isinstance(settings, dict) else ""
-                s_addr = sets.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(settings, dict) else "岡山県倉敷市水島東栄町2-24"
-                s_time = sets.get("base_arrival_time", "19:50") if isinstance(settings, dict) else "19:50"
-                s_line_token = sets.get("line_access_token", "") if isinstance(settings, dict) else ""
+                s_notice = settings.get("notice_text", "") if isinstance(settings, dict) else ""
+                s_pass = settings.get("admin_password", "1234") if isinstance(settings, dict) else "1234"
+                s_line = settings.get("line_bot_id", "") if isinstance(settings, dict) else ""
+                s_addr = settings.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(settings, dict) else "岡山県倉敷市水島東栄町2-24"
+                s_time = settings.get("base_arrival_time", "19:50") if isinstance(settings, dict) else "19:50"
+                s_line_token = settings.get("line_access_token", "") if isinstance(settings, dict) else ""
                 
                 st.markdown('<div class="section-title" style="color:#2196f3; margin-top:0;">📍 送迎基本設定 (店舗・到着時間)</div>', unsafe_allow_html=True)
                 n_addr = st.text_input("到着場所（店舗住所）", value=s_addr)
