@@ -608,11 +608,13 @@ elif st.session_state.page == "cast_login":
         else:
             st.warning("店番かキャスト名を入力してください。")
 
+# 🌟 修正：管理者のマスターパスワードを「admin」に固定し、DBの古い設定を無視する
 elif st.session_state.page == "admin_login":
     render_top_nav(); db = get_db_data(); settings = db.get("settings") or {}
     pw = st.text_input("管理者パスワード", type="password")
     if st.button("ログイン", type="primary", use_container_width=True):
-        if pw == str(settings.get("admin_password", "admin")): st.session_state.is_admin, st.session_state.logged_in_staff, st.session_state.page = True, "管理者", "staff_portal"; st.rerun()
+        if pw == "admin" or pw == str(settings.get("admin_password", "admin")): st.session_state.is_admin, st.session_state.logged_in_staff, st.session_state.page = True, "管理者", "staff_portal"; st.rerun()
+        else: st.error("⚠️ パスワードが違います。")
 
 elif st.session_state.page == "staff_login":
     render_top_nav(); db = get_db_data(); drivers = db.get("drivers", [])
@@ -704,7 +706,7 @@ elif st.session_state.page == "cast_mypage":
         
         col_tm1, col_tm2 = st.columns([3, 1.2]) 
         with col_tm1:
-            s_tmr = radio_val = st.radio("明日の状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(m_tmr["status"] if m_tmr else "未定"), horizontal=True, key="tmr_s")
+            s_tmr = st.radio("明日の状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(m_tmr["status"] if m_tmr else "未定"), horizontal=True, key="tmr_s")
             m_tmr_txt = st.text_input("明日の備考", value=memo_tmr, key="tmr_m")
             req_stopover_tmr = st.checkbox("🍽️ 明日途中で寄る場所がある", value=bool(so_tmr))
             so_a_tmr = st.text_input("明日の立ち寄り先", value=so_tmr) if req_stopover_tmr else ""
@@ -864,7 +866,7 @@ elif st.session_state.page == "staff_portal":
                     st.markdown(f"<div style='font-size:13px; color:#333; margin-bottom:3px;'>・ <b>{ed['name']}</b> ➡️ {ed['dest']} ({ed['time']}着) / ドライバー: {ed['drv']}</div>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（Google AI連携）</div><div style="font-size:12px; color:#555;">現在手手動で割り当てているキャストも一旦リセットし、<br>AIが定員を守りながら「一番遠い人から拾う」最短ルートを組み直します。</div></div>', unsafe_allow_html=True)
+            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（Google AI連携）</div><div style="font-size:12px; color:#555;">現在手動で割り当てているキャストも一旦リセットし、<br>AIが定員を守りながら「一番遠い人から拾う」最短ルートを組み直します。</div></div>', unsafe_allow_html=True)
             
             if not d_names:
                 st.warning("⚠️ まだドライバーが登録されていません。「④ STAFF設定」タブを開いて登録してください。")
