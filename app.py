@@ -313,7 +313,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                 st.markdown("<div style='font-size:13px; font-weight:bold; color:#4caf50; margin-top:10px;'>📝 詳細情報</div>", unsafe_allow_html=True)
                 new_so = st.text_input("立ち寄り先 (同伴等)", value=stopover, key=f"so_{key_suffix}")
                 new_ta = st.text_input("迎え先変更", value=temp_addr, key=f"ta_{key_suffix}")
-                new_memo = st.text_input("備考", value=memo_text, key=f"mm_{key_suffix}")
+                new_memo = st.text_input("備考", value=new_memo, key=f"mm_{key_suffix}")
                 new_tc = st.checkbox("本日託児キャンセル", value=(takuji_cancel == "1"), key=f"tc_{key_suffix}")
                 st.markdown("</div>", unsafe_allow_html=True)
             else: new_ed, new_et, new_eds, new_so, new_ta, new_memo, new_tc = e_drv, e_time, e_dest, stopover, temp_addr, memo_text, (takuji_cancel == "1")
@@ -398,17 +398,38 @@ if st.session_state.page == "home":
         st.write(""); st.write("")
         if st.button("⚙️ 管理者ログイン", use_container_width=True): st.session_state.page = "admin_login"; st.rerun()
 
+# 🌟 指示対応：キャストログインを「プルダウン」から「直接入力（テキスト）」に変更
 elif st.session_state.page == "cast_login":
     render_top_nav(); db = get_db_data(); casts = db.get("casts", [])
-    c_list = ["-- 選択 --"] + [f"{c['cast_id']} {c['name']}" for c in casts if str(c.get("name","")).strip() != ""]
-    c_sel = st.selectbox("店番とキャスト名", c_list)
+    
+    st.markdown('<div class="app-header">キャストログイン</div>', unsafe_allow_html=True)
+    st.caption("店番 または キャスト名を入力し、パスワードを入れてください")
+    
+    c_input = st.text_input("店番 または キャスト名", placeholder="例: 15 または ゆみか")
     pw = st.text_input("パスワード", type="password")
+    
     if st.button("ログイン", type="primary", use_container_width=True):
-        if c_sel != "-- 選択 --":
-            t = next((c for c in casts if str(c["cast_id"]) == str(c_sel.split()[0])), None)
-            if t and (pw == str(t.get("password","")).strip().replace("None","") or not t.get("password")):
-                st.session_state.logged_in_cast = {"店番": str(t["cast_id"]), "キャスト名": str(t["name"]), "方面": t.get("area"), "担当": t.get("manager")}
-                st.session_state.page = "cast_mypage"; st.rerun()
+        c_input_str = str(c_input).strip()
+        if c_input_str:
+            t = None
+            if c_input_str.isdigit():
+                # 数字が入力された場合は「店番」で検索
+                t = next((c for c in casts if str(c["cast_id"]) == c_input_str), None)
+            else:
+                # 文字が入力された場合は「名前」で検索
+                t = next((c for c in casts if c_input_str == str(c.get("name", "")).strip()), None)
+            
+            if t:
+                correct_pass = str(t.get("password","")).strip().replace("None","")
+                if pw == correct_pass or not correct_pass:
+                    st.session_state.logged_in_cast = {"店番": str(t["cast_id"]), "キャスト名": str(t["name"]), "方面": t.get("area"), "担当": t.get("manager")}
+                    st.session_state.page = "cast_mypage"; st.rerun()
+                else:
+                    st.error("⚠️ パスワードが違います。")
+            else:
+                st.error("⚠️ 該当するキャストが見つかりません。")
+        else:
+            st.warning("店番かキャスト名を入力してください。")
 
 elif st.session_state.page == "admin_login":
     render_top_nav(); db = get_db_data(); s = db.get("settings") or {}
@@ -445,7 +466,6 @@ elif st.session_state.page == "cast_mypage":
     
     st.markdown(f'<div style="text-align: center; font-weight: bold; font-size: 20px;">店番 {c["店番"]} {latest_name} 様</div>', unsafe_allow_html=True)
     
-    # 🌟 バグ修正：LINE未連携時の「合言葉」を「店番＋ログイン時の名前」に完全固定し、住所混入を防ぐ
     line_uid = my_c.get("line_user_id", "") if my_c else ""
     bot_id = str(settings.get("line_bot_id", ""))
     
@@ -646,7 +666,6 @@ elif st.session_state.page == "staff_portal":
         # ① 配車リスト
         # ----------------------------------------
         if st.session_state.current_staff_tab == "① 配車リスト":
-            # 🌟 バグ修正：today_s を today_str に修正
             st.markdown(f'<div class="date-header">{today_str} 配車</div>', unsafe_allow_html=True)
             
             early_disp_tasks = []
@@ -778,16 +797,18 @@ elif st.session_state.page == "staff_portal":
                                 
                                 total_casts = len(ordered_tasks)
                                 
+                                # 🌟 【ズレ解消】AIの計算時間から正確なインターバルを割り出す
                                 if total_sec == 0:
                                     avg_travel_mins = 15
                                 else:
                                     avg_travel_mins = (total_sec // 60) // (total_casts + 1) if total_casts > 0 else 15
-                                interval_mins = avg_travel_mins + 3
+                                interval_mins = avg_travel_mins + 3 # 乗り降りバッファを3分加算
                                 
                                 for idx, item in enumerate(ordered_tasks):
                                     mins_to_subtract = (total_casts - idx) * interval_mins
                                     t_mins = b_mins - mins_to_subtract
                                     
+                                    # 🌟 24時間表記のマイナス防止
                                     if t_mins < 0: t_mins += 24 * 60
                                     
                                     current_calc_time = f"{(t_mins // 60) % 24:02d}:{t_mins % 60:02d}"
@@ -882,8 +903,7 @@ elif st.session_state.page == "staff_portal":
                         
                     for idx, rt in enumerate(ordered_returns):
                         disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
-                        if rt["use_takuji"]:
-                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
+                        if rt["use_takuji"]: disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
                         disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                         st.markdown(disp_str, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
