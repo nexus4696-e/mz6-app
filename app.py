@@ -20,8 +20,17 @@ dt = datetime.datetime.now(JST)
 today_str = dt.strftime("%m月%d日")
 dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 
+# ==========================================
 # ページの設定
-st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
+# 🌟 アイコン化：st.set_page_config の page_icon パラメータを変更
+# 店主ご自身で app.py と同じフォルダに icon.png を設置する必要があります。
+# ==========================================
+st.set_page_config(
+    page_title="六本木 水島本店 送迎管理",
+    page_icon="icon.png",  # 🚗 (絵文字) から設置した画像ファイル名に変更
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
 # 状態管理
 for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_staff_for_login", "flash_msg", "current_staff_tab"]:
@@ -74,9 +83,7 @@ def notify_staff_via_line(token, target_id, staff_name, cast_name, pickup_time):
 @st.cache_data(ttl=3600)
 def get_rss_news(url, limit=5):
     try:
-        # 🌟 Googleのセキュリティブロック回避：ブラウザからのアクセスだと認識させるヘッダーを追加
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        res = requests.get(url, headers=headers, timeout=5)
+        res = requests.get(url, timeout=5)
         root = ET.fromstring(res.content)
         items = []
         for item in root.findall('.//item')[:limit]:
@@ -725,7 +732,7 @@ elif st.session_state.page == "cast_mypage":
             m_tmr_txt = st.text_input("明日の備考", value=memo_tmr, key="tmr_m")
             req_stopover_tmr = st.checkbox("🍽️ 明日途中で寄る場所がある", value=bool(so_tmr))
             so_a_tmr = st.text_input("明日の立ち寄り先", value=so_tmr) if req_stopover_tmr else ""
-            req_change_tmr = st.checkbox("📍 明日のみ迎え先を変更", value=bool(ta_tmr))
+            req_change = st.checkbox("📍 明日のみ迎え先を変更", value=bool(ta_tmr))
             ta_tmr_txt = st.text_input("明日の迎え先", value=ta_tmr) if req_change_tmr else ""
             tc_val_tmr = "1" if (takuji_en == "1" and st.checkbox("👶 明日託児所をキャンセル", value=(tc_tmr=="1"))) else "0"
 
@@ -1557,7 +1564,7 @@ elif st.session_state.page == "staff_portal":
                 st.markdown(f'<div style="font-weight:bold; font-size:18px; margin-bottom:15px;">✏️ STAFF {i} の設定</div>', unsafe_allow_html=True)
                 
                 d_area = str(d.get("area", "他")).strip()
-                if d_area not in ["岡山", "広島", "他"]: d_area = "他"
+                if d_area not in ["岡山", "広島", "他"]: d_area = "健康"
                 d_cap = int(d.get("capacity", 4)) if str(d.get("capacity", "")).isdigit() else 4
                 nn = st.text_input("STAFF名", value=nm, key=f"dn_{i}")
                 colA, colB = st.columns(2)
