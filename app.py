@@ -770,10 +770,22 @@ elif st.session_state.page == "staff_portal":
                                 ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
                                 
                                 total_casts = len(ordered_tasks)
+                                
+                                # 🌟 時間計算のズレを解消する動的インターバル計算
+                                if total_sec == 0:
+                                    avg_travel_mins = 15
+                                else:
+                                    avg_travel_mins = (total_sec // 60) // (total_casts + 1) if total_casts > 0 else 15
+                                interval_mins = avg_travel_mins + 3
+                                
                                 for idx, item in enumerate(ordered_tasks):
-                                    mins_to_subtract = (total_casts - idx) * 20
+                                    mins_to_subtract = (total_casts - idx) * interval_mins
                                     t_mins = b_mins - mins_to_subtract
-                                    current_calc_time = f"{t_mins // 60}:{t_mins % 60:02d}"
+                                    
+                                    # 🌟 24時間表記のマイナス防止
+                                    if t_mins < 0: t_mins += 24 * 60
+                                    
+                                    current_calc_time = f"{(t_mins // 60) % 24:02d}:{t_mins % 60:02d}"
                                     updates.append({
                                         "id": item["task"]["id"], 
                                         "driver_name": d_name, 
@@ -855,7 +867,7 @@ elif st.session_state.page == "staff_portal":
                             "c_name": latest_name, "c_id": t['cast_id']
                         })
                     
-                    ordered_returns, _, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                    ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                     
                     if return_full_path:
                         dest_enc = urllib.parse.quote(store_addr)
@@ -956,6 +968,7 @@ elif st.session_state.page == "staff_portal":
                     st.session_state.early_list = []; clear_cache(); st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
+            # 🚨 完全復元：検索と一覧機能
             dispatch_count = 0
             early_count = 0
             today_active_casts = []
@@ -1052,13 +1065,14 @@ elif st.session_state.page == "staff_portal":
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
         # ----------------------------------------
-        # ③ キャスト登録
+        # ③ キャスト登録（全機能完全復元）
         # ----------------------------------------
         elif st.session_state.current_staff_tab == "③ キャスト登録":
             st.markdown('<div style="margin-bottom:15px;">', unsafe_allow_html=True)
             search_query_reg = st.text_input("🔍 キャスト検索 (名前または店番)", placeholder="例: ゆみか, 94", key="search_cast_reg")
             st.markdown('</div>', unsafe_allow_html=True)
 
+            # 🚨 完全復元：10名ごとの絞り込みボタン
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed", key="reg_rng")
             existing = {str(c["cast_id"]): c for c in casts if str(c["cast_id"]) != ""}
             staff_list = ["未設定"] + d_names
@@ -1075,6 +1089,7 @@ elif st.session_state.page == "staff_portal":
                 
                 display_count += 1
                 
+                # 🚨 完全復元：詳細プロフィールフォーム
                 with st.expander(f"店番 {i} : {nm if nm else '未登録'} {mgr}"):
                     nn = st.text_input("名前", value=nm, key=f"cn_{i}")
                     mgr_idx = staff_list.index(mgr) if mgr in staff_list else 0
@@ -1128,10 +1143,10 @@ elif st.session_state.page == "staff_portal":
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
         # ----------------------------------------
-        # ④ STAFF設定
+        # ④ STAFF設定（全機能完全復元）
         # ----------------------------------------
         elif st.session_state.current_staff_tab == "④ STAFF設定":
-            exist_drvs = {str(d["driver_id"]): d for d in drivers}
+            exist_drvs = {str(d["driver_id"]): d for d in drvs}
             staff_disp_list = ["-- 新規・編集するスタッフを選択 --"]
             for i in range(1, 31):
                 nm = exist_drvs.get(str(i), {}).get("name", "")
@@ -1188,12 +1203,12 @@ elif st.session_state.page == "staff_portal":
         elif st.session_state.current_staff_tab == "⚙️ 管理設定":
             st.markdown('<div class="app-header" style="border:none;">📢 アプリ全体設定</div>', unsafe_allow_html=True)
             with st.form("adm_form"):
-                s_notice = settings.get("notice_text", "") if isinstance(settings, dict) else ""
-                s_pass = settings.get("admin_password", "1234") if isinstance(settings, dict) else "1234"
-                s_line = settings.get("line_bot_id", "") if isinstance(settings, dict) else ""
-                s_addr = settings.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(settings, dict) else "岡山県倉敷市水島東栄町2-24"
-                s_time = settings.get("base_arrival_time", "19:50") if isinstance(settings, dict) else "19:50"
-                s_line_token = settings.get("line_access_token", "") if isinstance(settings, dict) else ""
+                s_notice = sets.get("notice_text", "")
+                s_pass = sets.get("admin_password", "1234")
+                s_line = sets.get("line_bot_id", "")
+                s_addr = sets.get("store_address", "岡山県倉敷市水島東栄町2-24")
+                s_time = sets.get("base_arrival_time", "19:50")
+                s_line_token = sets.get("line_access_token", "")
                 
                 st.markdown('<div class="section-title" style="color:#2196f3; margin-top:0;">📍 送迎基本設定 (店舗・到着時間)</div>', unsafe_allow_html=True)
                 n_addr = st.text_input("到着場所（店舗住所）", value=s_addr)
