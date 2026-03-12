@@ -396,7 +396,7 @@ st.markdown("""
         border-radius: 8px !important;
         padding: 10px 5px !important;
         margin: 0 !important;
-        flex: 1 1 auto !important; /* 🌟 修正：項目の数に合わせて自動で幅を調整し、不自然な改行を防ぐ */
+        flex: 1 1 auto !important;
         min-width: 60px !important;
         justify-content: center !important;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
@@ -514,7 +514,7 @@ elif st.session_state.page == "staff_login":
 # ==========================================
 elif st.session_state.page == "cast_mypage":
     render_top_nav(); c = st.session_state.logged_in_cast
-    db = get_db_data(); settings, casts, atts = db.get("settings") or {}, db.get("casts", []), db.get("attendance", [])
+    db = get_db_data(); settings = db.get("settings") or {}; casts = db.get("casts", []); attendance = db.get("attendance", [])
     
     my_c = next((x for x in casts if str(x["cast_id"]) == str(c["店番"])), None)
     latest_name = my_c.get("name", c["キャスト名"]) if my_c else c["キャスト名"]
@@ -602,7 +602,8 @@ elif st.session_state.page == "cast_mypage":
         for i in range(1, 8):
             d = dt + datetime.timedelta(days=i)
             target_val = "翌日" if i == 1 else d.strftime("%Y-%m-%d")
-            date_disp = "明日" if i == 1 else f"{d.month}/{d.day}({dow})"
+            # 🌟 バグ修正：曜日を動的に計算するよう修正
+            date_disp = "明日" if i == 1 else f"{d.month}/{d.day}({days[d.weekday()]})"
             
             m_w = next((r for r in atts if r["target_date"] == target_val and str(r["cast_id"]) == str(c["店番"])), None)
             cur_s = m_w["status"] if m_w else "未定"
@@ -1222,7 +1223,7 @@ elif st.session_state.page == "staff_portal":
         # ④ STAFF設定
         # ----------------------------------------
         elif st.session_state.current_staff_tab == "④ STAFF設定":
-            exist_drvs = {str(d["driver_id"]): d for d in drvs}
+            exist_drvs = {str(d["driver_id"]): d for d in drivers}
             staff_disp_list = ["-- 新規・編集するスタッフを選択 --"]
             for i in range(1, 31):
                 nm = exist_drvs.get(str(i), {}).get("name", "")
@@ -1279,12 +1280,12 @@ elif st.session_state.page == "staff_portal":
         elif st.session_state.current_staff_tab == "⚙️ 管理設定":
             st.markdown('<div class="app-header" style="border:none;">📢 アプリ全体設定</div>', unsafe_allow_html=True)
             with st.form("adm_form"):
-                s_notice = sets.get("notice_text", "") if isinstance(sets, dict) else ""
-                s_pass = sets.get("admin_password", "1234") if isinstance(sets, dict) else "1234"
-                s_line = sets.get("line_bot_id", "") if isinstance(sets, dict) else ""
-                s_addr = sets.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(sets, dict) else "岡山県倉敷市水島東栄町2-24"
-                s_time = sets.get("base_arrival_time", "19:50") if isinstance(sets, dict) else "19:50"
-                s_line_token = sets.get("line_access_token", "") if isinstance(sets, dict) else ""
+                s_notice = settings.get("notice_text", "") if isinstance(settings, dict) else ""
+                s_pass = settings.get("admin_password", "1234") if isinstance(settings, dict) else "1234"
+                s_line = settings.get("line_bot_id", "") if isinstance(settings, dict) else ""
+                s_addr = settings.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(settings, dict) else "岡山県倉敷市水島東栄町2-24"
+                s_time = settings.get("base_arrival_time", "19:50") if isinstance(settings, dict) else "19:50"
+                s_line_token = settings.get("line_access_token", "") if isinstance(settings, dict) else ""
                 
                 st.markdown('<div class="section-title" style="color:#2196f3; margin-top:0;">📍 送迎基本設定 (店舗・到着時間)</div>', unsafe_allow_html=True)
                 n_addr = st.text_input("到着場所（店舗住所）", value=s_addr)
