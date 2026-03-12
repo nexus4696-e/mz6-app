@@ -416,14 +416,12 @@ elif st.session_state.page == "admin_login":
     if st.button("ログイン", type="primary", use_container_width=True):
         if pw == str(s.get("admin_password", "1234")): st.session_state.is_admin, st.session_state.logged_in_staff, st.session_state.page = True, "管理者", "staff_portal"; st.rerun()
 
-# 🌟 指示対応：スタッフ業務開始のUI変更（上下のボタン迷いを完全に解消）
 elif st.session_state.page == "staff_login":
     render_top_nav(); db = get_db_data(); drvs = db.get("drivers", [])
     for d in [x for x in drvs if str(x["name"]).strip() != ""]:
         st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-bottom:10px;'>👤 {d['name']}</div>", unsafe_allow_html=True)
-        colA, colB = st.columns([3, 1.2]) # 横並びの比率を調整してボタンを右に密着
-        with colA: 
-            p_in = st.text_input("PW", type="password", key=f"pw_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
+        colA, colB = st.columns([3, 1.2])
+        with colA: p_in = st.text_input("PW", type="password", key=f"pw_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
         with colB:
             if st.button("開始", key=f"b_{d['driver_id']}", type="primary", use_container_width=True):
                 if p_in in ["0000", str(d.get("password")).strip()]: 
@@ -433,7 +431,6 @@ elif st.session_state.page == "staff_login":
                     st.rerun()
                 else: 
                     st.error("❌ エラー")
-        # 🌟 次のスタッフとの間に大きな余白を設け、誤操作を防止
         st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
 
 # ==========================================
@@ -447,8 +444,16 @@ elif st.session_state.page == "cast_mypage":
     latest_name = my_c.get("name", c["キャスト名"]) if my_c else c["キャスト名"]
     
     st.markdown(f'<div style="text-align: center; font-weight: bold; font-size: 20px;">店番 {c["店番"]} {latest_name} 様</div>', unsafe_allow_html=True)
-    if my_c and not my_c.get("line_user_id"): st.error(f"⚠️ LINE未連携")
-    else: st.success("✅ LINE通知：連携済み")
+    
+    # 🌟 バグ修正：LINE未連携時の「合言葉」案内を完全復元
+    line_uid = my_c.get("line_user_id", "") if my_c else ""
+    bot_id = str(settings.get("line_bot_id", ""))
+    
+    if line_uid:
+        st.markdown('<div style="text-align:center; background:#e8f5e9; color:#2e7d32; padding:8px; border-radius:8px; margin-bottom:15px; font-weight:bold; font-size:14px; border:2px solid #4caf50;">✅ LINE通知：連携済み<br><span style="font-size:11px; font-weight:normal;">(配車決定などがLINEにお知らせされます)</span></div>', unsafe_allow_html=True)
+    else:
+        passphrase = f"{c['店番']}{latest_name}"
+        st.markdown(f'<div style="text-align:center; background:#ffebee; color:#d32f2f; padding:8px; border-radius:8px; margin-bottom:15px; font-size:13px; border:2px solid #f44336;"><b>⚠️ LINE未連携</b><br>お店のLINE({bot_id})に<br>合言葉「<b>{passphrase}</b>」とメッセージを送ってください。</div>', unsafe_allow_html=True)
 
     with st.expander("🏠 自分の登録情報（自宅・託児所）の確認・変更"):
         if my_c:
@@ -464,6 +469,12 @@ elif st.session_state.page == "cast_mypage":
                     encoded_addr = encode_cast_address(new_home, "1" if new_takuji_en else "0", new_takuji_addr, "1")
                     res = post_api({"action": "save_cast", "cast_id": my_c["cast_id"], "name": my_c["name"], "password": my_c.get("password", ""), "phone": my_c.get("phone", ""), "area": my_c.get("area", ""), "address": encoded_addr, "manager": my_c.get("manager", "未設定")})
                     if res.get("status") == "success": clear_cache(); st.success("登録情報を更新しました！"); time.sleep(1); st.rerun()
+
+    today_dt = datetime.datetime.now(JST)
+    days = ['月','火','水','木','金','土','日']
+    today_str = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
+    tmr_dt = today_dt + datetime.timedelta(days=1)
+    tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
@@ -635,9 +646,9 @@ elif st.session_state.page == "staff_portal":
         # ① 配車リスト
         # ----------------------------------------
         if st.session_state.current_staff_tab == "① 配車リスト":
+            # 🌟 バグ修正：変数名を統一
             st.markdown(f'<div class="date-header">{today_str} 配車</div>', unsafe_allow_html=True)
             
-            # 🌟 早便リストの表示
             early_disp_tasks = []
             seen_cids_e = set()
             for row in atts:
@@ -659,7 +670,6 @@ elif st.session_state.page == "staff_portal":
 
             st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（Google AI連携）</div><div style="font-size:12px; color:#555;">現在手動で割り当てているキャストも一旦リセットし、<br>AIが定員を守りながら「一番遠い人から拾う」最短ルートを組み直します。</div></div>', unsafe_allow_html=True)
             
-            # 🌟 稼働ドライバーの選択とAI自動配車ロジック（完全復元）
             if not d_names:
                 st.warning("⚠️ まだドライバーが登録されていません。「④ STAFF設定」タブを開いて登録してください。")
             else:
@@ -703,7 +713,6 @@ elif st.session_state.page == "staff_portal":
                             time.sleep(2.5)
                             st.rerun()
                         else:
-                            # 距離スコアで遠い順にソート（乗車時間最短ルールのベース）
                             all_today_casts.sort(key=lambda x: x["dist"], reverse=True)
                             
                             drv_specs = {}
@@ -714,7 +723,6 @@ elif st.session_state.page == "staff_portal":
                                     except: cap = 4
                                     drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
 
-                            # 定員と方面に合わせたパズル割り当て
                             for uc in all_today_casts:
                                 if uc["row"]["status"] == "自走": continue
                                     
@@ -766,12 +774,10 @@ elif st.session_state.page == "staff_portal":
                                         "dist_score": item["dist"]
                                     })
                                 
-                                # 各車のAIルート計算実行
                                 ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
                                 
                                 total_casts = len(ordered_tasks)
                                 
-                                # 🌟 時間計算のズレを解消する動的インターバル計算
                                 if total_sec == 0:
                                     avg_travel_mins = 15
                                 else:
@@ -782,7 +788,6 @@ elif st.session_state.page == "staff_portal":
                                     mins_to_subtract = (total_casts - idx) * interval_mins
                                     t_mins = b_mins - mins_to_subtract
                                     
-                                    # 🌟 24時間表記のマイナス防止
                                     if t_mins < 0: t_mins += 24 * 60
                                     
                                     current_calc_time = f"{(t_mins // 60) % 24:02d}:{t_mins % 60:02d}"
@@ -794,7 +799,6 @@ elif st.session_state.page == "staff_portal":
                                     })
                                     assigned_ids.add(item["task"]["id"])
                                     
-                                    # 🌟 LINE通知の発行
                                     stff_id = next((d.get("line_user_id", "") for d in drvs if d["name"] == d_name), "")
                                     notify_staff_via_line(sets.get("line_access_token", ""), stff_id, d_name, item["c_name"], current_calc_time)
                             
@@ -968,7 +972,6 @@ elif st.session_state.page == "staff_portal":
                     st.session_state.early_list = []; clear_cache(); st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            # 🚨 完全復元：検索と一覧機能
             dispatch_count = 0
             early_count = 0
             today_active_casts = []
@@ -1065,14 +1068,13 @@ elif st.session_state.page == "staff_portal":
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
         # ----------------------------------------
-        # ③ キャスト登録（全機能完全復元）
+        # ③ キャスト登録
         # ----------------------------------------
         elif st.session_state.current_staff_tab == "③ キャスト登録":
             st.markdown('<div style="margin-bottom:15px;">', unsafe_allow_html=True)
             search_query_reg = st.text_input("🔍 キャスト検索 (名前または店番)", placeholder="例: ゆみか, 94", key="search_cast_reg")
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # 🚨 完全復元：10名ごとの絞り込みボタン
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed", key="reg_rng")
             existing = {str(c["cast_id"]): c for c in casts if str(c["cast_id"]) != ""}
             staff_list = ["未設定"] + d_names
@@ -1089,7 +1091,6 @@ elif st.session_state.page == "staff_portal":
                 
                 display_count += 1
                 
-                # 🚨 完全復元：詳細プロフィールフォーム
                 with st.expander(f"店番 {i} : {nm if nm else '未登録'} {mgr}"):
                     nn = st.text_input("名前", value=nm, key=f"cn_{i}")
                     mgr_idx = staff_list.index(mgr) if mgr in staff_list else 0
@@ -1143,10 +1144,10 @@ elif st.session_state.page == "staff_portal":
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
         # ----------------------------------------
-        # ④ STAFF設定（全機能完全復元）
+        # ④ STAFF設定
         # ----------------------------------------
         elif st.session_state.current_staff_tab == "④ STAFF設定":
-            exist_drvs = {str(d["driver_id"]): d for d in drvs}
+            exist_drvs = {str(d["driver_id"]): d for d in drivers}
             staff_disp_list = ["-- 新規・編集するスタッフを選択 --"]
             for i in range(1, 31):
                 nm = exist_drvs.get(str(i), {}).get("name", "")
@@ -1203,12 +1204,12 @@ elif st.session_state.page == "staff_portal":
         elif st.session_state.current_staff_tab == "⚙️ 管理設定":
             st.markdown('<div class="app-header" style="border:none;">📢 アプリ全体設定</div>', unsafe_allow_html=True)
             with st.form("adm_form"):
-                s_notice = sets.get("notice_text", "")
-                s_pass = sets.get("admin_password", "1234")
-                s_line = sets.get("line_bot_id", "")
-                s_addr = sets.get("store_address", "岡山県倉敷市水島東栄町2-24")
-                s_time = sets.get("base_arrival_time", "19:50")
-                s_line_token = sets.get("line_access_token", "")
+                s_notice = sets.get("notice_text", "") if isinstance(settings, dict) else ""
+                s_pass = sets.get("admin_password", "1234") if isinstance(settings, dict) else "1234"
+                s_line = sets.get("line_bot_id", "") if isinstance(settings, dict) else ""
+                s_addr = sets.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(settings, dict) else "岡山県倉敷市水島東栄町2-24"
+                s_time = sets.get("base_arrival_time", "19:50") if isinstance(settings, dict) else "19:50"
+                s_line_token = sets.get("line_access_token", "") if isinstance(settings, dict) else ""
                 
                 st.markdown('<div class="section-title" style="color:#2196f3; margin-top:0;">📍 送迎基本設定 (店舗・到着時間)</div>', unsafe_allow_html=True)
                 n_addr = st.text_input("到着場所（店舗住所）", value=s_addr)
