@@ -345,32 +345,132 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                     st.rerun()
 
 # ==========================================
-# 🎨 CSS設計
+# 🎨 CSS設計 (By nanobanana)
 # ==========================================
-st.markdown("""
+st.markdown(f"""
 <style>
-    html, body, [data-testid="stAppViewContainer"], .block-container { max-width: 100vw !important; overflow-x: hidden !important; background-color: #f0f2f5; font-family: -apple-system, sans-serif; }
-    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
-    header, footer, [data-testid="stToolbar"] { display: none !important; }
-    .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
-    .home-title { font-size: 24px; font-weight: bold; text-align: center; margin: 40px 0 30px 0; }
-    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
-    div.element-container:has(.home-title) ~ div.element-container button { height: 55px !important; font-size: 18px !important; margin-bottom: 12px !important; }
-    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div { border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #ffffff !important; }
+    /* 全体の背景と基本スタイル */
+    html, body, [data-testid="stAppViewContainer"], .block-container {{
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        background-color: #f0f2f5;
+        font-family: -apple-system, sans-serif;
+    }}
+    .block-container {{
+        padding-top: 1rem;
+        padding-bottom: 5rem;
+        max-width: 600px;
+    }}
+    header, footer, [data-testid="stToolbar"] {{
+        display: none !important;
+    }}
+    .app-header {{
+        border-bottom: 2px solid #333;
+        padding-bottom: 5px;
+        margin-bottom: 10px;
+        font-size: 20px;
+        font-weight: bold;
+    }}
     
-    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
+    /* 🌟 TOP画面専用の洗練されたスタイル (By nanobanana) */
+    div.element-container:has(.home-title) ~ div[data-testid="stVerticalBlock"] {{
+        background-image: url({image_0.png});
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        min-height: 100vh;
+        width: 100vw;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: -1;
+    }}
+    
+    /* 背景画像上のコンテンツを読みやすくするためのオーバーレイ */
+    [data-testid="stAppViewContainer"]::before {{
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(135deg, rgba(13, 71, 161, 0.9), rgba(10, 10, 10, 0.95));
+        z-index: 0;
+    }}
+    
+    /* タイトルの洗練 */
+    .home-title {{
+        font-size: 36px;
+        font-weight: 900;
+        text-align: center;
+        margin: 60px 0 40px 0;
+        color: #fff;
+        text-shadow: 0 4px 10px rgba(0,0,0,0.6);
+        letter-spacing: 0.1em;
+        font-family: "Noto Serif JP", serif;
+        position: relative;
+        z-index: 1;
+    }}
+    
+    /* 最後のボタンの巨大化バグ修正 */
+    div[role="radiogroup"] > label {{
+        flex: 1 1 auto !important;
+        min-width: 60px !important;
+    }}
+
+    /* 🌟 TOP画面のボタンを洗練させる (By nanobanana) */
+    div.element-container:has(.home-title) ~ div.element-container button {{
+        height: 60px !important;
+        font-size: 20px !important;
+        font-weight: bold !important;
+        margin-bottom: 20px !important;
+        border: none !important;
+        border-radius: 30px !important;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.4) !important;
+        transition: all 0.3s ease !important;
+        color: #fff !important;
+        position: relative;
+        z-index: 1;
+    }}
+    
+    div.element-container:has(.home-title) ~ div.element-container button:hover {{
+        transform: translateY(-3px) !important;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.5) !important;
+    }}
+    
+    /* Primaryボタン (🚙 スタッフ業務開始) の高級化 */
+    div.element-container:has(.home-title) ~ div.element-container [data-testid="stMarkdownContainer"] button {{
+        background: linear-gradient(135deg, #1565c0, #0d47a1) !important;
+    }}
+
+    /* Secondaryボタン (👩 キャスト専用ログイン, ⚙️ 管理者ログイン) のガラスモーフィズム化 */
+    div.element-container:has(.home-title) ~ div.element-container button.secondary {{
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    }}
+    
+    /* その他のUIコンポーネントの基本スタイル */
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {{
+        border: 2px solid #000000 !important;
+        border-radius: 6px !important;
+        background-color: #ffffff !important;
+    }}
+    
+    /* スタッフ पोर्टल内のナビゲーションボタン */
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         gap: 5px !important;
         margin-bottom: -10px !important;
-    }
-    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+    }}
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
         width: 33.33% !important;
         flex: 1 1 0% !important;
         min-width: 0 !important;
-    }
-    div.element-container:has(#nav-marker) + div.element-container button {
+    }}
+    div.element-container:has(#nav-marker) + div.element-container button {{
         padding: 0 !important;
         font-size: 13px !important;
         width: 100% !important;
@@ -381,47 +481,70 @@ st.markdown("""
         font-weight: bold !important;
         border: 1px solid #999 !important;
         background-color: #f8f9fa !important;
-    }
+    }}
 
-    div[role="radiogroup"] {
+    /* ラジオグループ（出勤状態）のスタイル */
+    div[role="radiogroup"] {{
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         justify-content: center;
         padding-bottom: 10px;
-    }
-    div[role="radiogroup"] > label {
+    }}
+    div[role="radiogroup"] > label {{
         background-color: #ffffff !important;
         border: 2px solid #ccc !important;
         border-radius: 8px !important;
         padding: 10px 5px !important;
         margin: 0 !important;
-        flex: 1 1 auto !important;
-        min-width: 60px !important;
         justify-content: center !important;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
-    }
-    div[role="radiogroup"] > label[data-checked="true"] {
+    }}
+    div[role="radiogroup"] > label[data-checked="true"] {{
         background-color: #e3f2fd !important;
         border-color: #2196f3 !important;
-    }
-    div[role="radiogroup"] > label[data-checked="true"] p {
+    }}
+    div[role="radiogroup"] > label[data-checked="true"] p {{
         color: #1565c0 !important;
         font-weight: 900 !important;
-    }
-    div[role="radiogroup"] > label p {
+    }}
+    div[role="radiogroup"] > label p {{
         font-size: 15px !important;
         font-weight: bold !important;
         margin: 0 !important;
-    }
-    div[role="radiogroup"] > label div[data-baseweb="radio"] > div {
+    }}
+    div[role="radiogroup"] > label div[data-baseweb="radio"] > div {{
         display: none !important;
-    }
+    }}
 
-    @keyframes pulse-red { 0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); } 70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); } 100% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); } }
-    div.element-container:has(button p:contains("📍 到着を記録")) button { animation: pulse-red 1.5s infinite !important; border: 2px solid white !important; color: white !important; font-size: 18px !important; }
-    .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
-    .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
+    /* 到着記録ボタンのアニメーション */
+    @keyframes pulse-red {{
+        0% {{ background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); }}
+        70% {{ background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }}
+        100% {{ background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }}
+    }}
+    div.element-container:has(button p:contains("📍 到着を記録")) button {{
+        animation: pulse-red 1.5s infinite !important;
+        border: 2px solid white !important;
+        color: white !important;
+        font-size: 18px !important;
+    }}
+    
+    /* 警告ボックスのスタイル */
+    .warning-box {{
+        background: #f44336;
+        color: white;
+        padding: 10px;
+        font-weight: bold;
+        border-radius: 5px 5px 0 0;
+    }}
+    .warning-content {{
+        background: #ffebee;
+        border-left: 4px solid #d32f2f;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 0 0 5px 5px;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
