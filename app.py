@@ -248,7 +248,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
 def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots, loop_idx):
     key_suffix = f"{c_id}_{prefix_key}_{loop_idx}"
     db_temp = get_db_data()
-    sets = db_temp.get("settings", {})
+    settings = db_temp.get("settings", {})
     c_info = next((c for c in db_temp.get("casts", []) if str(c["cast_id"]) == str(c_id)), {})
     
     latest_name = c_info.get("name", c_name)
@@ -335,7 +335,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                             post_api({"action": "update_manual_dispatch", "updates": [{"id": new_row["id"], "driver_name": n_d, "pickup_time": n_t, "status": n_s}]})
                             if n_d != "未定" and n_d != cur_drv:
                                 stff_id = next((d.get("line_user_id", "") for d in db_f.get("drivers", []) if d["name"] == n_d), "")
-                                notify_staff_via_line(sets.get("line_access_token", ""), stff_id, n_d, latest_name, n_t)
+                                notify_staff_via_line(settings.get("line_access_token", ""), stff_id, n_d, latest_name, n_t)
                     
                     st.session_state[f"saved_dispatch_{key_suffix}"] = True
                     st.session_state.active_search_query = ""
@@ -487,14 +487,14 @@ elif st.session_state.page == "cast_login":
             st.warning("店番かキャスト名を入力してください。")
 
 elif st.session_state.page == "admin_login":
-    render_top_nav(); db = get_db_data(); s = db.get("settings") or {}
+    render_top_nav(); db = get_db_data(); settings = db.get("settings") or {}
     pw = st.text_input("管理者パスワード", type="password")
     if st.button("ログイン", type="primary", use_container_width=True):
-        if pw == str(s.get("admin_password", "1234")): st.session_state.is_admin, st.session_state.logged_in_staff, st.session_state.page = True, "管理者", "staff_portal"; st.rerun()
+        if pw == str(settings.get("admin_password", "1234")): st.session_state.is_admin, st.session_state.logged_in_staff, st.session_state.page = True, "管理者", "staff_portal"; st.rerun()
 
 elif st.session_state.page == "staff_login":
-    render_top_nav(); db = get_db_data(); drvs = db.get("drivers", [])
-    for d in [x for x in drvs if str(x["name"]).strip() != ""]:
+    render_top_nav(); db = get_db_data(); drivers = db.get("drivers", [])
+    for d in [x for x in drivers if str(x["name"]).strip() != ""]:
         st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-bottom:10px;'>👤 {d['name']}</div>", unsafe_allow_html=True)
         colA, colB = st.columns([3, 1.2])
         with colA: p_in = st.text_input("PW", type="password", key=f"pw_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
@@ -555,7 +555,7 @@ elif st.session_state.page == "cast_mypage":
 
     with tab_today:
         _, takuji_en, _, _ = parse_cast_address(my_c.get("address", "")) if my_c else ("", "0", "", "0")
-        m_tdy = next((r for r in atts if r["target_date"] == "当日" and str(r["cast_id"]) == str(c["店番"])), None)
+        m_tdy = next((r for r in attendance if r["target_date"] == "当日" and str(r["cast_id"]) == str(c["店番"])), None)
         memo_t, ta_t, tc_t, ex_e_drv, ex_e_time, ex_e_dest, so_t = parse_attendance_memo(m_tdy.get("memo","")) if m_tdy else ("", "", "0", "", "", "", "")
         
         col_t1, col_t2 = st.columns([3, 1.2]) 
@@ -577,7 +577,7 @@ elif st.session_state.page == "cast_mypage":
                 if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
 
     with tab_tmr:
-        m_tmr = next((r for r in atts if r["target_date"] == "翌日" and str(r["cast_id"]) == str(c["店番"])), None)
+        m_tmr = next((r for r in attendance if r["target_date"] == "翌日" and str(r["cast_id"]) == str(c["店番"])), None)
         memo_tmr, ta_tmr, tc_tmr, ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr, so_tmr = parse_attendance_memo(m_tmr.get("memo","")) if m_tmr else ("", "", "0", "", "", "", "")
         
         col_tm1, col_tm2 = st.columns([3, 1.2]) 
@@ -602,10 +602,9 @@ elif st.session_state.page == "cast_mypage":
         for i in range(1, 8):
             d = dt + datetime.timedelta(days=i)
             target_val = "翌日" if i == 1 else d.strftime("%Y-%m-%d")
-            # 🌟 バグ修正：曜日を動的に計算するよう修正
             date_disp = "明日" if i == 1 else f"{d.month}/{d.day}({days[d.weekday()]})"
             
-            m_w = next((r for r in atts if r["target_date"] == target_val and str(r["cast_id"]) == str(c["店番"])), None)
+            m_w = next((r for r in attendance if r["target_date"] == target_val and str(r["cast_id"]) == str(c["店番"])), None)
             cur_s = m_w["status"] if m_w else "未定"
             mm_w, _, _, _, _, _, _ = parse_attendance_memo(m_w.get("memo", "")) if m_w else ("", "", "0", "", "", "", "")
 
@@ -621,7 +620,7 @@ elif st.session_state.page == "cast_mypage":
         if st.button("📤 週間申請を一括送信", type="primary", use_container_width=True):
             records = []
             for w in weekly_data:
-                tr = next((r for r in atts if r["target_date"] == w['date'] and str(r["cast_id"]) == str(c["店番"])), None)
+                tr = next((r for r in attendance if r["target_date"] == w['date'] and str(r["cast_id"]) == str(c["店番"])), None)
                 e_d, e_t, e_dst = "", "", ""
                 if tr: _, _, _, e_d, e_t, e_dst, _ = parse_attendance_memo(tr.get("memo", ""))
                 enc_w = encode_attendance_memo(w['memo'], "", "0", e_d, e_t, e_dst, "")
@@ -641,16 +640,16 @@ elif st.session_state.page == "report_done":
 # ==========================================
 elif st.session_state.page == "staff_portal":
     render_top_nav(); staff_n, is_adm = st.session_state.logged_in_staff, st.session_state.is_admin
-    db = get_db_data(); casts, drvs, atts, sets = db.get("casts", []), db.get("drivers", []), db.get("attendance", []), db.get("settings") or {}
+    db = get_db_data(); casts, drivers, attendance, settings = db.get("casts", []), db.get("drivers", []), db.get("attendance", []), db.get("settings") or {}
     
-    d_names = [str(d["name"]) for d in drvs if d.get("name")]
-    store_addr = str(sets.get("store_address", "岡山県倉敷市水島東栄町2-24"))
+    d_names = [str(d["name"]) for d in drivers if d.get("name")]
+    store_addr = str(settings.get("store_address", "岡山県倉敷市水島東栄町2-24"))
 
     # 🚙 ドライバー専用画面
     if not is_adm:
         st.markdown(f'<div class="date-header">{today_str} ({dow})</div>', unsafe_allow_html=True)
         
-        early_raw = [r for r in atts if r["target_date"] == "当日" and r["status"] == "出勤"]
+        early_raw = [r for r in attendance if r["target_date"] == "当日" and r["status"] == "出勤"]
         my_early = []
         for t in early_raw:
             _, temp_addr, tc, e_drv, e_time, e_dest, so = parse_attendance_memo(t.get("memo", ""))
@@ -690,7 +689,7 @@ elif st.session_state.page == "staff_portal":
                 st.markdown(f"<div style='font-size:14px;'><b>順 {idx+1}</b>: {rt['c_name']}<br><span style='color:#e65100;font-size:12px;font-weight:bold;'>⏰ 送り先到着: {rt['early_time']}</span><br><span style='color:#1565c0;font-size:12px;'>🏠 迎え: {rt['actual_pickup']}</span><br><span style='color:#666;font-size:12px;'>🏁 届け先: {rt['early_dest']}</span></div><hr style='margin:5px 0;'>", unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-        my_atts = [r for r in atts if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
+        my_atts = [r for r in attendance if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
         active = next((r for r in my_atts if not r.get("boarded_at")), None)
         if active:
             c_info = next((c for c in casts if str(c["cast_id"]) == str(active["cast_id"])), {})
@@ -726,7 +725,7 @@ elif st.session_state.page == "staff_portal":
             
             early_disp_tasks = []
             seen_cids_e = set()
-            for row in atts:
+            for row in attendance:
                 if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                     cid_str = str(row["cast_id"])
                     if cid_str in seen_cids_e: continue
@@ -764,7 +763,7 @@ elif st.session_state.page == "staff_portal":
                         early_drivers = set() 
                         seen_cids_ai = set()
                         
-                        for row in atts:
+                        for row in attendance:
                             if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                                 cid_str = str(row["cast_id"])
                                 if cid_str in seen_cids_ai: continue
@@ -791,7 +790,7 @@ elif st.session_state.page == "staff_portal":
                             all_today_casts.sort(key=lambda x: x["dist"], reverse=True)
                             
                             drv_specs = {}
-                            for d in drvs:
+                            for d in drivers:
                                 if d["name"] in active_drivers:
                                     if d["name"] in early_drivers: continue
                                     try: cap = int(d.get("capacity", 4))
@@ -827,7 +826,7 @@ elif st.session_state.page == "staff_portal":
                             updates = []
                             assigned_ids = set()
                             
-                            base_time = str(sets.get("base_arrival_time", "19:50"))
+                            base_time = str(settings.get("base_arrival_time", "19:50"))
                             try:
                                 bh, bm = map(int, base_time.split(':'))
                                 b_mins = bh * 60 + bm
@@ -874,8 +873,8 @@ elif st.session_state.page == "staff_portal":
                                     })
                                     assigned_ids.add(item["task"]["id"])
                                     
-                                    stff_id = next((d.get("line_user_id", "") for d in drvs if d["name"] == d_name), "")
-                                    notify_staff_via_line(sets.get("line_access_token", ""), stff_id, d_name, item["c_name"], current_calc_time)
+                                    stff_id = next((d.get("line_user_id", "") for d in drivers if d["name"] == d_name), "")
+                                    notify_staff_via_line(settings.get("line_access_token", ""), stff_id, d_name, item["c_name"], current_calc_time)
                             
                             for uc in all_today_casts:
                                 if uc["row"]["status"] != "自走" and uc["row"]["id"] not in assigned_ids:
@@ -896,7 +895,7 @@ elif st.session_state.page == "staff_portal":
             
             unassigned, my_tasks = [], {}
             seen_cids_disp = set()
-            for row in atts:
+            for row in attendance:
                 if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                     cid_str = str(row["cast_id"])
                     if cid_str in seen_cids_disp: continue
@@ -985,7 +984,7 @@ elif st.session_state.page == "staff_portal":
                     st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>", unsafe_allow_html=True)
                     ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                    target_time_str = str(sets.get("base_arrival_time", "19:50"))
+                    target_time_str = str(settings.get("base_arrival_time", "19:50"))
                     try:
                         th, tm = map(int, target_time_str.split(':'))
                         target_dt = dt.replace(hour=th, minute=tm, second=0)
@@ -1053,7 +1052,7 @@ elif st.session_state.page == "staff_portal":
             today_active_casts = []
             seen_cids_today = set()
             
-            for row in atts:
+            for row in attendance:
                 if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                     cid_str = str(row["cast_id"])
                     if cid_str in seen_cids_today: continue
@@ -1135,7 +1134,7 @@ elif st.session_state.page == "staff_portal":
                 pref = str(cast["area"])
                 
                 target_row = None
-                for row in atts:
+                for row in attendance:
                     if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"] and str(row["cast_id"]) == str(c_id):
                         target_row = row; break
                 
