@@ -371,92 +371,35 @@ st.markdown("""
         font-size: 20px;
         font-weight: bold;
     }
-    
-    /* 🌟 TOP画面専用の洗練されたスタイル (エラー回避版グラデーション) */
-    div.element-container:has(.home-title) ~ div[data-testid="stVerticalBlock"] {
-        background: linear-gradient(135deg, #1a2a6c, #11212b, #000000);
-        background-size: cover;
-        background-attachment: fixed;
-        min-height: 100vh;
-        width: 100vw;
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: -1;
-    }
-    
-    /* 背景上のコンテンツを読みやすくするためのオーバーレイ */
-    [data-testid="stAppViewContainer"]::before {
-        content: "";
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: linear-gradient(135deg, rgba(13, 71, 161, 0.7), rgba(10, 10, 10, 0.9));
-        z-index: 0;
-    }
-    
-    /* タイトルの洗練 */
     .home-title {
-        font-size: 36px;
-        font-weight: 900;
+        font-size: 24px;
+        font-weight: bold;
         text-align: center;
-        margin: 60px 0 40px 0;
-        color: #fff;
-        text-shadow: 0 4px 10px rgba(0,0,0,0.6);
-        letter-spacing: 0.1em;
-        font-family: "Noto Serif JP", serif;
-        position: relative;
-        z-index: 1;
+        margin: 40px 0 30px 0;
     }
-    
-    /* 最後のボタンの巨大化バグ修正 */
-    div[role="radiogroup"] > label {
-        flex: 1 1 auto !important;
-        min-width: 60px !important;
+    .date-header {
+        text-align: center;
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #fff;
+        border: 2px solid #333;
+        border-radius: 8px;
+        font-size: 24px;
+        font-weight: 900;
+        color: #e91e63;
     }
-
-    /* 🌟 TOP画面のボタンを洗練させる */
     div.element-container:has(.home-title) ~ div.element-container button {
-        height: 60px !important;
-        font-size: 20px !important;
-        font-weight: bold !important;
-        margin-bottom: 20px !important;
-        border: none !important;
-        border-radius: 30px !important;
-        box-shadow: 0 6px 12px rgba(0,0,0,0.4) !important;
-        transition: all 0.3s ease !important;
-        color: #fff !important;
-        position: relative;
-        z-index: 1;
+        height: 55px !important;
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
     }
     
-    div.element-container:has(.home-title) ~ div.element-container button:hover {
-        transform: translateY(-3px) !important;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.5) !important;
-    }
-    
-    /* Primaryボタン (🚙 スタッフ業務開始) の高級化 */
-    div.element-container:has(.home-title) ~ div.element-container [data-testid="stMarkdownContainer"] button {
-        background: linear-gradient(135deg, #1565c0, #0d47a1) !important;
-    }
-
-    /* Secondaryボタン (👩 キャスト専用ログイン, ⚙️ 管理者ログイン) のガラスモーフィズム化 */
-    div.element-container:has(.home-title) ~ div.element-container button.secondary {
-        background: rgba(255, 255, 255, 0.1) !important;
-        backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    }
-    
-    /* その他のUIコンポーネントの基本スタイル */
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
         border: 2px solid #000000 !important;
         border-radius: 6px !important;
         background-color: #ffffff !important;
     }
     
-    /* スタッフ ポータル内のナビゲーションボタン */
     div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -482,7 +425,6 @@ st.markdown("""
         background-color: #f8f9fa !important;
     }
 
-    /* ラジオグループ（出勤状態）のスタイル */
     div[role="radiogroup"] {
         display: flex;
         flex-wrap: wrap;
@@ -496,6 +438,8 @@ st.markdown("""
         border-radius: 8px !important;
         padding: 10px 5px !important;
         margin: 0 !important;
+        flex: 1 1 auto !important;
+        min-width: 60px !important;
         justify-content: center !important;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
     }
@@ -516,7 +460,6 @@ st.markdown("""
         display: none !important;
     }
 
-    /* 到着記録ボタンのアニメーション */
     @keyframes pulse-red {
         0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); }
         70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }
@@ -529,7 +472,6 @@ st.markdown("""
         font-size: 18px !important;
     }
     
-    /* 警告ボックスのスタイル */
     .warning-box {
         background: #f44336;
         color: white;
@@ -608,7 +550,6 @@ elif st.session_state.page == "cast_login":
         else:
             st.warning("店番かキャスト名を入力してください。")
 
-# 🌟 修正：管理者のマスターパスワードを「admin」に固定し、DBの古い設定を無視する
 elif st.session_state.page == "admin_login":
     render_top_nav(); db = get_db_data(); settings = db.get("settings") or {}
     pw = st.text_input("管理者パスワード", type="password")
@@ -1082,8 +1023,7 @@ elif st.session_state.page == "staff_portal":
                         disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
                         if rt["use_takuji"]:
                             disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
-                        disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
-                        st.markdown(disp_str, unsafe_allow_html=True)
+                        disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>", unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
                 else:
