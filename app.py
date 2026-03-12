@@ -501,7 +501,6 @@ def render_top_nav():
 # 🏠 ホーム画面
 # ==========================================
 if st.session_state.page == "home":
-    # 🌟 TOP画面（ホーム）を開いている時だけ適用される専用のUI・背景CSSを復元
     st.markdown("""
     <style>
         [data-testid="stAppViewContainer"] {
@@ -789,7 +788,7 @@ elif st.session_state.page == "staff_portal":
             if earliest_m != 9999:
                 pad_m = len(ord_early) * 3
                 t_m = (early_sec // 60) + pad_m
-                if early_sec == 0: t_m = len(ord_early) * 15 # フェイルセーフ
+                if early_sec == 0: t_m = len(ord_early) * 15 
                 dep_m = earliest_m - t_m
                 
                 dep_h = (dep_m // 60) % 24
@@ -928,6 +927,7 @@ elif st.session_state.page == "staff_portal":
             list_html += '</div>'
             st.markdown(list_html, unsafe_allow_html=True)
 
+
         my_atts = [r for r in attendance if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
         active = next((r for r in my_atts if not r.get("boarded_at")), None)
         if active:
@@ -989,7 +989,6 @@ elif st.session_state.page == "staff_portal":
                 valid_drv = [d for d in st.session_state.active_drv_state if d in d_names]
                 def on_drv_change(): st.session_state.active_drv_state = st.session_state.active_drv_ms
                 
-                # 🌟 AI配車のアルゴリズム選択UIを追加
                 dispatch_mode = st.radio("🤖 AI配車の優先アルゴリズム", ["1: ルート効率化優先", "2: 完全均等振分け優先"], horizontal=True)
                 
                 with st.expander("🛠️ 稼働ドライバーの選択 (タップで開く)", expanded=False):
@@ -1038,7 +1037,6 @@ elif st.session_state.page == "staff_portal":
                                     except: cap = 4
                                     drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
 
-                            # 🌟 アルゴリズム分岐ロジック
                             for uc in all_today_casts:
                                 if uc["row"]["status"] == "自走": continue
                                     
@@ -1047,12 +1045,23 @@ elif st.session_state.page == "staff_portal":
                                 
                                 sorted_drv_names = sorted(drv_specs.keys(), key=lambda k: len(drv_specs[k]["assigned_rows"]))
                                 
+                                # 🌟 復元：モード2のロジックに「同じ方面優先」を組み込んだ完全版
                                 if "2:" in dispatch_mode:
                                     for d_name in sorted_drv_names:
                                         stat = drv_specs[d_name]
-                                        if len(stat["assigned_rows"]) < stat["capacity"]:
-                                            assigned_d = d_name
-                                            break
+                                        if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
+                                            assigned_d = d_name; break
+                                    if not assigned_d:
+                                        for d_name in sorted_drv_names:
+                                            stat = drv_specs[d_name]
+                                            if len(stat["assigned_rows"]) == 0:
+                                                stat["line"] = c_line
+                                                assigned_d = d_name; break
+                                    if not assigned_d:
+                                        for d_name in sorted_drv_names:
+                                            stat = drv_specs[d_name]
+                                            if len(stat["assigned_rows"]) < stat["capacity"]:
+                                                assigned_d = d_name; break
                                 else:
                                     for d_name in sorted_drv_names:
                                         stat = drv_specs[d_name]
