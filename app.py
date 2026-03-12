@@ -738,6 +738,11 @@ elif st.session_state.page == "staff_portal":
     d_names = [str(d["name"]) for d in drivers if d.get("name")]
     store_addr = str(settings.get("store_address", "岡山県倉敷市水島東栄町2-24"))
 
+    # 🌟 欠落していた時間判定ロジックを確実に復元！
+    current_hour = dt.hour
+    current_minute = dt.minute
+    is_return_time = (current_hour > 20) or (current_hour == 20 and current_minute >= 30) or (current_hour <= 7)
+
     # 🚙 ドライバー専用画面
     if not is_adm:
         st.markdown(f'<div class="date-header">{today_str} ({dow})</div>', unsafe_allow_html=True)
