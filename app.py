@@ -74,7 +74,9 @@ def notify_staff_via_line(token, target_id, staff_name, cast_name, pickup_time):
 @st.cache_data(ttl=3600)
 def get_rss_news(url, limit=5):
     try:
-        res = requests.get(url, timeout=5)
+        # 🌟 Googleのセキュリティブロック回避：ブラウザからのアクセスだと認識させるヘッダーを追加
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        res = requests.get(url, headers=headers, timeout=5)
         root = ET.fromstring(res.content)
         items = []
         for item in root.findall('.//item')[:limit]:
@@ -670,7 +672,6 @@ elif st.session_state.page == "cast_mypage":
     tmr_dt = today_dt + datetime.timedelta(days=1)
     tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
-    # 🌟 指示のみの追加：今日のトピックス機能を、既存の機能を崩さないように独立ブロックとして追加
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
     with st.expander("💡 今日のトピックス!!（接客の話題にどうぞ）"):
         t_fun, t_trend, t_local, t_econ = st.tabs(["🤣 面白ネタ", "🔥 トレンド", "📰 県内ニュース", "📈 経済全般"])
