@@ -221,7 +221,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             calc_dest = actual_dest
             calc_waypoints = full_path
         
-        # 🌟 departure_time="now" でAIの渋滞予測学習を有効化し、順番を固定
+        # 🌟 departure_time="now" でAIの渋滞予測学習を有効化し、順番を固定して正確な時間を取得
         params = {
             "origin": calc_origin,
             "destination": calc_dest,
@@ -345,7 +345,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                     st.rerun()
 
 # ==========================================
-# 🎨 CSS設計
+# 🎨 CSS設計 (🌟 大幅UI改善)
 # ==========================================
 st.markdown("""
 <style>
@@ -357,9 +357,69 @@ st.markdown("""
     .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
     div.element-container:has(.home-title) ~ div.element-container button { height: 55px !important; font-size: 18px !important; margin-bottom: 12px !important; }
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div { border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #ffffff !important; }
-    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; }
-    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] { width: 33% !important; flex: 1 1 0% !important; min-width: 0 !important; }
-    div.element-container:has(#nav-marker) + div.element-container button { padding: 0 !important; font-size: 13px !important; height: 42px !important; font-weight: bold !important; }
+    
+    /* 🌟 ナビゲーションボタンを極限まで省スペース化し、絶対に横1行に収める */
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 5px !important;
+        margin-bottom: -10px !important;
+    }
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        width: 33.33% !important;
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+    }
+    div.element-container:has(#nav-marker) + div.element-container button {
+        padding: 0 !important;
+        font-size: 13px !important;
+        width: 100% !important;
+        white-space: nowrap !important;
+        min-height: 36px !important;
+        height: 36px !important;
+        line-height: 1.2 !important;
+        font-weight: bold !important;
+        border: 1px solid #999 !important;
+        background-color: #f8f9fa !important;
+    }
+
+    /* 🌟 メインメニュー（ラジオボタン）のUI改善：押しやすい大きなタイルボタン風に */
+    div[role="radiogroup"] {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        padding-bottom: 10px;
+    }
+    div[role="radiogroup"] > label {
+        background-color: #ffffff !important;
+        border: 2px solid #ccc !important;
+        border-radius: 8px !important;
+        padding: 10px 5px !important;
+        margin: 0 !important;
+        flex: 1 1 30% !important; /* 1行に3つ程度収まるように調整 */
+        justify-content: center !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+    }
+    div[role="radiogroup"] > label[data-checked="true"] {
+        background-color: #e3f2fd !important;
+        border-color: #2196f3 !important;
+    }
+    div[role="radiogroup"] > label[data-checked="true"] p {
+        color: #1565c0 !important;
+        font-weight: 900 !important;
+    }
+    div[role="radiogroup"] > label p {
+        font-size: 15px !important;
+        font-weight: bold !important;
+        margin: 0 !important;
+    }
+    /* ラジオボタンの丸いポッチを完全に非表示にする */
+    div[role="radiogroup"] > label div[data-baseweb="radio"] > div {
+        display: none !important;
+    }
+
     @keyframes pulse-red { 0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); } 70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); } 100% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); } }
     div.element-container:has(button p:contains("📍 到着を記録")) button { animation: pulse-red 1.5s infinite !important; border: 2px solid white !important; color: white !important; font-size: 18px !important; }
     .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
@@ -398,7 +458,6 @@ if st.session_state.page == "home":
         st.write(""); st.write("")
         if st.button("⚙️ 管理者ログイン", use_container_width=True): st.session_state.page = "admin_login"; st.rerun()
 
-# 🌟 指示対応：キャストログインを「プルダウン」から「直接入力（テキスト）」に変更
 elif st.session_state.page == "cast_login":
     render_top_nav(); db = get_db_data(); casts = db.get("casts", [])
     
@@ -413,10 +472,8 @@ elif st.session_state.page == "cast_login":
         if c_input_str:
             t = None
             if c_input_str.isdigit():
-                # 数字が入力された場合は「店番」で検索
                 t = next((c for c in casts if str(c["cast_id"]) == c_input_str), None)
             else:
-                # 文字が入力された場合は「名前」で検索
                 t = next((c for c in casts if c_input_str == str(c.get("name", "")).strip()), None)
             
             if t:
@@ -489,12 +546,6 @@ elif st.session_state.page == "cast_mypage":
                     encoded_addr = encode_cast_address(new_home, "1" if new_takuji_en else "0", new_takuji_addr, "1")
                     res = post_api({"action": "save_cast", "cast_id": my_c["cast_id"], "name": my_c["name"], "password": my_c.get("password", ""), "phone": my_c.get("phone", ""), "area": my_c.get("area", ""), "address": encoded_addr, "manager": my_c.get("manager", "未設定")})
                     if res.get("status") == "success": clear_cache(); st.success("登録情報を更新しました！"); time.sleep(1); st.rerun()
-
-    today_dt = datetime.datetime.now(JST)
-    days = ['月','火','水','木','金','土','日']
-    today_str_local = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
-    tmr_dt = today_dt + datetime.timedelta(days=1)
-    tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
@@ -797,18 +848,16 @@ elif st.session_state.page == "staff_portal":
                                 
                                 total_casts = len(ordered_tasks)
                                 
-                                # 🌟 【ズレ解消】AIの計算時間から正確なインターバルを割り出す
                                 if total_sec == 0:
                                     avg_travel_mins = 15
                                 else:
                                     avg_travel_mins = (total_sec // 60) // (total_casts + 1) if total_casts > 0 else 15
-                                interval_mins = avg_travel_mins + 3 # 乗り降りバッファを3分加算
+                                interval_mins = avg_travel_mins + 3
                                 
                                 for idx, item in enumerate(ordered_tasks):
                                     mins_to_subtract = (total_casts - idx) * interval_mins
                                     t_mins = b_mins - mins_to_subtract
                                     
-                                    # 🌟 24時間表記のマイナス防止
                                     if t_mins < 0: t_mins += 24 * 60
                                     
                                     current_calc_time = f"{(t_mins // 60) % 24:02d}:{t_mins % 60:02d}"
@@ -903,7 +952,8 @@ elif st.session_state.page == "staff_portal":
                         
                     for idx, rt in enumerate(ordered_returns):
                         disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
-                        if rt["use_takuji"]: disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
+                        if rt["use_takuji"]:
+                            disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
                         disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                         st.markdown(disp_str, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
