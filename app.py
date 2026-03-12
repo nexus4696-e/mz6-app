@@ -501,7 +501,7 @@ def render_top_nav():
 # 🏠 ホーム画面
 # ==========================================
 if st.session_state.page == "home":
-    # 🌟 TOP画面（ホーム）を開いている時だけ適用される専用のUI・背景CSS
+    # 🌟 TOP画面（ホーム）を開いている時だけ適用される専用のUI・背景CSSを復元
     st.markdown("""
     <style>
         [data-testid="stAppViewContainer"] {
@@ -648,6 +648,12 @@ elif st.session_state.page == "cast_mypage":
                         st.success("登録情報を更新しました！")
                         time.sleep(1)
                         st.rerun()
+
+    today_dt = datetime.datetime.now(JST)
+    days = ['月','火','水','木','金','土','日']
+    today_str_local = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
+    tmr_dt = today_dt + datetime.timedelta(days=1)
+    tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
@@ -802,12 +808,10 @@ elif st.session_state.page == "staff_portal":
             early_html += '</div>'
             st.markdown(early_html, unsafe_allow_html=True)
 
-        # 🌟 欠落していた「通常便のナビとリスト」の復元
         my_tasks = []
         for t in attendance:
             if t["target_date"] == "当日" and t["status"] in ["出勤", "自走"] and t.get("driver_name") == staff_n:
                 _, _, _, e_drv, _, _, _ = parse_attendance_memo(t.get("memo", ""))
-                # 早便は除外
                 if e_drv and e_drv != "未定" and e_drv != "":
                     continue
                 if t["status"] != "自走":
@@ -924,7 +928,6 @@ elif st.session_state.page == "staff_portal":
             list_html += '</div>'
             st.markdown(list_html, unsafe_allow_html=True)
 
-
         my_atts = [r for r in attendance if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
         active = next((r for r in my_atts if not r.get("boarded_at")), None)
         if active:
@@ -986,6 +989,9 @@ elif st.session_state.page == "staff_portal":
                 valid_drv = [d for d in st.session_state.active_drv_state if d in d_names]
                 def on_drv_change(): st.session_state.active_drv_state = st.session_state.active_drv_ms
                 
+                # 🌟 AI配車のアルゴリズム選択UIを追加
+                dispatch_mode = st.radio("🤖 AI配車の優先アルゴリズム", ["1: ルート効率化優先", "2: 完全均等振分け優先"], horizontal=True)
+                
                 with st.expander("🛠️ 稼働ドライバーの選択 (タップで開く)", expanded=False):
                     active_drivers = st.multiselect("稼働するドライバーを選択", d_names, default=valid_drv, key="active_drv_ms", on_change=on_drv_change)
                 
@@ -1032,6 +1038,7 @@ elif st.session_state.page == "staff_portal":
                                     except: cap = 4
                                     drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
 
+                            # 🌟 アルゴリズム分岐ロジック
                             for uc in all_today_casts:
                                 if uc["row"]["status"] == "自走": continue
                                     
@@ -1040,26 +1047,33 @@ elif st.session_state.page == "staff_portal":
                                 
                                 sorted_drv_names = sorted(drv_specs.keys(), key=lambda k: len(drv_specs[k]["assigned_rows"]))
                                 
-                                for d_name in sorted_drv_names:
-                                    stat = drv_specs[d_name]
-                                    if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
-                                        assigned_d = d_name; break
-                                if not assigned_d:
-                                    for d_name in sorted_drv_names:
-                                        stat = drv_specs[d_name]
-                                        if len(stat["assigned_rows"]) == 0:
-                                            stat["line"] = c_line
-                                            assigned_d = d_name; break
-                                if not assigned_d and uc["dist"] <= 10:
+                                if "2:" in dispatch_mode:
                                     for d_name in sorted_drv_names:
                                         stat = drv_specs[d_name]
                                         if len(stat["assigned_rows"]) < stat["capacity"]:
-                                            assigned_d = d_name; break
-                                if not assigned_d:
+                                            assigned_d = d_name
+                                            break
+                                else:
                                     for d_name in sorted_drv_names:
                                         stat = drv_specs[d_name]
-                                        if len(stat["assigned_rows"]) < stat["capacity"]:
+                                        if len(stat["assigned_rows"]) < stat["capacity"] and stat["line"] == c_line:
                                             assigned_d = d_name; break
+                                    if not assigned_d:
+                                        for d_name in sorted_drv_names:
+                                            stat = drv_specs[d_name]
+                                            if len(stat["assigned_rows"]) == 0:
+                                                stat["line"] = c_line
+                                                assigned_d = d_name; break
+                                    if not assigned_d and uc["dist"] <= 10:
+                                        for d_name in sorted_drv_names:
+                                            stat = drv_specs[d_name]
+                                            if len(stat["assigned_rows"]) < stat["capacity"]:
+                                                assigned_d = d_name; break
+                                    if not assigned_d:
+                                        for d_name in sorted_drv_names:
+                                            stat = drv_specs[d_name]
+                                            if len(stat["assigned_rows"]) < stat["capacity"]:
+                                                assigned_d = d_name; break
 
                                 if assigned_d: 
                                     drv_specs[assigned_d]["assigned_rows"].append(uc)
@@ -1536,7 +1550,7 @@ elif st.session_state.page == "staff_portal":
                         payload = {"action": "save_driver", "driver_id": i, "name": nn, "password": n_pass, "address": final_addr, "phone": n_tel, "area": n_area, "capacity": n_cap}
                         res = post_api(payload)
                         if res.get("status") == "success":
-                            clear_cache(); st.session_state[f"saved_staff_{i}"] = True; st.success("保存しました！"); time.sleep(1); st.rerun()
+                            clear_cache(); st.session_state[f"saved_staff_{i}"] = True; st.success("保存しました！"); st.rerun()
 
         # ----------------------------------------
         # ⚙️ 管理設定
