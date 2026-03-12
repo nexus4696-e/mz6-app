@@ -347,15 +347,46 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
 # ==========================================
 st.markdown("""
 <style>
-    html, body, [data-testid="stAppViewContainer"], .block-container { max-width: 100vw !important; overflow-x: hidden !important; background-color: #f0f2f5; font-family: -apple-system, sans-serif; }
-    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
-    header, footer, [data-testid="stToolbar"] { display: none !important; }
-    .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
-    .home-title { font-size: 24px; font-weight: bold; text-align: center; margin: 40px 0 30px 0; }
-    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
-    div.element-container:has(.home-title) ~ div.element-container button { height: 55px !important; font-size: 18px !important; margin-bottom: 12px !important; }
-    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div { border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #ffffff !important; }
+    /* 全体の背景と基本スタイル */
+    html, body, [data-testid="stAppViewContainer"], .block-container {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        background-color: #f0f2f5;
+        font-family: -apple-system, sans-serif;
+    }
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 5rem;
+        max-width: 600px;
+    }
+    header, footer, [data-testid="stToolbar"] {
+        display: none !important;
+    }
+    .app-header {
+        border-bottom: 2px solid #333;
+        padding-bottom: 5px;
+        margin-bottom: 10px;
+        font-size: 20px;
+        font-weight: bold;
+    }
+    .date-header {
+        text-align: center;
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #fff;
+        border: 2px solid #333;
+        border-radius: 8px;
+        font-size: 24px;
+        font-weight: 900;
+        color: #e91e63;
+    }
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
+        border: 2px solid #000000 !important;
+        border-radius: 6px !important;
+        background-color: #ffffff !important;
+    }
     
+    /* スタッフ ポータル内のナビゲーションボタン横並び */
     div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -381,6 +412,7 @@ st.markdown("""
         background-color: #f8f9fa !important;
     }
 
+    /* ラジオグループ（出勤状態、メニュー）のスタイル */
     div[role="radiogroup"] {
         display: flex;
         flex-wrap: wrap;
@@ -416,10 +448,34 @@ st.markdown("""
         display: none !important;
     }
 
-    @keyframes pulse-red { 0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); } 70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); } 100% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); } }
-    div.element-container:has(button p:contains("📍 到着を記録")) button { animation: pulse-red 1.5s infinite !important; border: 2px solid white !important; color: white !important; font-size: 18px !important; }
-    .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
-    .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
+    /* 到着記録ボタンのアニメーション */
+    @keyframes pulse-red {
+        0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); }
+        70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); }
+        100% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
+    }
+    div.element-container:has(button p:contains("📍 到着を記録")) button {
+        animation: pulse-red 1.5s infinite !important;
+        border: 2px solid white !important;
+        color: white !important;
+        font-size: 18px !important;
+    }
+    
+    /* 警告ボックスのスタイル */
+    .warning-box {
+        background: #f44336;
+        color: white;
+        padding: 10px;
+        font-weight: bold;
+        border-radius: 5px 5px 0 0;
+    }
+    .warning-content {
+        background: #ffebee;
+        border-left: 4px solid #d32f2f;
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 0 0 5px 5px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -445,6 +501,44 @@ def render_top_nav():
 # 🏠 ホーム画面
 # ==========================================
 if st.session_state.page == "home":
+    # 🌟 TOP画面（ホーム）を開いている時だけ適用される専用のUI・背景CSSを復元
+    st.markdown("""
+    <style>
+        [data-testid="stAppViewContainer"] {
+            background: linear-gradient(135deg, #1a2a6c, #11212b, #000000) !important;
+        }
+        .home-title {
+            font-size: 36px !important;
+            font-weight: 900 !important;
+            text-align: center !important;
+            margin: 60px 0 40px 0 !important;
+            color: #fff !important;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.6) !important;
+            letter-spacing: 0.1em !important;
+            font-family: "Noto Serif JP", serif !important;
+        }
+        div.element-container:has(.home-title) ~ div.element-container button {
+            height: 60px !important;
+            font-size: 20px !important;
+            font-weight: bold !important;
+            margin-bottom: 20px !important;
+            border: none !important;
+            border-radius: 30px !important;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4) !important;
+            transition: all 0.3s ease !important;
+            color: #fff !important;
+        }
+        div.element-container:has(.home-title) ~ div.element-container [data-testid="stMarkdownContainer"] button {
+            background: linear-gradient(135deg, #1565c0, #0d47a1) !important;
+        }
+        div.element-container:has(.home-title) ~ div.element-container button.secondary {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
     st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 4, 1])
     with col2:
@@ -543,6 +637,12 @@ elif st.session_state.page == "cast_mypage":
                     encoded_addr = encode_cast_address(new_home, "1" if new_takuji_en else "0", new_takuji_addr, "1")
                     res = post_api({"action": "save_cast", "cast_id": my_c["cast_id"], "name": my_c["name"], "password": my_c.get("password", ""), "phone": my_c.get("phone", ""), "area": my_c.get("area", ""), "address": encoded_addr, "manager": my_c.get("manager", "未設定")})
                     if res.get("status") == "success": clear_cache(); st.success("登録情報を更新しました！"); time.sleep(1); st.rerun()
+
+    today_dt = datetime.datetime.now(JST)
+    days = ['月','火','水','木','金','土','日']
+    today_str_local = f"{today_dt.month}/{today_dt.day}({days[today_dt.weekday()]})"
+    tmr_dt = today_dt + datetime.timedelta(days=1)
+    tmr_str = f"{tmr_dt.month}/{tmr_dt.day}({days[tmr_dt.weekday()]})"
 
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
 
@@ -1203,7 +1303,7 @@ elif st.session_state.page == "staff_portal":
                     p_pref, p_city, p_rest = parse_address(home_addr)
                     c_pref = st.selectbox("県", ["", "岡山県", "広島県", "香川県"], index=["", "岡山県", "広島県", "香川県"].index(p_pref) if p_pref in ["", "岡山県", "広島県", "香川県"] else 0, key=f"c_pref_{i}")
                     c_opts = [""]
-                    if c_pref == "岡山県": c_opts = ["", "岡山市", "仓敷市", "玉野市", "総社市", "瀬戸市", "浅口市", "笠岡市", "他"]
+                    if c_pref == "岡山県": c_opts = ["", "岡山市", "倉敷市", "玉野市", "総社市", "瀬戸市", "浅口市", "笠岡市", "他"]
                     elif c_pref == "広島県": c_opts = ["", "福山市", "尾道市", "三原市", "府中市", "東広島市", "他"]
                     elif c_pref == "香川県": c_opts = ["", "他"]
                     colC1, colC2 = st.columns(2)
