@@ -738,7 +738,7 @@ elif st.session_state.page == "staff_portal":
     d_names = [str(d["name"]) for d in drivers if d.get("name")]
     store_addr = str(settings.get("store_address", "岡山県倉敷市水島東栄町2-24"))
 
-    # 🌟 欠落していた時間判定ロジックを確実に復元！
+    # 🌟 欠落していた時間判定ロジックを確実に復元
     current_hour = dt.hour
     current_minute = dt.minute
     is_return_time = (current_hour > 20) or (current_hour == 20 and current_minute >= 30) or (current_hour <= 7)
@@ -760,14 +760,15 @@ elif st.session_state.page == "staff_portal":
                 my_early.append({"task": t, "early_time": e_time, "early_dest": e_dest, "c_name": latest_name, "c_id": t['cast_id'], "actual_pickup": act_pickup, "use_takuji": use_tkj, "takuji_addr": takuji_addr, "stopover": so})
 
         if my_early:
-            st.markdown(f'<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便</h4>', unsafe_allow_html=True)
-            e_dest_addr = my_early[0]["early_dest"] if my_early[0]["early_dest"] else store_addr
+            # 🌟 HTML結合化による完全修正：枠から文字が飛び出さない堅牢な書き方
+            early_html = '<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便</h4>'
             
+            e_dest_addr = my_early[0]["early_dest"] if my_early[0]["early_dest"] else store_addr
             ord_early, early_sec, early_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
             
             if early_path:
                 d_enc = urllib.parse.quote(e_dest_addr); wp_enc = urllib.parse.quote("|".join(early_path)) if early_path else ""
-                st.markdown(f"<a href='https://www.google.com/maps/dir/?api=1&destination={d_enc}&travelmode=driving&dir_action=navigate&waypoints={wp_enc}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始</a>", unsafe_allow_html=True)
+                early_html += f"<a href='https://www.google.com/maps/dir/?api=1&destination={d_enc}&travelmode=driving&dir_action=navigate&waypoints={wp_enc}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始</a>"
             
             earliest_m = 9999
             for rt in ord_early:
@@ -782,11 +783,10 @@ elif st.session_state.page == "staff_portal":
                 if early_sec == 0: t_m = len(ord_early) * 15 # フェイルセーフ
                 dep_m = earliest_m - t_m
                 
-                # 🌟 安全な計算展開
                 dep_h = (dep_m // 60) % 24
                 dep_min = dep_m % 60
                 dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
-                st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚀 店舗出発 (計算): {dep_time_str}</div>", unsafe_allow_html=True)
+                early_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚀 店舗出発 (計算): {dep_time_str}</div>"
 
             for idx, rt in enumerate(ord_early):
                 c_name = rt['c_name']
@@ -794,25 +794,24 @@ elif st.session_state.page == "staff_portal":
                 a_pickup = rt['actual_pickup']
                 e_dest = rt['early_dest']
                 
-                # 🌟 堅牢な文字列構築
                 disp_str = f"<div style='font-size:14px;'><b>順 {idx+1}</b>: {c_name}<br><span style='color:#e65100;font-size:12px;font-weight:bold;'>⏰ 送り先到着: {e_time}</span><br><span style='color:#1565c0;font-size:12px;'>🏠 迎え: {a_pickup}</span><br><span style='color:#666;font-size:12px;'>🏁 届け先: {e_dest}</span></div><hr style='margin:5px 0;'>"
-                st.markdown(disp_str, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+                early_html += disp_str
+            early_html += '</div>'
+            st.markdown(early_html, unsafe_allow_html=True)
 
         my_atts = [r for r in attendance if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
         active = next((r for r in my_atts if not r.get("boarded_at")), None)
         if active:
             c_info = next((c for c in casts if str(c["cast_id"]) == str(active["cast_id"])), {})
             latest_name = c_info.get("name", active["cast_name"])
-            st.markdown(f"<div style='background:#1e1e1e; padding:15px; border-radius:12px; border:2px solid #00bcd4;'>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='color:white;'>{latest_name} さん</h2>", unsafe_allow_html=True)
+            # 🌟 枠と文字の分離バグ修正：1つの枠の中に名前を格納
+            st.markdown(f"<div style='background:#1e1e1e; padding:15px; border-radius:12px; border:2px solid #00bcd4; margin-bottom:10px;'><h2 style='color:white; margin:0;'>{latest_name} さん</h2></div>", unsafe_allow_html=True)
             if not active.get("arrived_at"):
                 if st.button("📍 到着を記録", key=f"arr_{active['cast_id']}", use_container_width=True):
                     post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "arrive"}); clear_cache(); st.rerun()
             else:
                 if st.button("🟢 乗車完了", key=f"brd_{active['cast_id']}", use_container_width=True):
                     post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "board"}); clear_cache(); st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
 
     # 👑 管理者フル機能
     else:
@@ -847,10 +846,12 @@ elif st.session_state.page == "staff_portal":
                         early_disp_tasks.append({"name": latest_name, "drv": e_drv, "time": e_time, "dest": e_dest})
             
             if early_disp_tasks:
-                st.markdown('<div style="background:#fff3e0; border: 2px solid #ff9800; padding: 10px; border-radius: 8px; margin-bottom: 15px;"><div style="font-weight:bold; color:#e65100; font-size:15px; margin-bottom:5px;">🌅 本日の早便一覧（設定済）</div>', unsafe_allow_html=True)
+                # 🌟 HTML結合化による完全修正
+                early_html = '<div style="background:#fff3e0; border: 2px solid #ff9800; padding: 10px; border-radius: 8px; margin-bottom: 15px;"><div style="font-weight:bold; color:#e65100; font-size:15px; margin-bottom:5px;">🌅 本日の早便一覧（設定済）</div>'
                 for ed in early_disp_tasks:
-                    st.markdown(f"<div style='font-size:13px; color:#333; margin-bottom:3px;'>・ <b>{ed['name']}</b> ➡️ {ed['dest']} ({ed['time']}着) / ドライバー: {ed['drv']}</div>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                    early_html += f"<div style='font-size:13px; color:#333; margin-bottom:3px;'>・ <b>{ed['name']}</b> ➡️ {ed['dest']} ({ed['time']}着) / ドライバー: {ed['drv']}</div>"
+                early_html += '</div>'
+                st.markdown(early_html, unsafe_allow_html=True)
 
             st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（Google AI連携）</div><div style="font-size:12px; color:#555;">現在手動で割り当てているキャストも一旦リセットし、<br>AIが定員を守りながら「一番遠い人から拾う」最短ルートを組み直します。</div></div>', unsafe_allow_html=True)
             
@@ -1027,20 +1028,24 @@ elif st.session_state.page == "staff_portal":
                         my_tasks[drv].append(row)
             
             if unassigned:
-                st.markdown('<div class="warning-box">⚠️ 定員・エリアオーバーで未割り当てのキャスト</div><div class="warning-content">', unsafe_allow_html=True)
-                st.caption("※下の「全キャスト検索」から手動で割り当てるか、稼働ドライバーを追加してください。")
+                # 🌟 HTML結合化による完全修正
+                unassigned_html = '<div class="warning-box">⚠️ 定員・エリアオーバーで未割り当てのキャスト</div><div class="warning-content">'
+                unassigned_html += '<div style="font-size:12px; color:#666; margin-bottom:10px;">※下の「全キャスト検索」から手動で割り当てるか、稼働ドライバーを追加してください。</div>'
                 for u in unassigned:
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(u["cast_id"])), {})
                     latest_name = c_info.get("name", u["cast_name"])
-                    st.markdown(f"**未定**　<span style='font-size:16px; font-weight:bold;'>{latest_name}</span> <br><span style='font-size:12px; color:#555;'>({u['status']})</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                    unassigned_html += f"<div style='margin-bottom:5px;'><b>未定</b>　<span style='font-size:16px; font-weight:bold;'>{latest_name}</span> <br><span style='font-size:12px; color:#555;'>({u['status']})</span></div><hr style='margin:5px 0;'>"
+                unassigned_html += '</div>'
+                st.markdown(unassigned_html, unsafe_allow_html=True)
                 
             for d_name, t_rows in my_tasks.items():
                 t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
-                st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 {d_name} (STAFF)</div><div class="card" style="border-radius:0 0 5px 5px; border-top:none;">', unsafe_allow_html=True)
+                
+                # 🌟 HTML結合化による完全修正：カードの枠を描画して文字が飛び出さないようにする
+                list_html = f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 {d_name} (STAFF)</div><div style="background:#ffffff; border:1px solid #ccc; border-top:none; padding:10px; border-radius:0 0 5px 5px; margin-bottom:20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">'
                 
                 if is_return_time:
-                    st.markdown(f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:8px; border-radius:5px; margin-bottom:15px;"><div style="color:#1565c0; font-weight:bold; margin-bottom:5px;">🌙 帰り班 (自動編成)</div>', unsafe_allow_html=True)
+                    list_html += f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding:8px; border-radius:5px; margin-bottom:15px;"><div style="color:#1565c0; font-weight:bold; margin-bottom:5px;">🌙 帰り班 (自動編成)</div>'
                     return_tasks = []
                     for t in reversed(t_rows):
                         c_info = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), None)
@@ -1066,20 +1071,19 @@ elif st.session_state.page == "staff_portal":
                         wp_enc = urllib.parse.quote("|".join(return_full_path[:-1])) if len(return_full_path) > 1 else ""
                         return_map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
                         if wp_enc: return_map_url += f"&waypoints={wp_enc}"
-                        st.markdown(f"<a href='{return_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>", unsafe_allow_html=True)
+                        list_html += f"<a href='{return_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>"
                         
                     for idx, rt in enumerate(ordered_returns):
                         c_name = rt['c_name']
                         takuji_addr = rt['takuji_addr']
                         a_pickup = rt['actual_pickup']
                         
-                        # 🌟 堅牢な文字列構築
                         disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{c_name}</b><br>"
                         if rt["use_takuji"]:
                             disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {takuji_addr}</span><br>"
                         disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {a_pickup}</span></div><hr style='margin:5px 0;'>"
-                        st.markdown(disp_str, unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                        list_html += disp_str
+                    list_html += '</div>'
 
                 else:
                     tasks_with_details = []
@@ -1100,7 +1104,7 @@ elif st.session_state.page == "staff_portal":
                             "home_addr": home_addr, "temp_addr": temp_addr, "takuji_cancel": takuji_cancel
                         })
 
-                    st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>", unsafe_allow_html=True)
+                    list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                     ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
                     target_time_str = str(settings.get("base_arrival_time", "19:50"))
@@ -1118,14 +1122,14 @@ elif st.session_state.page == "staff_portal":
                     except:
                         dep_time_str = "未定"
 
-                    st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>", unsafe_allow_html=True)
+                    list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>"
 
                     if full_path:
                         dest_enc = urllib.parse.quote(store_addr)
                         wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
                         map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
                         if wp_enc: map_url += f"&waypoints={wp_enc}"
-                        st.markdown(f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
+                        list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
                     
                     for idx, t in enumerate(ordered_tasks):
                         home_addr = t['home_addr']
@@ -1136,16 +1140,17 @@ elif st.session_state.page == "staff_portal":
                         c_name = t['c_name']
                         pickup_time = t['task']['pickup_time']
                         
-                        # 🌟 堅牢な文字列構築
                         addr_display = f"🏠 迎え: {home_addr if home_addr else '未登録'}"
                         if temp_addr: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {temp_addr}</span>"
                         if stopover: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {stopover}</span>"
                         if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {takuji_addr}</span>"
                         if memo_text: addr_display += f"<br>📝 備考: {memo_text}"
                         
-                        st.markdown(f"**迎え順 {idx+1}： {pickup_time}**　<span style='font-size:16px; font-weight:bold;'>{c_name}</span> <br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                        list_html += f"<div style='margin-bottom:8px;'><b>迎え順 {idx+1}： {pickup_time}</b>　<span style='font-size:16px; font-weight:bold;'>{c_name}</span> <br><span style='font-size:13px;'>{addr_display}</span></div><hr style='margin:5px 0;'>"
 
-                st.markdown('</div>', unsafe_allow_html=True)
+                list_html += '</div>'
+                # 🌟 結合した完全なHTMLを1回だけ表示（これで枠崩れが100%防げます）
+                st.markdown(list_html, unsafe_allow_html=True)
 
         # ----------------------------------------
         # ② キャスト送迎
