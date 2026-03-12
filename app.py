@@ -507,6 +507,8 @@ st.markdown("""
 
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
+
+# 🌟 マップのURLバグ完全修正
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 TEL_BTN_STYLE = "display:block; text-align:center; padding:15px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; color:white; background:#1565c0; border:2px solid #0d47a1; margin-bottom:10px;"
@@ -818,9 +820,14 @@ elif st.session_state.page == "staff_portal":
             e_dest_addr = my_early[0]["early_dest"] if my_early[0]["early_dest"] else store_addr
             ord_early, early_sec, early_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
             
+            # 🌟 バグ修正：正しいGoogle Maps URLに変更
             if early_path:
-                d_enc = urllib.parse.quote(e_dest_addr); wp_enc = urllib.parse.quote("|".join(early_path)) if early_path else ""
-                early_html += f"<a href='https://www.google.com/maps/dir/?api=1&destination={d_enc}&travelmode=driving&dir_action=navigate&waypoints={wp_enc}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始</a>"
+                org_enc = urllib.parse.quote(store_addr)
+                d_enc = urllib.parse.quote(e_dest_addr)
+                wp_enc = urllib.parse.quote("|".join(early_path)) if early_path else ""
+                nav_link = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={d_enc}&travelmode=driving&dir_action=navigate"
+                if wp_enc: nav_link += f"&waypoints={wp_enc}"
+                early_html += f"<a href='{nav_link}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始</a>"
             
             earliest_m = 9999
             for rt in ord_early:
@@ -886,10 +893,12 @@ elif st.session_state.page == "staff_portal":
                 
                 ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                 
+                # 🌟 バグ修正：正しいGoogle Maps URLに変更
                 if return_full_path:
+                    org_enc = urllib.parse.quote(store_addr)
                     dest_enc = urllib.parse.quote(store_addr)
                     wp_enc = urllib.parse.quote("|".join(return_full_path[:-1])) if len(return_full_path) > 1 else ""
-                    return_map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
+                    return_map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&dir_action=navigate"
                     if wp_enc: return_map_url += f"&waypoints={wp_enc}"
                     list_html += f"<a href='{return_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>"
                     
@@ -944,10 +953,12 @@ elif st.session_state.page == "staff_portal":
 
                 list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>"
 
+                # 🌟 バグ修正：正しいGoogle Maps URLに変更
                 if full_path:
+                    org_enc = urllib.parse.quote(store_addr)
                     dest_enc = urllib.parse.quote(store_addr)
                     wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
-                    map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
+                    map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&dir_action=navigate"
                     if wp_enc: map_url += f"&waypoints={wp_enc}"
                     list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
                 
@@ -1259,10 +1270,12 @@ elif st.session_state.page == "staff_portal":
                     
                     ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                     
+                    # 🌟 バグ修正：正しいGoogle Maps URLに変更
                     if return_full_path:
+                        org_enc = urllib.parse.quote(store_addr)
                         dest_enc = urllib.parse.quote(store_addr)
                         wp_enc = urllib.parse.quote("|".join(return_full_path[:-1])) if len(return_full_path) > 1 else ""
-                        return_map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
+                        return_map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&dir_action=navigate"
                         if wp_enc: return_map_url += f"&waypoints={wp_enc}"
                         list_html += f"<a href='{return_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>"
                         
@@ -1317,10 +1330,12 @@ elif st.session_state.page == "staff_portal":
 
                     list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>"
 
+                    # 🌟 バグ修正：正しいGoogle Maps URLに変更
                     if full_path:
+                        org_enc = urllib.parse.quote(store_addr)
                         dest_enc = urllib.parse.quote(store_addr)
                         wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
-                        map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_enc}&travelmode=driving&dir_action=navigate"
+                        map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&dir_action=navigate"
                         if wp_enc: map_url += f"&waypoints={wp_enc}"
                         list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
                     
