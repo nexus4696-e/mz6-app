@@ -506,8 +506,8 @@ st.markdown("""
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
 
-# 🌟 マップのURLバグ完全修正（存在しないURLから正しい公式GoogleマップURLへ変更）
-MAP_SEARCH_BTN = """<a href='https://www.google.com/maps/search/?api=1' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
+# 🌟 マップのURLバグ完全修正（公式GoogleマップURLへ変更）
+MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 TEL_BTN_STYLE = "display:block; text-align:center; padding:15px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; color:white; background:#1565c0; border:2px solid #0d47a1; margin-bottom:10px;"
 
@@ -909,7 +909,7 @@ elif st.session_state.page == "staff_portal":
                     if rt["use_takuji"]:
                         disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {takuji_addr}</span><br>"
                     disp_str += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {a_pickup}</span></div><hr style='margin:5px 0;'>"
-                        list_html += disp_str
+                    list_html += disp_str
                 list_html += '</div>'
 
             else:
