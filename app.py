@@ -7,7 +7,7 @@ import re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 漏洩防止！Streamlitの裏側（Secrets）と環境変数の両方から安全にキーを読み込みます
+# 🌟 漏洩防止！Streamlitの裏側（Secrets）とGoogle Cloud環境変数の両方から安全にキーを読み込みます
 try:
     GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
 except:
@@ -30,9 +30,6 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
-
-# 🌟 スマホ（Chrome）の勝手な自動誤翻訳（翌日→火曜日など）を強制的に禁止する！
-st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
 
 # 状態管理
 for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_staff_for_login", "flash_msg", "current_staff_tab"]:
@@ -81,7 +78,7 @@ def notify_staff_via_line(token, target_id, staff_name, cast_name, pickup_time):
     try: requests.post(url, headers=headers, json=data, timeout=5)
     except: pass
 
-# 🌟 今日のトピックス用データ取得機能
+# 🌟 今日のトピックス用データ取得機能（元のGoogleトレンド仕様に復元）
 @st.cache_data(ttl=3600)
 def get_rss_news(url, limit=5):
     try:
@@ -179,7 +176,7 @@ def get_route_line_and_distance(addr_str):
     return line, dist
 
 # ==========================================
-# 🤖 AIルート計算（正常に機能していた元のロジックに復元）
+# 🤖 AIルート計算（正常に機能していた元のロジックに完全復元）
 # ==========================================
 @st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
@@ -515,7 +512,7 @@ st.markdown("""
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
 
-# 🌟 マップのURLを公式Googleマップアプリが確実に起動する正規URLに完全修正
+# 🌟 マップのURLを公式Googleマップアプリが確実に起動する正規URLに完全修復
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 TEL_BTN_STYLE = "display:block; text-align:center; padding:15px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; color:white; background:#1565c0; border:2px solid #0d47a1; margin-bottom:10px;"
@@ -697,7 +694,7 @@ elif st.session_state.page == "cast_mypage":
             for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/entertainment.xml", 5):
                 st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#1565c0; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
         with t_trend:
-            for n in get_rss_news("https://news.livedoor.com/topics/rss/trend.xml", 5):
+            for n in get_rss_news("https://trends.google.co.jp/trends/trendingsearches/daily/rss?geo=JP", 5):
                 st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#e65100; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
         with t_local:
             for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/local.xml", 5):
@@ -949,7 +946,7 @@ elif st.session_state.page == "staff_portal":
                 # 🌟 正常に機能していた元のロジックに復元
                 ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                # 🌟 出発時刻の計算を、正常に機能していた元の「到着時刻からの逆算ロジック」に完全復元！
+                # 🌟 バグ完全修正：出発時刻の計算を、正常に機能していた「到着予定時刻からの逆算ロジック」に完全復元！
                 target_time_str = str(settings.get("base_arrival_time", "19:50"))
                 try:
                     th, tm = map(int, target_time_str.split(':'))
