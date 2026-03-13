@@ -7,13 +7,16 @@ import re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 漏洩防止！Google Cloud環境変数とStreamlitの裏側の両方から確実にAPIキーを読み込みます
-try:
-    GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
-    if not GOOGLE_MAPS_API_KEY:
+# 🌟 システムバージョン管理（コード書き換えのたびに増加）
+APP_VERSION = 2
+
+# 🌟 漏洩防止！APIキーを最も確実な方法で読み込むように強化
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
+if not GOOGLE_MAPS_API_KEY:
+    try:
         GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"].strip()
-except:
-    GOOGLE_MAPS_API_KEY = ""
+    except:
+        GOOGLE_MAPS_API_KEY = ""
 
 # 🌟 日本時間（JST）を強制的に設定して時差バグを完全に防止
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -180,11 +183,15 @@ def get_route_line_and_distance(addr_str):
     return line, dist
 
 # ==========================================
-# 🤖 AIルート計算
+# 🤖 AIルート計算（エラー理由を可視化・タイムアウト延長）
 # ==========================================
 @st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
-    if not api_key or not tasks_list: return tasks_list, 0, [], 0
+    api_error_msg = ""
+    if not api_key:
+        return tasks_list, 0, [], 0, "APIキーが設定されていません"
+    if not tasks_list:
+        return tasks_list, 0, [], 0, ""
 
     valid_tasks = []
     for t in tasks_list:
@@ -216,7 +223,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
                 "waypoints": wp_str,
                 "key": api_key,
                 "language": "ja"
-            }, timeout=5).json()
+            }, timeout=10).json()
             
             if res.get("status") == "OK":
                 wp_order = res["routes"][0]["waypoint_order"]
@@ -234,8 +241,10 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
                     else: 
                         if dur_to_first < dur_from_last:
                             ordered_valid_tasks.reverse()
-        except:
-            pass
+            else:
+                api_error_msg = f"{res.get('status')} - {res.get('error_message', '')}"
+        except Exception as e:
+            api_error_msg = f"通信例外: {str(e)}"
 
     final_ordered_tasks = ordered_valid_tasks + invalid_tasks
 
@@ -266,16 +275,20 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             params["waypoints"] = "|".join(calc_waypoints)
             
         try:
-            res2 = requests.get("https://maps.googleapis.com/maps/api/directions/json", params=params, timeout=5).json()
+            res2 = requests.get("https://maps.googleapis.com/maps/api/directions/json", params=params, timeout=10).json()
             if res2.get("status") == "OK":
                 legs = res2["routes"][0]["legs"]
                 total_sec = sum(leg["duration"]["value"] for leg in legs)
                 if legs:
                     first_leg_sec = legs[0]["duration"]["value"]
-        except:
-            pass
+            else:
+                if not api_error_msg:
+                    api_error_msg = f"{res2.get('status')} - {res2.get('error_message', '')}"
+        except Exception as e:
+            if not api_error_msg:
+                api_error_msg = f"通信例外2: {str(e)}"
             
-    return final_ordered_tasks, total_sec, full_path, first_leg_sec
+    return final_ordered_tasks, total_sec, full_path, first_leg_sec, api_error_msg
 
 # ==========================================
 # 🌟 UIパーツ生成
@@ -519,7 +532,7 @@ st.markdown("""
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
 
-# 🌟 抜本的修正：世界共通で確実に起動する公式Google Maps URLに完全変更
+# 🌟 マップの検索URLを公式のGoogleマップURLに完全修復
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップを開く</a>"""
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 TEL_BTN_STYLE = "display:block; text-align:center; padding:15px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; color:white; background:#1565c0; border:2px solid #0d47a1; margin-bottom:10px;"
@@ -585,6 +598,8 @@ if st.session_state.page == "home":
         if st.button("👩 キャスト専用ログイン", use_container_width=True): st.session_state.page = "cast_login"; st.rerun()
         st.write(""); st.write("")
         if st.button("⚙️ 管理者ログイン", use_container_width=True): st.session_state.page = "admin_login"; st.rerun()
+        # 🌟 バージョン番号の表示
+        st.markdown(f"<div style='text-align:center; color:#888; font-size:14px; margin-top:30px; font-weight:bold;'>システムバージョン: ver {APP_VERSION}</div>", unsafe_allow_html=True)
 
 elif st.session_state.page == "cast_login":
     render_top_nav(); db = get_db_data(); casts = db.get("casts", [])
@@ -829,13 +844,16 @@ elif st.session_state.page == "staff_portal":
             early_html = '<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便</h4>'
             
             e_dest_addr = my_early[0]["early_dest"] if my_early[0]["early_dest"] else store_addr
-            ord_early, early_sec, early_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
+            ord_early, early_sec, early_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
             
-            # 🌟 抜本的修正：API通信エラーの場合は赤い警告を出す（勝手な計算はしない）
-            if not GOOGLE_MAPS_API_KEY or first_leg_sec == 0:
-                early_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー: AIによる距離計算ができないため出発時間を表示できません</div>"
+            # 🌟 抜本的修正：API通信エラーを赤文字で詳細に表示する
+            if not GOOGLE_MAPS_API_KEY:
+                early_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>"
+            elif first_leg_sec == 0:
+                err_text = api_err if api_err else "距離が取得できないため出発時間を計算できません"
+                early_html += f"<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー:<br>{err_text}</div>"
             else:
-                # 🌟 抜本的修正：一番早い迎え時間から逆算（フォールバック数字なし）
+                # 🌟 抜本的修正：一番早い迎え時間から正確に逆算
                 earliest_m = 9999
                 for rt in ord_early:
                     try:
@@ -851,7 +869,7 @@ elif st.session_state.page == "staff_portal":
                     dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
                     early_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚀 店舗出発 (AI逆算): {dep_time_str}</div>"
 
-            # 🌟 抜本的修正：絶対にGoogle Mapsアプリが起動する公式URL
+            # 🌟 抜本的修正：確実に起動する公式GoogleマップURL
             if early_path:
                 org_enc = urllib.parse.quote(store_addr)
                 d_enc = urllib.parse.quote(e_dest_addr)
@@ -904,9 +922,9 @@ elif st.session_state.page == "staff_portal":
                         "c_name": latest_name, "c_id": t['cast_id']
                     })
                 
-                ordered_returns, ret_sec, return_full_path, _ = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                ordered_returns, ret_sec, return_full_path, _, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                 
-                # 🌟 抜本的修正：確実に起動する公式GoogleマップURL
+                # 🌟 抜本的修正：Google公式のルート案内URL
                 if return_full_path:
                     org_enc = urllib.parse.quote(store_addr)
                     dest_enc = urllib.parse.quote(store_addr)
@@ -948,13 +966,16 @@ elif st.session_state.page == "staff_portal":
 
                 list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                 
-                ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
+                ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                # 🌟 抜本的修正：API通信エラーの場合は赤い警告を出す（勝手な計算はしない）
-                if not GOOGLE_MAPS_API_KEY or first_leg_sec == 0:
-                    list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー: AIによる距離計算ができないため出発時間を表示できません</div>"
+                # 🌟 抜本的修正：API通信エラーを赤文字で詳細に表示する
+                if not GOOGLE_MAPS_API_KEY:
+                    list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>"
+                elif first_leg_sec == 0:
+                    err_text = api_err if api_err else "距離が取得できないため出発時間を計算できません"
+                    list_html += f"<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー:<br>{err_text}</div>"
                 else:
-                    # 🌟 抜本的修正：一番早い迎え時間から逆算（フォールバック数字なし）
+                    # 🌟 抜本的修正：一番早い迎え時間から正確に逆算
                     earliest_m = 9999
                     for t in ordered_tasks:
                         try:
@@ -974,7 +995,7 @@ elif st.session_state.page == "staff_portal":
                     else:
                         list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻: 未定 (時間を設定してください)</div>"
 
-                # 🌟 抜本的修正：確実に起動する公式Google Maps URL
+                # 🌟 抜本的修正：Google公式のナビ案内URL
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr)
                     dest_enc = urllib.parse.quote(store_addr)
@@ -1193,11 +1214,12 @@ elif st.session_state.page == "staff_portal":
                                         "dist_score": item["dist"]
                                     })
                                 
-                                ordered_tasks, total_sec, full_path, _ = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
+                                ordered_tasks, total_sec, full_path, _, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
                                 
                                 # 🌟 抜本的修正：API通信エラーで全滅するのを防ぐ絶対条件
                                 if total_sec == 0:
-                                    st.error(f"🚨 API通信エラー: {d_name}のルート計算ができませんでした。APIキーの設定を確認してください。")
+                                    err_text = api_err if api_err else "距離が計算できませんでした"
+                                    st.error(f"🚨 API通信エラー: {d_name}のルート計算に失敗しました。({err_text})")
                                     continue
                                 
                                 total_casts = len(ordered_tasks)
@@ -1296,9 +1318,9 @@ elif st.session_state.page == "staff_portal":
                             "c_name": latest_name, "c_id": t['cast_id']
                         })
                     
-                    ordered_returns, ret_sec, return_full_path, _ = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                    ordered_returns, ret_sec, return_full_path, _, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                     
-                    # 🌟 抜本的修正：確実に起動する公式Google Maps URL
+                    # 🌟 抜本的修正：Google公式のルート案内URL
                     if return_full_path:
                         org_enc = urllib.parse.quote(store_addr)
                         dest_enc = urllib.parse.quote(store_addr)
@@ -1340,13 +1362,16 @@ elif st.session_state.page == "staff_portal":
 
                     list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                     
-                    ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
+                    ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                    # 🌟 抜本的修正：API通信エラーの場合は赤い警告を出す（勝手な計算はしない）
-                    if not GOOGLE_MAPS_API_KEY or first_leg_sec == 0:
-                        list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー: AIによる距離計算ができないため出発時間を表示できません</div>"
+                    # 🌟 抜本的修正：API通信エラーを赤文字で詳細に表示する
+                    if not GOOGLE_MAPS_API_KEY:
+                        list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>"
+                    elif first_leg_sec == 0:
+                        err_text = api_err if api_err else "距離が取得できないため出発時間を計算できません"
+                        list_html += f"<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー:<br>{err_text}</div>"
                     else:
-                        # 🌟 抜本的修正：一番早い迎え時間から逆算（フォールバック数字なし）
+                        # 🌟 抜本的修正：一番早い迎え時間から正確に逆算
                         earliest_m = 9999
                         for t in ordered_tasks:
                             try:
@@ -1366,7 +1391,7 @@ elif st.session_state.page == "staff_portal":
                         else:
                             list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻: 未定 (時間を設定してください)</div>"
 
-                # 🌟 抜本的修正：確実に起動する公式Google Maps URL
+                # 🌟 抜本的修正：Google公式のナビ案内URL
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr)
                     dest_enc = urllib.parse.quote(store_addr)
