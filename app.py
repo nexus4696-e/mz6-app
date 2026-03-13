@@ -23,12 +23,9 @@ dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 # ==========================================
 # 🌟 ページの設定（アイコン化の完全対応）
 # ==========================================
-# 🌟 提供いただいた画像(28470.jpg)をbase64エンコードしてアイコンに設定
 st.set_page_config(
     page_title="六本木 水島本店 送迎管理",
-    # 🌟 base64でエンコードされた画像データを埋め込み。
-    # ここにとてつもなく長い文字列が入ります。
-    page_icon="data:image/jpeg;base64,https://www.google.com/maps/dir/?api=1...", 
+    page_icon="http://mute-imari-1089.catfood.jp/mz6/icon.png", 
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -84,8 +81,14 @@ def notify_staff_via_line(token, target_id, staff_name, cast_name, pickup_time):
 @st.cache_data(ttl=3600)
 def get_rss_news(url, limit=5):
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        res = requests.get(url, headers=headers, timeout=5)
+        # 🌟 クラウド環境からのアクセスブロックを回避するためヘッダーを強化
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.7',
+            'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+        }
+        res = requests.get(url, headers=headers, timeout=10)
+        res.raise_for_status()
         root = ET.fromstring(res.content)
         items = []
         for item in root.findall('.//item')[:limit]:
@@ -509,7 +512,6 @@ st.markdown("""
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
 
-# 🌟 マップのURLバグ完全修正（公式GoogleマップURLへ変更）
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 TEL_BTN_STYLE = "display:block; text-align:center; padding:15px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; color:white; background:#1565c0; border:2px solid #0d47a1; margin-bottom:10px;"
@@ -541,7 +543,8 @@ if st.session_state.page == "home":
             text-align: center !important;
             margin: 60px 0 40px 0 !important;
             color: #fff !important;
-            text-shadow: 0 4px 10px rgba(0,0,0,0.6) !important;
+            /* 🌟 指示通り：影を濃くして白文字が浮き出る仕様に変更 */
+            text-shadow: 0 4px 10px rgba(0,0,0,0.9), 0 0 15px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,1) !important;
             letter-spacing: 0.1em !important;
             font-family: "Noto Serif JP", serif !important;
         }
@@ -567,7 +570,6 @@ if st.session_state.page == "home":
     </style>
     """, unsafe_allow_html=True)
     
-    # 🌟 トップ画面のタイトルを2行に変更
     st.markdown('<div class="home-title">六本木 水島本店<br>送迎管理</div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 4, 1])
     with col2:
@@ -822,7 +824,6 @@ elif st.session_state.page == "staff_portal":
             e_dest_addr = my_early[0]["early_dest"] if my_early[0]["early_dest"] else store_addr
             ord_early, early_sec, early_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
             
-            # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
             if early_path:
                 org_enc = urllib.parse.quote(store_addr)
                 d_enc = urllib.parse.quote(e_dest_addr)
@@ -895,7 +896,6 @@ elif st.session_state.page == "staff_portal":
                 
                 ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                 
-                # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
                 if return_full_path:
                     org_enc = urllib.parse.quote(store_addr)
                     dest_enc = urllib.parse.quote(store_addr)
@@ -938,24 +938,29 @@ elif st.session_state.page == "staff_portal":
                 list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                 ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                target_time_str = str(settings.get("base_arrival_time", "19:50"))
-                try:
-                    th, tm = map(int, target_time_str.split(':'))
-                    target_dt = dt.replace(hour=th, minute=tm, second=0)
-                    if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
-                    
-                    padding_sec = len(full_path) * 3 * 60
-                    if total_sec == 0: travel_sec = len(ordered_tasks) * 15 * 60
-                    else: travel_sec = total_sec
-                        
-                    dep_dt = target_dt - datetime.timedelta(seconds=(travel_sec + padding_sec))
-                    dep_time_str = dep_dt.strftime("%H:%M")
-                except:
+                # 🌟 バグ修正：出発時刻を一番早い迎え時刻から逆算する仕様に変更
+                earliest_m = 9999
+                for t in ordered_tasks:
+                    try:
+                        h, m = map(int, t['task']['pickup_time'].split(':'))
+                        earliest_m = min(earliest_m, h * 60 + m)
+                    except: pass
+                
+                if earliest_m != 9999:
+                    if total_sec > 0 and len(ordered_tasks) > 0:
+                        first_leg_mins = (total_sec // 60) // (len(ordered_tasks) + 1)
+                    else:
+                        first_leg_mins = 15
+                    dep_m = earliest_m - first_leg_mins
+                    if dep_m < 0: dep_m += 24 * 60
+                    dep_h = (dep_m // 60) % 24
+                    dep_min = dep_m % 60
+                    dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
+                else:
                     dep_time_str = "未定"
 
                 list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>"
 
-                # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr)
                     dest_enc = urllib.parse.quote(store_addr)
@@ -1080,7 +1085,7 @@ elif st.session_state.page == "staff_portal":
                                 all_today_casts.append({"row": row, "line": line, "dist": dst, "actual_pickup": actual_pickup})
                         
                         if not all_today_casts:
-                            st.warning("⚠️ 通常AI配車の対象者がいません（全員が早便や自走,または未出勤です）")
+                            st.warning("⚠️ 通常AI配車の対象者がいません（全員が早便や自走、または未出勤です）")
                             time.sleep(2.5)
                             st.rerun()
                         else:
@@ -1237,7 +1242,7 @@ elif st.session_state.page == "staff_portal":
             
             if unassigned:
                 unassigned_html = '<div class="warning-box">⚠️ 定員・エリアオーバーで未割り当てのキャスト</div><div class="warning-content">'
-                unassigned_html += '<div style="font-size:12px; color:#666; margin-bottom:10px;">※下の「全キャスト検索」から手動で割り当てるか,稼働ドライバーを追加してください。</div>'
+                unassigned_html += '<div style="font-size:12px; color:#666; margin-bottom:10px;">※下の「全キャスト検索」から手動で割り当てるか、稼働ドライバーを追加してください。</div>'
                 for u in unassigned:
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(u["cast_id"])), {})
                     latest_name = c_info.get("name", u["cast_name"])
@@ -1272,7 +1277,6 @@ elif st.session_state.page == "staff_portal":
                     
                     ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                     
-                    # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
                     if return_full_path:
                         org_enc = urllib.parse.quote(store_addr)
                         dest_enc = urllib.parse.quote(store_addr)
@@ -1315,24 +1319,29 @@ elif st.session_state.page == "staff_portal":
                     list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                     ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                    target_time_str = str(settings.get("base_arrival_time", "19:50"))
-                    try:
-                        th, tm = map(int, target_time_str.split(':'))
-                        target_dt = dt.replace(hour=th, minute=tm, second=0)
-                        if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
-                        
-                        padding_sec = len(full_path) * 3 * 60
-                        if total_sec == 0: travel_sec = len(ordered_tasks) * 15 * 60
-                        else: travel_sec = total_sec
-                            
-                        dep_dt = target_dt - datetime.timedelta(seconds=(travel_sec + padding_sec))
-                        dep_time_str = dep_dt.strftime("%H:%M")
-                    except:
+                    # 🌟 バグ修正：出発時刻を一番早い迎え時刻から逆算する仕様に変更
+                    earliest_m = 9999
+                    for t in ordered_tasks:
+                        try:
+                            h, m = map(int, t['task']['pickup_time'].split(':'))
+                            earliest_m = min(earliest_m, h * 60 + m)
+                        except: pass
+                    
+                    if earliest_m != 9999:
+                        if total_sec > 0 and len(ordered_tasks) > 0:
+                            first_leg_mins = (total_sec // 60) // (len(ordered_tasks) + 1)
+                        else:
+                            first_leg_mins = 15
+                        dep_m = earliest_m - first_leg_mins
+                        if dep_m < 0: dep_m += 24 * 60
+                        dep_h = (dep_m // 60) % 24
+                        dep_min = dep_m % 60
+                        dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
+                    else:
                         dep_time_str = "未定"
 
                     list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>"
 
-                    # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
                     if full_path:
                         org_enc = urllib.parse.quote(store_addr)
                         dest_enc = urllib.parse.quote(store_addr)
@@ -1424,7 +1433,7 @@ elif st.session_state.page == "staff_portal":
                         
                     today_active_casts.append({"id": row["cast_id"], "name": row["cast_name"], "status": row["status"], "is_early": is_early, "pref": pref, "row": row})
 
-            today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if x["id"].isdigit() else 999)
+            today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if str(x["id"]).isdigit() else 999)
 
             st.markdown(f'''
             <div style="background-color: #e3f2fd; border: 2px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
@@ -1507,7 +1516,7 @@ elif st.session_state.page == "staff_portal":
             st.markdown('</div>', unsafe_allow_html=True)
 
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed", key="reg_rng")
-            existing = {str(c["cast_id"]): c for c in casts if c["cast_id"] != ""}
+            existing = {str(c["cast_id"]): c for c in casts if str(c["cast_id"]) != ""}
             staff_list = ["未設定"] + d_names
             
             display_count = 0
