@@ -176,11 +176,11 @@ def get_route_line_and_distance(addr_str):
     return line, dist
 
 # ==========================================
-# 🤖 AIルート計算
+# 🤖 AIルート計算（🌟 バグ修正：最初の区間の移動時間(first_leg_sec)を追加で返すように変更）
 # ==========================================
 @st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
-    if not api_key or not tasks_list: return tasks_list, 0, []
+    if not api_key or not tasks_list: return tasks_list, 0, [], 0
 
     valid_tasks = []
     for t in tasks_list:
@@ -199,6 +199,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
 
     ordered_valid_tasks = valid_tasks
     total_sec = 0
+    first_leg_sec = 0  # 🌟 店舗から最初の目的地までの移動時間
     full_path = []
     actual_dest = dest_addr if dest_addr else store_addr
 
@@ -265,10 +266,12 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             if res2.get("status") == "OK":
                 legs = res2["routes"][0]["legs"]
                 total_sec = sum(leg["duration"]["value"] for leg in legs)
+                if legs: # 🌟 最初の区間の時間だけを正確に取得
+                    first_leg_sec = legs[0]["duration"]["value"]
         except:
             pass
             
-    return final_ordered_tasks, total_sec, full_path
+    return final_ordered_tasks, total_sec, full_path, first_leg_sec
 
 # ==========================================
 # 🌟 UIパーツ生成
@@ -512,10 +515,10 @@ st.markdown("""
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
 
-# 🌟 マップのURLを公式Googleマップアプリが確実に起動するものに修正
-MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
+# 🌟 ボタンのスタイル定義
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 TEL_BTN_STYLE = "display:block; text-align:center; padding:15px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; color:white; background:#1565c0; border:2px solid #0d47a1; margin-bottom:10px;"
+MAP_SEARCH_BTN = """<a href='https://www.google.com/maps/search/?api=1&query=' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
 
 def render_top_nav():
     if st.session_state.page == "home": return
@@ -544,7 +547,6 @@ if st.session_state.page == "home":
             text-align: center !important;
             margin: 60px 0 40px 0 !important;
             color: #fff !important;
-            /* 🌟 指示通り：影を濃くして白文字が浮き出る仕様に変更 */
             text-shadow: 0 4px 10px rgba(0,0,0,0.9), 0 0 15px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,1) !important;
             letter-spacing: 0.1em !important;
             font-family: "Noto Serif JP", serif !important;
@@ -695,7 +697,6 @@ elif st.session_state.page == "cast_mypage":
             for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/entertainment.xml", 5):
                 st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#1565c0; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
         with t_trend:
-            # 🌟 解決策：Googleトレンドから、ブロックされない「ライブドアのトレンド」に変更
             for n in get_rss_news("https://news.livedoor.com/topics/rss/trend.xml", 5):
                 st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#e65100; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
         with t_local:
@@ -824,7 +825,8 @@ elif st.session_state.page == "staff_portal":
             early_html = '<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便</h4>'
             
             e_dest_addr = my_early[0]["early_dest"] if my_early[0]["early_dest"] else store_addr
-            ord_early, early_sec, early_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
+            # 🌟 戻り値の変更に対応
+            ord_early, early_sec, early_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
             
             # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
             if early_path:
@@ -897,7 +899,8 @@ elif st.session_state.page == "staff_portal":
                         "c_name": latest_name, "c_id": t['cast_id']
                     })
                 
-                ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                # 🌟 戻り値の変更に対応
+                ordered_returns, ret_sec, return_full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                 
                 # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
                 if return_full_path:
@@ -940,9 +943,11 @@ elif st.session_state.page == "staff_portal":
                     })
 
                 list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
-                ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
+                
+                # 🌟 戻り値の変更に対応
+                ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                # 🌟 バグ修正：出発時刻を一番早い迎え時刻から逆算する仕様に変更
+                # 🌟 バグ完全修正：出発時刻を一番早い迎え時刻と「本当の移動距離（first_leg_sec）」から逆算
                 earliest_m = 9999
                 for t in ordered_tasks:
                     try:
@@ -951,10 +956,13 @@ elif st.session_state.page == "staff_portal":
                     except: pass
                 
                 if earliest_m != 9999:
-                    if total_sec > 0 and len(ordered_tasks) > 0:
+                    if first_leg_sec > 0:
+                        first_leg_mins = (first_leg_sec // 60) + 5 # APIで算出した時間＋準備5分
+                    elif total_sec > 0 and len(ordered_tasks) > 0:
                         first_leg_mins = (total_sec // 60) // (len(ordered_tasks) + 1)
                     else:
                         first_leg_mins = 15
+                        
                     dep_m = earliest_m - first_leg_mins
                     if dep_m < 0: dep_m += 24 * 60
                     dep_h = (dep_m // 60) % 24
@@ -993,6 +1001,7 @@ elif st.session_state.page == "staff_portal":
 
             list_html += '</div>'
             st.markdown(list_html, unsafe_allow_html=True)
+
 
         my_atts = [r for r in attendance if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
         active = next((r for r in my_atts if not r.get("boarded_at")), None)
@@ -1177,7 +1186,8 @@ elif st.session_state.page == "staff_portal":
                                         "dist_score": item["dist"]
                                     })
                                 
-                                ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
+                                # 🌟 戻り値の変更に対応
+                                ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
                                 
                                 total_casts = len(ordered_tasks)
                                 
@@ -1279,7 +1289,8 @@ elif st.session_state.page == "staff_portal":
                             "c_name": latest_name, "c_id": t['cast_id']
                         })
                     
-                    ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                    # 🌟 戻り値の変更に対応
+                    ordered_returns, ret_sec, return_full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                     
                     # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
                     if return_full_path:
@@ -1322,9 +1333,11 @@ elif st.session_state.page == "staff_portal":
                         })
 
                     list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
-                    ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
+                    
+                    # 🌟 戻り値の変更に対応
+                    ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                    # 🌟 バグ修正：出発時刻を一番早い迎え時刻から逆算する仕様に変更
+                    # 🌟 バグ完全修正：出発時刻を一番早い迎え時刻と「本当の移動距離（first_leg_sec）」から逆算
                     earliest_m = 9999
                     for t in ordered_tasks:
                         try:
@@ -1333,10 +1346,13 @@ elif st.session_state.page == "staff_portal":
                         except: pass
                     
                     if earliest_m != 9999:
-                        if total_sec > 0 and len(ordered_tasks) > 0:
+                        if first_leg_sec > 0:
+                            first_leg_mins = (first_leg_sec // 60) + 5 # APIで算出した時間＋準備5分
+                        elif total_sec > 0 and len(ordered_tasks) > 0:
                             first_leg_mins = (total_sec // 60) // (len(ordered_tasks) + 1)
                         else:
                             first_leg_mins = 15
+                            
                         dep_m = earliest_m - first_leg_mins
                         if dep_m < 0: dep_m += 24 * 60
                         dep_h = (dep_m // 60) % 24
@@ -1375,6 +1391,20 @@ elif st.session_state.page == "staff_portal":
 
                 list_html += '</div>'
                 st.markdown(list_html, unsafe_allow_html=True)
+
+
+        my_atts = [r for r in attendance if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
+        active = next((r for r in my_atts if not r.get("boarded_at")), None)
+        if active:
+            c_info = next((c for c in casts if str(c["cast_id"]) == str(active["cast_id"])), {})
+            latest_name = c_info.get("name", active["cast_name"])
+            st.markdown(f"<div style='background:#1e1e1e; padding:15px; border-radius:12px; border:2px solid #00bcd4; margin-bottom:10px;'><h2 style='color:white; margin:0;'>{latest_name} さん</h2></div>", unsafe_allow_html=True)
+            if not active.get("arrived_at"):
+                if st.button("📍 到着を記録", key=f"arr_{active['cast_id']}", use_container_width=True):
+                    post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "arrive"}); clear_cache(); st.rerun()
+            else:
+                if st.button("🟢 乗車完了", key=f"brd_{active['cast_id']}", use_container_width=True):
+                    post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "board"}); clear_cache(); st.rerun()
 
         # ----------------------------------------
         # ② キャスト送迎
