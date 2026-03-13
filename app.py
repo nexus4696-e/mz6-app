@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import streamlit as st
 
 # 🌟 システムバージョン管理（コード書き換えのたびに増加）
-APP_VERSION = 4
+APP_VERSION = 5
 
 # 🌟 漏洩防止！APIキーを最も確実な方法で読み込むように強化
 GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
@@ -393,7 +393,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                     st.rerun()
 
 # ==========================================
-# 🎨 CSS設計 (🌟 ver4: ホーム画面デザインの完全リニューアル)
+# 🎨 CSS設計 (🌟 ver5: トップ画面デザインの修正)
 # ==========================================
 st.markdown("""
 <style>
@@ -527,75 +527,92 @@ st.markdown("""
         border-radius: 0 0 5px 5px;
     }
     
-    /* 🌟 ver4: ホーム画面の新しいUIデザイン */
-    .home-title {
-        font-size: 28px !important;
-        font-weight: 900 !important;
-        text-align: center !important;
-        margin-top: 60px !important;
-        margin-bottom: 40px !important;
-        color: #333 !important;
-        text-shadow: none !important;
-        letter-spacing: 0.05em !important;
+    /* 🌟 ver5: ホーム画面の新しいUIデザイン */
+    .stAppViewContainer {
+        /* 夜景画像を背景に設定 */
+        background-image: url("http://mute-imari-1089.catfood.jp/mz6/bg_night.jpg") !important;
+        background-size: cover !important;
+        background-position: center !important;
     }
-    div.element-container:has(button p:contains("スタッフ業務開始")) button {
-        background-color: #1976D2 !important;
-        color: white !important;
-        height: 100px !important;
-        border-radius: 12px !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-        border: none !important;
-    }
-    div.element-container:has(button p:contains("スタッフ業務開始")) button p {
-        font-size: 20px !important;
-        font-weight: bold !important;
-        margin: 0 !important;
-    }
-    div.element-container:has(button p:contains("スタッフ業務開始")) button p::after {
-        content: "\\A(配車・送迎設定)";
-        white-space: pre;
-        font-size: 14px;
-        font-weight: normal;
-        display: block;
-    }
-    
-    div.element-container:has(button p:contains("キャスト専用ログイン")) button {
-        background-color: #D81B60 !important;
-        color: white !important;
-        height: 100px !important;
-        border-radius: 12px !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-        border: none !important;
-    }
-    div.element-container:has(button p:contains("キャスト専用ログイン")) button p {
-        font-size: 20px !important;
-        font-weight: bold !important;
-        margin: 0 !important;
-    }
-    div.element-container:has(button p:contains("キャスト専用ログイン")) button p::after {
-        content: "\\A(予定の申請)";
-        white-space: pre;
-        font-size: 14px;
-        font-weight: normal;
-        display: block;
+    .block-container {
+        /* 背景が画像なので少し透過させるなどの調整 */
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(3px);
+        border-radius: 15px;
+        margin-top: 20px;
+        padding-top: 20px !important;
     }
 
+    /* 1. タイトル: 白抜き文字、位置そのまま */
+    .home-title {
+        font-size: 32px !important;
+        font-weight: 900 !important;
+        text-align: center !important;
+        margin-top: 40px !important;
+        margin-bottom: 60px !important;
+        color: #ffffff !important; /* 白色文字 */
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8), 1px -1px 2px rgba(0,0,0,0.8), -1px 1px 2px rgba(0,0,0,0.8) !important; /* しっかりとした白抜き効果 */
+        letter-spacing: 0.1em !important;
+    }
+
+    /* ボタン全体の共通設定 */
+    div.element-container:has(button p:contains("スタッフ業務開始")) button,
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button {
+        height: 110px !important;
+        border-radius: 15px !important;
+        box-shadow: 0 6px 10px rgba(0,0,0,0.3) !important;
+        border: none !important;
+        transition: all 0.3s ease !important;
+    }
+
+    div.element-container:has(button p:contains("スタッフ業務開始")) button p,
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button p {
+        color: #ffffff !important; /* 白色文字 */
+        font-size: 20px !important;
+        font-weight: bold !important;
+        margin: 0 !important;
+        white-space: pre-wrap !important; /* 改行を反映させる */
+        line-height: 1.3 !important; /* 行間調整 */
+    }
+
+    /* 2. スタッフ業務開始ボタン: ブルーバック */
+    div.element-container:has(button p:contains("スタッフ業務開始")) button {
+        background-color: #1976D2 !important; /* 青色背景 */
+    }
+    div.element-container:has(button p:contains("スタッフ業務開始")) button:hover {
+        background-color: #1565C0 !important;
+        transform: translateY(-2px);
+    }
+    
+    /* 3. キャスト専用ログインボタン: 淡いピンク色 */
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button {
+        background-color: #F8BBD0 !important; /* 淡いピンク背景 */
+    }
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button:hover {
+        background-color: #F48FB1 !important;
+        transform: translateY(-2px);
+    }
+
+    /* 4. 管理者ログイン: 灰色の文字、目立たなく小さく */
     div.element-container:has(button p:contains("管理者ログイン")) {
         text-align: center !important;
+        margin-top: 30px !important;
     }
     div.element-container:has(button p:contains("管理者ログイン")) button {
         background: transparent !important;
-        color: #555 !important;
-        text-decoration: underline !important;
+        color: #aaaaaa !important; /* 灰色文字 */
         box-shadow: none !important;
         border: none !important;
         font-size: 14px !important;
         font-weight: normal !important;
         height: auto !important;
-        padding: 5px !important;
+        padding: 5px 15px !important;
+        border-radius: 4px !important;
     }
     div.element-container:has(button p:contains("管理者ログイン")) button:hover {
-        color: #000 !important;
+        color: #ffffff !important;
+        background-color: rgba(255,255,255,0.1) !important;
+        text-decoration: underline !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -621,19 +638,39 @@ def render_top_nav():
     st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 🏠 ホーム画面 (🌟 ver4: 新デザインにリニューアル)
+# 🏠 ホーム画面 (🌟 ver5: 新デザインにリニューアル)
 # ==========================================
 if st.session_state.page == "home":
+    # 1. タイトル: 白抜き文字、位置そのまま
     st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 8, 1])
+    
+    # ボタンの配置 (画像を参照。2つの大きなボタンが中央に並ぶ)
+    col1, col2, col3, col4 = st.columns([1, 4, 4, 1])
+    
     with col2:
-        if st.button("スタッフ業務開始", use_container_width=True): st.session_state.page = "staff_login"; st.rerun()
-        st.write("")
-        if st.button("キャスト専用ログイン", use_container_width=True): st.session_state.page = "cast_login"; st.rerun()
-        st.write(""); st.write("")
-        if st.button("管理者ログイン (設定・リセット)", use_container_width=True): st.session_state.page = "admin_login"; st.rerun()
+        # 2. スタッフ業務開始ボタン: ブルーバック、白文字
+        if st.button("スタッフ業務開始\n（配車 送迎設定）", use_container_width=True):
+            st.session_state.page = "staff_login"
+            st.rerun()
+            
+    with col3:
+        # 3. キャスト専用ログインボタン: 淡いピンク色、白文字
+        if st.button("キャスト専用ログイン\n（出勤予定の申請）", use_container_width=True):
+            st.session_state.page = "cast_login"
+            st.rerun()
+    
+    # 4. 管理者ログイン (中央下部に配置)
+    st.write("") # スペース調整
+    
+    c_admin1, c_admin2, c_admin3 = st.columns([1, 8, 1])
+    with c_admin2:
+        # 灰色文字で目立たなく小さく表示
+        if st.button("管理者ログイン（設定・リセット）", use_container_width=True):
+            st.session_state.page = "admin_login"
+            st.rerun()
         
-    st.markdown(f"<div style='text-align:center; color:#999; font-size:12px; margin-top:30px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
+        # 5. ver5の表示 (管理者の下に表示)
+        st.markdown(f"<div style='text-align:center; color:#999999; font-size:12px; margin-top:10px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
 
 elif st.session_state.page == "cast_login":
     render_top_nav(); db = get_db_data(); casts = db.get("casts", [])
@@ -795,7 +832,7 @@ elif st.session_state.page == "cast_mypage":
             m_tmr_txt = st.text_input("明日の備考", value=memo_tmr, key="tmr_m")
             req_stopover_tmr = st.checkbox("🍽️ 明日途中で寄る場所がある", value=bool(so_tmr))
             so_a_tmr = st.text_input("明日の立ち寄り先", value=so_tmr) if req_stopover_tmr else ""
-            req_change_tmr = st.checkbox("📍 明日のみ迎え先を変更", value=bool(ta_tmr))
+            req_change_tmr = st.checkbox("📍 明日のみ迎え先を変更", value=bool(ta_tmr_txt))
             ta_tmr_txt = st.text_input("明日の迎え先", value=ta_tmr) if req_change_tmr else ""
             tc_val_tmr = "1" if (takuji_en == "1" and st.checkbox("👶 明日託児所をキャンセル", value=(tc_tmr=="1"))) else "0"
 
@@ -1220,7 +1257,7 @@ elif st.session_state.page == "staff_portal":
                                 b_mins = bh * 60 + bm
                             except: b_mins = 19 * 60 + 50
 
-                            # 🌟 抜本的修正：ドライバー1人ずつ個別にAPIに送る（データ消失バグの防止）
+                            # ドライバー1人ずつ個別にAPIに送る
                             for d_name, stat in drv_specs.items():
                                 assigned_list = stat["assigned_rows"]
                                 if not assigned_list: continue
@@ -1390,7 +1427,7 @@ elif st.session_state.page == "staff_portal":
                     ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
                     if not GOOGLE_MAPS_API_KEY:
-                        list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>"
+                        list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されています</div>"
                     elif first_leg_sec == 0:
                         err_text = api_err if api_err else "距離が取得できないため出発時間を計算できません"
                         list_html += f"<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー:<br>{err_text}</div>"
@@ -1402,17 +1439,15 @@ elif st.session_state.page == "staff_portal":
                                 if pt and pt != '未定':
                                     h, m = map(int, pt.split(':'))
                                     earliest_m = min(earliest_m, h * 60 + m)
-                            except: pass
+                        except: pass
                         
                         if earliest_m != 9999:
-                            dep_m = earliest_m - (first_leg_sec // 60) - 5
+                            dep_m = earliest_m - (first_leg_sec // 60)
                             if dep_m < 0: dep_m += 24 * 60
                             dep_h = (dep_m // 60) % 24
                             dep_min = dep_m % 60
                             dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
                             list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (AI逆算): {dep_time_str}</div>"
-                        else:
-                            list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻: 未定 (時間を設定してください)</div>"
 
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr)
@@ -1505,7 +1540,7 @@ elif st.session_state.page == "staff_portal":
                         
                     today_active_casts.append({"id": row["cast_id"], "name": row["cast_name"], "status": row["status"], "is_early": is_early, "pref": pref, "row": row})
 
-            today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if str(x["id"]).isdigit() else 999)
+            today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if x["id"].isdigit() else 999)
 
             st.markdown(f'''
             <div style="background-color: #e3f2fd; border: 2px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
@@ -1678,7 +1713,7 @@ elif st.session_state.page == "staff_portal":
                 
                 d_area = str(d.get("area", "他")).strip()
                 if d_area not in ["岡山", "広島", "他"]: d_area = "他"
-                d_cap = int(d.get("capacity", 4)) if str(d.get("capacity", "")).isdigit() else 4
+                d_cap = int(d.get("capacity", 4)) if d.get("capacity", "").isdigit() else 4
                 nn = st.text_input("STAFF名", value=nm, key=f"dn_{i}")
                 colA, colB = st.columns(2)
                 with colA: n_area = st.selectbox("担当方面", ["岡山", "広島", "他"], index=["岡山", "広島", "他"].index(d_area), key=f"d_ar_{i}")
