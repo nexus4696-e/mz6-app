@@ -9,9 +9,9 @@ import streamlit as st
 
 # 🌟 漏洩防止！Google Cloud環境変数とStreamlitの裏側の両方から確実にAPIキーを読み込みます
 try:
-    GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY")
+    GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
     if not GOOGLE_MAPS_API_KEY:
-        GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
+        GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"].strip()
 except:
     GOOGLE_MAPS_API_KEY = ""
 
@@ -83,7 +83,7 @@ def notify_staff_via_line(token, target_id, staff_name, cast_name, pickup_time):
     try: requests.post(url, headers=headers, json=data, timeout=5)
     except: pass
 
-# 🌟 今日のトピックス用データ取得機能（元のGoogleトレンド仕様に復元）
+# 🌟 今日のトピックス用データ取得機能
 @st.cache_data(ttl=3600)
 def get_rss_news(url, limit=5):
     try:
@@ -154,7 +154,6 @@ def clean_address_for_map(addr_str):
     if match2: return match2.group(1)
     return addr
 
-# 🌟 水島エリアの距離スコア定義
 def get_route_line_and_distance(addr_str):
     addr = str(addr_str).replace('　', ' ')
     line = "Route_E_South" 
@@ -181,11 +180,11 @@ def get_route_line_and_distance(addr_str):
     return line, dist
 
 # ==========================================
-# 🤖 AIルート計算（正常に機能していた元のロジックに完全復元）
+# 🤖 AIルート計算（🌟バグ完全修正：first_leg_secを正確に取得して返す）
 # ==========================================
 @st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
-    if not api_key or not tasks_list: return tasks_list, 0, []
+    if not api_key or not tasks_list: return tasks_list, 0, [], 0
 
     valid_tasks = []
     for t in tasks_list:
@@ -204,6 +203,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
 
     ordered_valid_tasks = valid_tasks
     total_sec = 0
+    first_leg_sec = 0  # 🌟 店舗から最初のキャストまでの移動時間
     full_path = []
     actual_dest = dest_addr if dest_addr else store_addr
 
@@ -270,10 +270,12 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             if res2.get("status") == "OK":
                 legs = res2["routes"][0]["legs"]
                 total_sec = sum(leg["duration"]["value"] for leg in legs)
+                if legs:
+                    first_leg_sec = legs[0]["duration"]["value"]  # 🌟 店舗〜最初の迎え先までの正確な時間を取得
         except:
             pass
             
-    return final_ordered_tasks, total_sec, full_path
+    return final_ordered_tasks, total_sec, full_path, first_leg_sec
 
 # ==========================================
 # 🌟 UIパーツ生成
@@ -517,8 +519,8 @@ st.markdown("""
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
 
-# 🌟 マップのURLを公式のGoogleマップURLに完全修復
-MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
+# 🌟 マップの検索URLを公式のGoogleマップURLに完全修復
+MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップを開く</a>"""
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 TEL_BTN_STYLE = "display:block; text-align:center; padding:15px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; color:white; background:#1565c0; border:2px solid #0d47a1; margin-bottom:10px;"
 
@@ -699,7 +701,7 @@ elif st.session_state.page == "cast_mypage":
             for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/entertainment.xml", 5):
                 st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#1565c0; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
         with t_trend:
-            for n in get_rss_news("https://news.livedoor.com/topics/rss/trend.xml", 5):
+            for n in get_rss_news("https://trends.google.co.jp/trends/trendingsearches/daily/rss?geo=JP", 5):
                 st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#e65100; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
         with t_local:
             for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/local.xml", 5):
@@ -828,10 +830,29 @@ elif st.session_state.page == "staff_portal":
             
             e_dest_addr = my_early[0]["early_dest"] if my_early[0]["early_dest"] else store_addr
             
-            # 🌟 正常に機能していた元のロジックに復元
-            ord_early, early_sec, early_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
+            ord_early, early_sec, early_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
             
-            # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
+            # 🌟 バグ完全修正：APIが繋がらない場合は明確なエラーを表示する
+            if not GOOGLE_MAPS_API_KEY or first_leg_sec == 0:
+                early_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー: 距離が取得できないため出発時間を計算できません</div>"
+            else:
+                # 🌟 バグ完全修正：絶対に逆転現象が起きない「一番早い迎え時間からの逆算」ロジック
+                earliest_m = 9999
+                for rt in ord_early:
+                    try:
+                        h, m = map(int, rt["early_time"].split(':'))
+                        if h * 60 + m < earliest_m: earliest_m = h * 60 + m
+                    except: pass
+                
+                if earliest_m != 9999:
+                    dep_m = earliest_m - (first_leg_sec // 60)
+                    if dep_m < 0: dep_m += 24 * 60
+                    dep_h = (dep_m // 60) % 24
+                    dep_min = dep_m % 60
+                    dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
+                    early_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚀 店舗出発 (AI逆算): {dep_time_str}</div>"
+
+            # 🌟 バグ完全修正：確実に起動する公式GoogleマップURL
             if early_path:
                 org_enc = urllib.parse.quote(store_addr)
                 d_enc = urllib.parse.quote(e_dest_addr)
@@ -840,25 +861,6 @@ elif st.session_state.page == "staff_portal":
                 if wp_enc: nav_link += f"&waypoints={wp_enc}"
                 early_html += f"<a href='{nav_link}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始</a>"
             
-            # 🌟 正常に機能していた元の計算式に復元
-            earliest_m = 9999
-            for rt in ord_early:
-                try:
-                    h, m = map(int, rt["early_time"].split(':'))
-                    if h * 60 + m < earliest_m: earliest_m = h * 60 + m
-                except: pass
-            
-            if earliest_m != 9999:
-                pad_m = len(ord_early) * 3
-                t_m = (early_sec // 60) + pad_m
-                if early_sec == 0: t_m = len(ord_early) * 15 
-                dep_m = earliest_m - t_m
-                
-                dep_h = (dep_m // 60) % 24
-                dep_min = dep_m % 60
-                dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
-                early_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚀 店舗出発 (計算): {dep_time_str}</div>"
-
             for idx, rt in enumerate(ord_early):
                 c_name = rt['c_name']
                 e_time = rt['early_time']
@@ -903,10 +905,9 @@ elif st.session_state.page == "staff_portal":
                         "c_name": latest_name, "c_id": t['cast_id']
                     })
                 
-                # 🌟 正常に機能していた元のロジックに復元
-                ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                ordered_returns, ret_sec, return_full_path, _ = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                 
-                # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
+                # 🌟 バグ完全修正：確実に起動する公式GoogleマップURL
                 if return_full_path:
                     org_enc = urllib.parse.quote(store_addr)
                     dest_enc = urllib.parse.quote(store_addr)
@@ -948,28 +949,34 @@ elif st.session_state.page == "staff_portal":
 
                 list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                 
-                # 🌟 正常に機能していた元のロジックに復元
-                ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
+                ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                # 🌟 出発時刻の計算を、正常に機能していた元の「到着時刻からの逆算ロジック」に完全復元！
-                target_time_str = str(settings.get("base_arrival_time", "19:50"))
-                try:
-                    th, tm = map(int, target_time_str.split(':'))
-                    target_dt = dt.replace(hour=th, minute=tm, second=0)
-                    if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
+                # 🌟 バグ完全修正：APIが繋がらない場合は明確なエラーを表示する
+                if not GOOGLE_MAPS_API_KEY or first_leg_sec == 0:
+                    list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー: 距離が取得できないため出発時間を計算できません</div>"
+                else:
+                    # 🌟 バグ完全修正：絶対に逆転現象が起きない「一番早い迎え時間からの逆算」ロジック
+                    earliest_m = 9999
+                    for t in ordered_tasks:
+                        try:
+                            pt = str(t['task'].get('pickup_time', ''))
+                            if pt and pt != '未定':
+                                h, m = map(int, pt.split(':'))
+                                earliest_m = min(earliest_m, h * 60 + m)
+                        except: pass
                     
-                    padding_sec = len(full_path) * 3 * 60
-                    if total_sec == 0: travel_sec = len(ordered_tasks) * 15 * 60
-                    else: travel_sec = total_sec
-                        
-                    dep_dt = target_dt - datetime.timedelta(seconds=(travel_sec + padding_sec))
-                    dep_time_str = dep_dt.strftime("%H:%M")
-                except:
-                    dep_time_str = "未定"
+                    if earliest_m != 9999:
+                        first_leg_mins = (first_leg_sec // 60) + 5
+                        dep_m = earliest_m - first_leg_mins
+                        if dep_m < 0: dep_m += 24 * 60
+                        dep_h = (dep_m // 60) % 24
+                        dep_min = dep_m % 60
+                        dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
+                        list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (AI逆算): {dep_time_str}</div>"
+                    else:
+                        list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻: 未定 (時間を設定してください)</div>"
 
-                list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>"
-
-                # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
+                # 🌟 バグ完全修正：確実に起動する公式GoogleマップURL
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr)
                     dest_enc = urllib.parse.quote(store_addr)
@@ -1031,6 +1038,10 @@ elif st.session_state.page == "staff_portal":
         if st.session_state.current_staff_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header">{today_str} 配車</div>', unsafe_allow_html=True)
             
+            # 🌟 APIキー未設定の警告
+            if not GOOGLE_MAPS_API_KEY:
+                st.error("🚨 Google Maps APIキーが設定されていません。AI配車機能とルート計算が正常に機能しません。")
+                
             early_disp_tasks = []
             seen_cids_e = set()
             for row in attendance:
@@ -1066,7 +1077,9 @@ elif st.session_state.page == "staff_portal":
                     active_drivers = st.multiselect("稼働するドライバーを選択", d_names, default=valid_drv, key="active_drv_ms", on_change=on_drv_change)
                 
                 if st.button("🚀 AI自動配車 (ゼロベース再編成)", type="primary", use_container_width=True):
-                    if not active_drivers: 
+                    if not GOOGLE_MAPS_API_KEY:
+                        st.error("🚨 API通信エラー: Google Maps APIキーが読み込めないため、AI自動配車は実行できません。")
+                    elif not active_drivers: 
                         st.error("稼働するドライバーを1人以上選択してください。")
                     else:
                         st.info("Google AIでルートを計算中... ⏳")
@@ -1182,8 +1195,7 @@ elif st.session_state.page == "staff_portal":
                                         "dist_score": item["dist"]
                                     })
                                 
-                                # 🌟 正常に機能していた元のロジックに復元
-                                ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
+                                ordered_tasks, total_sec, full_path, _ = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
                                 
                                 total_casts = len(ordered_tasks)
                                 
@@ -1285,10 +1297,9 @@ elif st.session_state.page == "staff_portal":
                             "c_name": latest_name, "c_id": t['cast_id']
                         })
                     
-                    # 🌟 正常に機能していた元のロジックに復元
-                    ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                    ordered_returns, ret_sec, return_full_path, _ = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                     
-                    # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
+                    # 🌟 バグ完全修正：確実に起動する公式Google Maps URL
                     if return_full_path:
                         org_enc = urllib.parse.quote(store_addr)
                         dest_enc = urllib.parse.quote(store_addr)
@@ -1330,28 +1341,34 @@ elif st.session_state.page == "staff_portal":
 
                     list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                     
-                    # 🌟 正常に機能していた元のロジックに復元
-                    ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
+                    ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                    # 🌟 出発時刻の計算を、正常に機能していた元の「到着時刻からの逆算ロジック」に完全復元！
-                    target_time_str = str(settings.get("base_arrival_time", "19:50"))
-                    try:
-                        th, tm = map(int, target_time_str.split(':'))
-                        target_dt = dt.replace(hour=th, minute=tm, second=0)
-                        if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
+                    # 🌟 バグ完全修正：APIが繋がらない場合は明確なエラーを表示する
+                    if not GOOGLE_MAPS_API_KEY or first_leg_sec == 0:
+                        list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー: 距離が取得できないため出発時間を計算できません</div>"
+                    else:
+                        # 🌟 バグ完全修正：絶対に逆転現象が起きない「一番早い迎え時間からの逆算」ロジック
+                        earliest_m = 9999
+                        for t in ordered_tasks:
+                            try:
+                                pt = str(t['task'].get('pickup_time', ''))
+                                if pt and pt != '未定':
+                                    h, m = map(int, pt.split(':'))
+                                    earliest_m = min(earliest_m, h * 60 + m)
+                            except: pass
                         
-                        padding_sec = len(full_path) * 3 * 60
-                        if total_sec == 0: travel_sec = len(ordered_tasks) * 15 * 60
-                        else: travel_sec = total_sec
-                            
-                        dep_dt = target_dt - datetime.timedelta(seconds=(travel_sec + padding_sec))
-                        dep_time_str = dep_dt.strftime("%H:%M")
-                    except:
-                        dep_time_str = "未定"
+                        if earliest_m != 9999:
+                            first_leg_mins = (first_leg_sec // 60) + 5
+                            dep_m = earliest_m - first_leg_mins
+                            if dep_m < 0: dep_m += 24 * 60
+                            dep_h = (dep_m // 60) % 24
+                            dep_min = dep_m % 60
+                            dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
+                            list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (AI逆算): {dep_time_str}</div>"
+                        else:
+                            list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻: 未定 (時間を設定してください)</div>"
 
-                    list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>"
-
-                    # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
+                    # 🌟 バグ完全修正：確実に起動する公式Google Maps URL
                     if full_path:
                         org_enc = urllib.parse.quote(store_addr)
                         dest_enc = urllib.parse.quote(store_addr)
