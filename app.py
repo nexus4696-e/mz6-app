@@ -1,3 +1,4 @@
+import os
 import requests
 import datetime
 import urllib.parse
@@ -6,11 +7,11 @@ import re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 漏洩防止！Streamlitの裏側（Secrets）から安全にキーを読み込みます
+# 🌟 漏洩防止！Streamlitの裏側（Secrets）と環境変数の両方から安全にキーを読み込みます
 try:
     GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
 except:
-    GOOGLE_MAPS_API_KEY = ""
+    GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
 # 🌟 日本時間（JST）を強制的に設定して時差バグを完全に防止
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -23,13 +24,15 @@ dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 # ==========================================
 # 🌟 ページの設定（アイコン化の完全対応）
 # ==========================================
-# 🌟 店長がアップロードした画像（28470.jpg）を公式に設定
 st.set_page_config(
     page_title="六本木 水島本店 送迎管理",
     page_icon="http://mute-imari-1089.catfood.jp/mz6/28470.jpg", 
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# 🌟 スマホ（Chrome）の勝手な自動誤翻訳（翌日→火曜日など）を強制的に禁止する！
+st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
 
 # 状態管理
 for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_staff_for_login", "flash_msg", "current_staff_tab"]:
@@ -176,11 +179,11 @@ def get_route_line_and_distance(addr_str):
     return line, dist
 
 # ==========================================
-# 🤖 AIルート計算（🌟 バグ修正：最初の区間の移動時間(first_leg_sec)を追加で返すように変更）
+# 🤖 AIルート計算（正常に機能していた元のロジックに復元）
 # ==========================================
 @st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
-    if not api_key or not tasks_list: return tasks_list, 0, [], 0
+    if not api_key or not tasks_list: return tasks_list, 0, []
 
     valid_tasks = []
     for t in tasks_list:
@@ -199,7 +202,6 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
 
     ordered_valid_tasks = valid_tasks
     total_sec = 0
-    first_leg_sec = 0  # 🌟 店舗から最初の目的地までの移動時間
     full_path = []
     actual_dest = dest_addr if dest_addr else store_addr
 
@@ -266,12 +268,10 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             if res2.get("status") == "OK":
                 legs = res2["routes"][0]["legs"]
                 total_sec = sum(leg["duration"]["value"] for leg in legs)
-                if legs: # 🌟 最初の区間の時間だけを正確に取得
-                    first_leg_sec = legs[0]["duration"]["value"]
         except:
             pass
             
-    return final_ordered_tasks, total_sec, full_path, first_leg_sec
+    return final_ordered_tasks, total_sec, full_path
 
 # ==========================================
 # 🌟 UIパーツ生成
@@ -515,10 +515,10 @@ st.markdown("""
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
 
-# 🌟 ボタンのスタイル定義
+# 🌟 マップのURLを公式Googleマップアプリが確実に起動する正規URLに完全修正
+MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 TEL_BTN_STYLE = "display:block; text-align:center; padding:15px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; color:white; background:#1565c0; border:2px solid #0d47a1; margin-bottom:10px;"
-MAP_SEARCH_BTN = """<a href='https://www.google.com/maps/search/?api=1&query=' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
 
 def render_top_nav():
     if st.session_state.page == "home": return
@@ -825,8 +825,9 @@ elif st.session_state.page == "staff_portal":
             early_html = '<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便</h4>'
             
             e_dest_addr = my_early[0]["early_dest"] if my_early[0]["early_dest"] else store_addr
-            # 🌟 戻り値の変更に対応
-            ord_early, early_sec, early_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
+            
+            # 🌟 正常に機能していた元のロジックに復元
+            ord_early, early_sec, early_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, e_dest_addr, my_early, is_return=False)
             
             # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
             if early_path:
@@ -837,6 +838,7 @@ elif st.session_state.page == "staff_portal":
                 if wp_enc: nav_link += f"&waypoints={wp_enc}"
                 early_html += f"<a href='{nav_link}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始</a>"
             
+            # 🌟 正常に機能していた元の計算式に復元
             earliest_m = 9999
             for rt in ord_early:
                 try:
@@ -899,8 +901,8 @@ elif st.session_state.page == "staff_portal":
                         "c_name": latest_name, "c_id": t['cast_id']
                     })
                 
-                # 🌟 戻り値の変更に対応
-                ordered_returns, ret_sec, return_full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                # 🌟 正常に機能していた元のロジックに復元
+                ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                 
                 # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
                 if return_full_path:
@@ -944,31 +946,23 @@ elif st.session_state.page == "staff_portal":
 
                 list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                 
-                # 🌟 戻り値の変更に対応
-                ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
+                # 🌟 正常に機能していた元のロジックに復元
+                ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                # 🌟 バグ完全修正：出発時刻を一番早い迎え時刻と「本当の移動距離（first_leg_sec）」から逆算
-                earliest_m = 9999
-                for t in ordered_tasks:
-                    try:
-                        h, m = map(int, t['task']['pickup_time'].split(':'))
-                        earliest_m = min(earliest_m, h * 60 + m)
-                    except: pass
-                
-                if earliest_m != 9999:
-                    if first_leg_sec > 0:
-                        first_leg_mins = (first_leg_sec // 60) + 5 # APIで算出した時間＋準備5分
-                    elif total_sec > 0 and len(ordered_tasks) > 0:
-                        first_leg_mins = (total_sec // 60) // (len(ordered_tasks) + 1)
-                    else:
-                        first_leg_mins = 15
+                # 🌟 出発時刻の計算を、正常に機能していた元の「到着時刻からの逆算ロジック」に完全復元！
+                target_time_str = str(settings.get("base_arrival_time", "19:50"))
+                try:
+                    th, tm = map(int, target_time_str.split(':'))
+                    target_dt = dt.replace(hour=th, minute=tm, second=0)
+                    if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
+                    
+                    padding_sec = len(full_path) * 3 * 60
+                    if total_sec == 0: travel_sec = len(ordered_tasks) * 15 * 60
+                    else: travel_sec = total_sec
                         
-                    dep_m = earliest_m - first_leg_mins
-                    if dep_m < 0: dep_m += 24 * 60
-                    dep_h = (dep_m // 60) % 24
-                    dep_min = dep_m % 60
-                    dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
-                else:
+                    dep_dt = target_dt - datetime.timedelta(seconds=(travel_sec + padding_sec))
+                    dep_time_str = dep_dt.strftime("%H:%M")
+                except:
                     dep_time_str = "未定"
 
                 list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>"
@@ -1186,8 +1180,8 @@ elif st.session_state.page == "staff_portal":
                                         "dist_score": item["dist"]
                                     })
                                 
-                                # 🌟 戻り値の変更に対応
-                                ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
+                                # 🌟 正常に機能していた元のロジックに復元
+                                ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False)
                                 
                                 total_casts = len(ordered_tasks)
                                 
@@ -1289,8 +1283,8 @@ elif st.session_state.page == "staff_portal":
                             "c_name": latest_name, "c_id": t['cast_id']
                         })
                     
-                    # 🌟 戻り値の変更に対応
-                    ordered_returns, ret_sec, return_full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
+                    # 🌟 正常に機能していた元のロジックに復元
+                    ordered_returns, ret_sec, return_full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
                     
                     # 🌟 バグ完全修正：正しい公式Google Maps URLに変更
                     if return_full_path:
@@ -1334,31 +1328,23 @@ elif st.session_state.page == "staff_portal":
 
                     list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                     
-                    # 🌟 戻り値の変更に対応
-                    ordered_tasks, total_sec, full_path, first_leg_sec = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
+                    # 🌟 正常に機能していた元のロジックに復元
+                    ordered_tasks, total_sec, full_path = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
-                    # 🌟 バグ完全修正：出発時刻を一番早い迎え時刻と「本当の移動距離（first_leg_sec）」から逆算
-                    earliest_m = 9999
-                    for t in ordered_tasks:
-                        try:
-                            h, m = map(int, t['task']['pickup_time'].split(':'))
-                            earliest_m = min(earliest_m, h * 60 + m)
-                        except: pass
-                    
-                    if earliest_m != 9999:
-                        if first_leg_sec > 0:
-                            first_leg_mins = (first_leg_sec // 60) + 5 # APIで算出した時間＋準備5分
-                        elif total_sec > 0 and len(ordered_tasks) > 0:
-                            first_leg_mins = (total_sec // 60) // (len(ordered_tasks) + 1)
-                        else:
-                            first_leg_mins = 15
+                    # 🌟 バグ完全修正：出発時刻の計算を、正常に機能していた「到着予定時刻からの逆算ロジック」に完全復元！
+                    target_time_str = str(settings.get("base_arrival_time", "19:50"))
+                    try:
+                        th, tm = map(int, target_time_str.split(':'))
+                        target_dt = dt.replace(hour=th, minute=tm, second=0)
+                        if dt.hour > 20 and th < 10: target_dt += datetime.timedelta(days=1)
+                        
+                        padding_sec = len(full_path) * 3 * 60
+                        if total_sec == 0: travel_sec = len(ordered_tasks) * 15 * 60
+                        else: travel_sec = total_sec
                             
-                        dep_m = earliest_m - first_leg_mins
-                        if dep_m < 0: dep_m += 24 * 60
-                        dep_h = (dep_m // 60) % 24
-                        dep_min = dep_m % 60
-                        dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
-                    else:
+                        dep_dt = target_dt - datetime.timedelta(seconds=(travel_sec + padding_sec))
+                        dep_time_str = dep_dt.strftime("%H:%M")
+                    except:
                         dep_time_str = "未定"
 
                     list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {dep_time_str}</div>"
