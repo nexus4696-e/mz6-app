@@ -7,16 +7,11 @@ import re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 システムバージョン管理（コード書き換えのたびに増加）
+# 🌟 システムバージョン管理（安定していたver 4に回帰）
 APP_VERSION = 4
 
-# 🌟 漏洩防止！APIキーを最も確実な方法で読み込むように強化
-GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
-if not GOOGLE_MAPS_API_KEY:
-    try:
-        GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"].strip()
-    except:
-        GOOGLE_MAPS_API_KEY = ""
+# 🌟 抜本的解決：ご提示いただいたAPIキーを直接プログラムに埋め込み
+GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
 
 # 🌟 日本時間（JST）を強制的に設定して時差バグを完全に防止
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -393,7 +388,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                     st.rerun()
 
 # ==========================================
-# 🎨 CSS設計 (🌟 ver4: ホーム画面デザインの完全リニューアル)
+# 🎨 CSS設計 (🌟 ver4のUIデザインに完全回帰)
 # ==========================================
 st.markdown("""
 <style>
@@ -527,7 +522,7 @@ st.markdown("""
         border-radius: 0 0 5px 5px;
     }
     
-    /* 🌟 ver4: ホーム画面の新しいUIデザイン */
+    /* 🌟 ver4: ホーム画面のデザイン */
     .home-title {
         font-size: 28px !important;
         font-weight: 900 !important;
@@ -621,7 +616,7 @@ def render_top_nav():
     st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 🏠 ホーム画面 (🌟 ver4: 新デザインにリニューアル)
+# 🏠 ホーム画面
 # ==========================================
 if st.session_state.page == "home":
     st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
@@ -886,12 +881,17 @@ elif st.session_state.page == "staff_portal":
                 err_text = api_err if api_err else "距離が取得できないため出発時間を計算できません"
                 early_html += f"<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー:<br>{err_text}</div>"
             else:
+                # 🌟 完全に安全な構文（SyntaxError防止）
                 earliest_m = 9999
                 for rt in ord_early:
-                    try:
-                        h, m = map(int, rt["early_time"].split(':'))
-                        if h * 60 + m < earliest_m: earliest_m = h * 60 + m
-                    except: pass
+                    pt = str(rt.get("early_time", ""))
+                    if pt and ':' in pt and pt != '未定':
+                        parts = pt.split(':')
+                        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                            h = int(parts[0])
+                            m = int(parts[1])
+                            if h * 60 + m < earliest_m:
+                                earliest_m = h * 60 + m
                 
                 if earliest_m != 9999:
                     dep_m = earliest_m - (first_leg_sec // 60)
@@ -1004,17 +1004,19 @@ elif st.session_state.page == "staff_portal":
                     err_text = api_err if api_err else "距離が取得できないため出発時間を計算できません"
                     list_html += f"<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー:<br>{err_text}</div>"
                 else:
+                    # 🌟 完全に安全な構文（SyntaxError防止）
                     earliest_m = 9999
                     for t in ordered_tasks:
-                        try:
-                            pt = str(t['task'].get('pickup_time', ''))
-                            if pt and pt != '未定':
-                                h, m = map(int, pt.split(':'))
+                        pt = str(t['task'].get('pickup_time', ''))
+                        if pt and ':' in pt and pt != '未定':
+                            parts = pt.split(':')
+                            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                                h = int(parts[0])
+                                m = int(parts[1])
                                 earliest_m = min(earliest_m, h * 60 + m)
-                        except: pass
                     
                     if earliest_m != 9999:
-                        dep_m = earliest_m - (first_leg_sec // 60)
+                        dep_m = earliest_m - (first_leg_sec // 60) - 5
                         if dep_m < 0: dep_m += 24 * 60
                         dep_h = (dep_m // 60) % 24
                         dep_min = dep_m % 60
@@ -1220,7 +1222,6 @@ elif st.session_state.page == "staff_portal":
                                 b_mins = bh * 60 + bm
                             except: b_mins = 19 * 60 + 50
 
-                            # 🌟 抜本的修正：ドライバー1人ずつ個別にAPIに送る（データ消失バグの防止）
                             for d_name, stat in drv_specs.items():
                                 assigned_list = stat["assigned_rows"]
                                 if not assigned_list: continue
@@ -1395,14 +1396,17 @@ elif st.session_state.page == "staff_portal":
                         err_text = api_err if api_err else "距離が取得できないため出発時間を計算できません"
                         list_html += f"<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー:<br>{err_text}</div>"
                     else:
+                        # 🌟 完全に安全な構文（SyntaxError防止）
                         earliest_m = 9999
                         for t in ordered_tasks:
-                            try:
-                                pt = str(t['task'].get('pickup_time', ''))
-                                if pt and pt != '未定':
-                                    h, m = map(int, pt.split(':'))
-                                    earliest_m = min(earliest_m, h * 60 + m)
-                            except: pass
+                            pt = str(t['task'].get('pickup_time', ''))
+                            if pt and ':' in pt and pt != '未定':
+                                parts = pt.split(':')
+                                if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                                    h = int(parts[0])
+                                    m = int(parts[1])
+                                    if h * 60 + m < earliest_m:
+                                        earliest_m = h * 60 + m
                         
                         if earliest_m != 9999:
                             dep_m = earliest_m - (first_leg_sec // 60) - 5
@@ -1411,8 +1415,6 @@ elif st.session_state.page == "staff_portal":
                             dep_min = dep_m % 60
                             dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
                             list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (AI逆算): {dep_time_str}</div>"
-                        else:
-                            list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻: 未定 (時間を設定してください)</div>"
 
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr)
