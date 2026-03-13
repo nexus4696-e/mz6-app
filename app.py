@@ -7,11 +7,16 @@ import re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 システムバージョン管理（安定していたver3のUIに回帰）
-APP_VERSION = 7
+# 🌟 システムバージョン管理（コード書き換えのたびに増加）
+APP_VERSION = 4
 
-# 🌟 抜本的解決：ご提示いただいたAPIキーを直接プログラムに埋め込み
-GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
+# 🌟 漏洩防止！APIキーを最も確実な方法で読み込むように強化
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
+if not GOOGLE_MAPS_API_KEY:
+    try:
+        GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"].strip()
+    except:
+        GOOGLE_MAPS_API_KEY = ""
 
 # 🌟 日本時間（JST）を強制的に設定して時差バグを完全に防止
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -388,7 +393,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                     st.rerun()
 
 # ==========================================
-# 🎨 CSS設計 (🌟 UIを安定していたver3のものに完全回帰)
+# 🎨 CSS設計 (🌟 ver4: ホーム画面デザインの完全リニューアル)
 # ==========================================
 st.markdown("""
 <style>
@@ -521,6 +526,77 @@ st.markdown("""
         margin-bottom: 15px;
         border-radius: 0 0 5px 5px;
     }
+    
+    /* 🌟 ver4: ホーム画面の新しいUIデザイン */
+    .home-title {
+        font-size: 28px !important;
+        font-weight: 900 !important;
+        text-align: center !important;
+        margin-top: 60px !important;
+        margin-bottom: 40px !important;
+        color: #333 !important;
+        text-shadow: none !important;
+        letter-spacing: 0.05em !important;
+    }
+    div.element-container:has(button p:contains("スタッフ業務開始")) button {
+        background-color: #1976D2 !important;
+        color: white !important;
+        height: 100px !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+        border: none !important;
+    }
+    div.element-container:has(button p:contains("スタッフ業務開始")) button p {
+        font-size: 20px !important;
+        font-weight: bold !important;
+        margin: 0 !important;
+    }
+    div.element-container:has(button p:contains("スタッフ業務開始")) button p::after {
+        content: "\\A(配車・送迎設定)";
+        white-space: pre;
+        font-size: 14px;
+        font-weight: normal;
+        display: block;
+    }
+    
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button {
+        background-color: #D81B60 !important;
+        color: white !important;
+        height: 100px !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+        border: none !important;
+    }
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button p {
+        font-size: 20px !important;
+        font-weight: bold !important;
+        margin: 0 !important;
+    }
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button p::after {
+        content: "\\A(予定の申請)";
+        white-space: pre;
+        font-size: 14px;
+        font-weight: normal;
+        display: block;
+    }
+
+    div.element-container:has(button p:contains("管理者ログイン")) {
+        text-align: center !important;
+    }
+    div.element-container:has(button p:contains("管理者ログイン")) button {
+        background: transparent !important;
+        color: #555 !important;
+        text-decoration: underline !important;
+        box-shadow: none !important;
+        border: none !important;
+        font-size: 14px !important;
+        font-weight: normal !important;
+        height: auto !important;
+        padding: 5px !important;
+    }
+    div.element-container:has(button p:contains("管理者ログイン")) button:hover {
+        color: #000 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -545,55 +621,19 @@ def render_top_nav():
     st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 🏠 ホーム画面 (🌟 ver3のUIデザインに完全回帰)
+# 🏠 ホーム画面 (🌟 ver4: 新デザインにリニューアル)
 # ==========================================
 if st.session_state.page == "home":
-    st.markdown("""
-    <style>
-        [data-testid="stAppViewContainer"] {
-            background: linear-gradient(135deg, #1a2a6c, #11212b, #000000) !important;
-        }
-        .home-title {
-            font-size: 36px !important;
-            font-weight: 900 !important;
-            text-align: center !important;
-            margin: 60px 0 40px 0 !important;
-            color: #fff !important;
-            text-shadow: 0 4px 10px rgba(0,0,0,0.9), 0 0 15px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,1) !important;
-            letter-spacing: 0.1em !important;
-            font-family: "Noto Serif JP", serif !important;
-        }
-        div.element-container:has(.home-title) ~ div.element-container button {
-            height: 60px !important;
-            font-size: 20px !important;
-            font-weight: bold !important;
-            margin-bottom: 20px !important;
-            border: none !important;
-            border-radius: 30px !important;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.4) !important;
-            transition: all 0.3s ease !important;
-            color: #fff !important;
-        }
-        div.element-container:has(.home-title) ~ div.element-container [data-testid="stMarkdownContainer"] button {
-            background: linear-gradient(135deg, #1565c0, #0d47a1) !important;
-        }
-        div.element-container:has(.home-title) ~ div.element-container button.secondary {
-            background: rgba(255, 255, 255, 0.1) !important;
-            backdrop-filter: blur(10px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="home-title">六本木 水島本店<br>送迎管理</div>', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 4, 1])
+    st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 8, 1])
     with col2:
-        if st.button("🚙 スタッフ業務開始", type="primary", use_container_width=True): st.session_state.page = "staff_login"; st.rerun()
+        if st.button("スタッフ業務開始", use_container_width=True): st.session_state.page = "staff_login"; st.rerun()
+        st.write("")
+        if st.button("キャスト専用ログイン", use_container_width=True): st.session_state.page = "cast_login"; st.rerun()
         st.write(""); st.write("")
-        if st.button("👩 キャスト専用ログイン", use_container_width=True): st.session_state.page = "cast_login"; st.rerun()
-        st.write(""); st.write("")
-        if st.button("⚙️ 管理者ログイン", use_container_width=True): st.session_state.page = "admin_login"; st.rerun()
-        st.markdown(f"<div style='text-align:center; color:#888; font-size:12px; margin-top:30px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
+        if st.button("管理者ログイン (設定・リセット)", use_container_width=True): st.session_state.page = "admin_login"; st.rerun()
+        
+    st.markdown(f"<div style='text-align:center; color:#999; font-size:12px; margin-top:30px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
 
 elif st.session_state.page == "cast_login":
     render_top_nav(); db = get_db_data(); casts = db.get("casts", [])
@@ -850,10 +890,8 @@ elif st.session_state.page == "staff_portal":
                 for rt in ord_early:
                     try:
                         h, m = map(int, rt["early_time"].split(':'))
-                        if h * 60 + m < earliest_m:
-                            earliest_m = h * 60 + m
-                    except Exception:
-                        pass
+                        if h * 60 + m < earliest_m: earliest_m = h * 60 + m
+                    except: pass
                 
                 if earliest_m != 9999:
                     dep_m = earliest_m - (first_leg_sec // 60)
@@ -924,7 +962,7 @@ elif st.session_state.page == "staff_portal":
                     return_map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving"
                     if wp_enc: return_map_url += f"&waypoints={wp_enc}"
                     list_html += f"<a href='{return_map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>"
-                        
+                    
                 for idx, rt in enumerate(ordered_returns):
                     c_name = rt['c_name']
                     takuji_addr = rt['takuji_addr']
@@ -973,8 +1011,7 @@ elif st.session_state.page == "staff_portal":
                             if pt and pt != '未定':
                                 h, m = map(int, pt.split(':'))
                                 earliest_m = min(earliest_m, h * 60 + m)
-                        except Exception:
-                            pass
+                        except: pass
                     
                     if earliest_m != 9999:
                         dep_m = earliest_m - (first_leg_sec // 60)
@@ -1183,6 +1220,7 @@ elif st.session_state.page == "staff_portal":
                                 b_mins = bh * 60 + bm
                             except: b_mins = 19 * 60 + 50
 
+                            # 🌟 抜本的修正：ドライバー1人ずつ個別にAPIに送る（データ消失バグの防止）
                             for d_name, stat in drv_specs.items():
                                 assigned_list = stat["assigned_rows"]
                                 if not assigned_list: continue
@@ -1364,16 +1402,17 @@ elif st.session_state.page == "staff_portal":
                                 if pt and pt != '未定':
                                     h, m = map(int, pt.split(':'))
                                     earliest_m = min(earliest_m, h * 60 + m)
-                            except Exception:
-                                pass
+                            except: pass
                         
                         if earliest_m != 9999:
-                            dep_m = earliest_m - (first_leg_sec // 60)
+                            dep_m = earliest_m - (first_leg_sec // 60) - 5
                             if dep_m < 0: dep_m += 24 * 60
                             dep_h = (dep_m // 60) % 24
                             dep_min = dep_m % 60
                             dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
                             list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (AI逆算): {dep_time_str}</div>"
+                        else:
+                            list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻: 未定 (時間を設定してください)</div>"
 
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr)
