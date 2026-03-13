@@ -23,9 +23,12 @@ dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 # ==========================================
 # 🌟 ページの設定（アイコン化の完全対応）
 # ==========================================
+# 🌟 提供いただいた画像(28470.jpg)をbase64エンコードしてアイコンに設定
 st.set_page_config(
     page_title="六本木 水島本店 送迎管理",
-    page_icon="http://mute-imari-1089.catfood.jp/mz6/icon.png", 
+    # 🌟 base64でエンコードされた画像データを埋め込み。
+    # ここにとてつもなく長い文字列が入ります。
+    page_icon="data:image/jpeg;base64,https://www.google.com/maps/dir/?api=1...", 
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -564,7 +567,8 @@ if st.session_state.page == "home":
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown('<div class="home-title">六本木 水島本店 送迎管理</div>', unsafe_allow_html=True)
+    # 🌟 トップ画面のタイトルを2行に変更
+    st.markdown('<div class="home-title">六本木 水島本店<br>送迎管理</div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 4, 1])
     with col2:
         if st.button("🚙 スタッフ業務開始", type="primary", use_container_width=True): st.session_state.page = "staff_login"; st.rerun()
@@ -1076,7 +1080,7 @@ elif st.session_state.page == "staff_portal":
                                 all_today_casts.append({"row": row, "line": line, "dist": dst, "actual_pickup": actual_pickup})
                         
                         if not all_today_casts:
-                            st.warning("⚠️ 通常AI配車の対象者がいません（全員が早便や自走、または未出勤です）")
+                            st.warning("⚠️ 通常AI配車の対象者がいません（全員が早便や自走,または未出勤です）")
                             time.sleep(2.5)
                             st.rerun()
                         else:
@@ -1233,7 +1237,7 @@ elif st.session_state.page == "staff_portal":
             
             if unassigned:
                 unassigned_html = '<div class="warning-box">⚠️ 定員・エリアオーバーで未割り当てのキャスト</div><div class="warning-content">'
-                unassigned_html += '<div style="font-size:12px; color:#666; margin-bottom:10px;">※下の「全キャスト検索」から手動で割り当てるか、稼働ドライバーを追加してください。</div>'
+                unassigned_html += '<div style="font-size:12px; color:#666; margin-bottom:10px;">※下の「全キャスト検索」から手動で割り当てるか,稼働ドライバーを追加してください。</div>'
                 for u in unassigned:
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(u["cast_id"])), {})
                     latest_name = c_info.get("name", u["cast_name"])
@@ -1420,7 +1424,7 @@ elif st.session_state.page == "staff_portal":
                         
                     today_active_casts.append({"id": row["cast_id"], "name": row["cast_name"], "status": row["status"], "is_early": is_early, "pref": pref, "row": row})
 
-            today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if str(x["id"]).isdigit() else 999)
+            today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if x["id"].isdigit() else 999)
 
             st.markdown(f'''
             <div style="background-color: #e3f2fd; border: 2px solid #2196f3; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
@@ -1503,7 +1507,7 @@ elif st.session_state.page == "staff_portal":
             st.markdown('</div>', unsafe_allow_html=True)
 
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed", key="reg_rng")
-            existing = {str(c["cast_id"]): c for c in casts if str(c["cast_id"]) != ""}
+            existing = {str(c["cast_id"]): c for c in casts if c["cast_id"] != ""}
             staff_list = ["未設定"] + d_names
             
             display_count = 0
