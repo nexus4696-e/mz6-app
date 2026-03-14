@@ -7,8 +7,8 @@ import re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 システムバージョン管理（バグ修正・UI調整版）
-APP_VERSION = 11
+# 🌟 システムバージョン管理
+APP_VERSION = 12
 
 GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -295,11 +295,11 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                     st.session_state.flash_msg = f"{latest_name} 更新完了"
                     st.rerun()
 
-# 🎨 CSS設計
+# 🎨 全体CSS設計
 st.markdown("""
 <style>
     html, body, [data-testid="stAppViewContainer"], .block-container { max-width: 100vw !important; overflow-x: hidden !important; background-color: #f0f2f5; font-family: -apple-system, sans-serif; }
-    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 600px; }
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 800px !important; } /* 🌟 コンテナ幅を広げてボタンを大きく */
     header, footer, [data-testid="stToolbar"] { display: none !important; }
     .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
     .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
@@ -318,26 +318,54 @@ st.markdown("""
     .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
 
-    /* 🌟 店長指定のUIデザイン (カラー＆幅を倍に調整) */
-    .title1 { text-align:center; font-size:40px; font-weight:bold; color:white; text-shadow:2px 2px 5px black; }
+    /* 🌟 店長指定のUIデザイン (ホーム画面用タイトル・フッター) */
+    .title1 { text-align:center; font-size:40px; font-weight:bold; color:white; text-shadow:2px 2px 5px black; margin-top: 30px; }
     .title2 { text-align:center; font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 5px black; margin-bottom:40px; }
-    div.element-container:has(button p:contains("スタッフ業務開始")), div.element-container:has(button p:contains("キャスト専用ログイン")), div.element-container:has(button p:contains("管理者ログイン")) { margin-bottom: 20px; }
-    div.element-container:has(button p:contains("スタッフ業務開始")) button, div.element-container:has(button p:contains("キャスト専用ログイン")) button, div.element-container:has(button p:contains("管理者ログイン")) button { width: 100% !important; height: 80px !important; border-radius: 10px !important; border: none !important; }
-    div.element-container:has(button p:contains("スタッフ業務開始")) button p, div.element-container:has(button p:contains("キャスト専用ログイン")) button p, div.element-container:has(button p:contains("管理者ログイン")) button p { font-size: 20px !important; font-weight: bold !important; white-space: pre-wrap !important; margin: 0 !important; }
-    
-    /* ボタンの色を指示通りに変更 */
-    div.element-container:has(button p:contains("スタッフ業務開始")) button { background-color: #64b5f6 !important; } /* 薄いブルー */
-    div.element-container:has(button p:contains("スタッフ業務開始")) button p { color: white !important; }
-    
-    div.element-container:has(button p:contains("キャスト専用ログイン")) button { background-color: #f48fb1 !important; } /* 薄いピンク */
-    div.element-container:has(button p:contains("キャスト専用ログイン")) button p { color: white !important; }
-    
-    div.element-container:has(button p:contains("管理者ログイン")) button { background-color: #9e9e9e !important; } /* グレー */
-    div.element-container:has(button p:contains("管理者ログイン")) button p { color: white !important; }
-    
     .footer { position: fixed; bottom: 0; left: 0; width: 100%; background: #333; color: white; padding: 10px; text-align: center; z-index: 9999; }
 </style>
 """, unsafe_allow_html=True)
+
+# 🌟 トップ画面のみ適用される専用CSS（色の確実な反映とボタンの巨大化）
+if st.session_state.page == "home":
+    st.markdown("""
+    <style>
+        /* 共通設定：ボタンの幅と高さを倍にする */
+        div.element-container:has(#btn-staff-marker) + div.element-container button,
+        div.element-container:has(#btn-cast-marker) + div.element-container button,
+        div.element-container:has(#btn-admin-marker) + div.element-container button {
+            width: 100% !important;
+            height: 120px !important; /* 🌟 高さを倍に巨大化 */
+            border-radius: 15px !important;
+            border: none !important;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+            margin-bottom: 10px !important;
+        }
+        div.element-container:has(#btn-staff-marker) + div.element-container button p,
+        div.element-container:has(#btn-cast-marker) + div.element-container button p,
+        div.element-container:has(#btn-admin-marker) + div.element-container button p {
+            font-size: 24px !important; /* 🌟 文字も大きく */
+            font-weight: bold !important;
+            white-space: pre-wrap !important;
+            margin: 0 !important;
+            color: white !important;
+        }
+
+        /* 🌟 スタッフボタン：薄いブルー */
+        div.element-container:has(#btn-staff-marker) + div.element-container button {
+            background-color: #64b5f6 !important;
+        }
+        
+        /* 🌟 キャストボタン：薄いピンク */
+        div.element-container:has(#btn-cast-marker) + div.element-container button {
+            background-color: #f48fb1 !important;
+        }
+        
+        /* 🌟 管理者ボタン：グレー */
+        div.element-container:has(#btn-admin-marker) + div.element-container button {
+            background-color: #9e9e9e !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
 early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
@@ -364,20 +392,27 @@ if st.session_state.page == "home":
     st.markdown('<div class="title1">六本木水島本店</div>', unsafe_allow_html=True)
     st.markdown('<div class="title2">送迎管理</div>', unsafe_allow_html=True)
 
-    # 幅を広げるために、カラム(col)の制約を外して直接配置しました
+    # 🌟 幅を倍にするため、カラムの制約を外して直接配置し、目印(marker)を使って色を塗る
+    st.markdown('<div id="btn-staff-marker"></div>', unsafe_allow_html=True)
     if st.button("スタッフ業務開始\n（配車・送迎設定）", use_container_width=True):
         st.session_state.page = "staff_login"
         st.rerun()
 
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown('<div id="btn-cast-marker"></div>', unsafe_allow_html=True)
     if st.button("キャスト専用ログイン\n（予定の申請）", use_container_width=True):
         st.session_state.page = "cast_login"
         st.rerun()
 
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown('<div id="btn-admin-marker"></div>', unsafe_allow_html=True)
     if st.button("管理者ログイン（設定・リセット）", use_container_width=True):
         st.session_state.page = "admin_login"
         st.rerun()
 
-    st.markdown(f"<div style='text-align:center; color:#999; font-size:12px; margin-top:20px; padding-bottom:60px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; color:#999; font-size:12px; margin-top:30px; padding-bottom:60px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
     st.markdown('<div class="footer">サーバー同期完了　　　最新データ受信</div>', unsafe_allow_html=True)
 
 elif st.session_state.page == "cast_login":
@@ -409,7 +444,6 @@ elif st.session_state.page == "admin_login":
     settings = db.get("settings") or {}
     pw = st.text_input("管理者パスワード", type="password")
     if st.button("ログイン", type="primary", use_container_width=True):
-        # 🌟 パスワード認証を正常な状態に復旧
         if pw == "admin" or pw == str(settings.get("admin_password", "admin")): 
             st.session_state.is_admin = True
             st.session_state.logged_in_staff = "管理者"
@@ -701,7 +735,6 @@ elif st.session_state.page == "staff_portal":
                     if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {t['takuji_addr']}</span>"
                     if t["memo_text"]: addr_display += f"<br>📝 備考: {t['memo_text']}"
                     list_html += f"<div style='margin-bottom:8px;'><b>迎え順 {idx+1}： {t['task']['pickup_time']}</b>　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span></div><hr style='margin:5px 0;'>"
-
             list_html += '</div>'
             st.markdown(list_html, unsafe_allow_html=True)
 
@@ -1005,20 +1038,25 @@ elif st.session_state.page == "staff_portal":
                     st.session_state.early_list = []; clear_cache(); st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            dispatch_count, early_count = 0, 0
-            today_active_casts, seen_cids_today = [], set()
+            dispatch_count = 0
+            early_count = 0
+            today_active_casts = []
+            seen_cids_today = set()
             
             for row in atts:
                 if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                     cid_str = str(row["cast_id"])
                     if cid_str in seen_cids_today: continue
                     seen_cids_today.add(cid_str)
+                    
                     dispatch_count += 1
                     _, _, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
                     is_early = (e_drv and e_drv != "未定" and e_drv != "")
                     if is_early: early_count += 1
+                    
                     c_info_dict = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
                     pref = c_info_dict.get("area", "他")
+                        
                     today_active_casts.append({"id": row["cast_id"], "name": row["cast_name"], "status": row["status"], "is_early": is_early, "pref": pref, "row": row})
 
             today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if str(x["id"]).isdigit() else 999)
@@ -1045,7 +1083,8 @@ elif st.session_state.page == "staff_portal":
                         render_cast_edit_card(c_id, latest_name, c_dict.get('pref', '他'), c_dict.get('row'), "tdy", d_names, time_slots, early_time_slots, loop_idx)
                     if display_c == 0: st.write("該当するキャストがいません。")
                     st.markdown("</div>", unsafe_allow_html=True)
-                else: st.info("本日の送迎申請はまだありません。")
+                else:
+                    st.info("本日の送迎申請はまだありません。")
 
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
             
@@ -1054,20 +1093,27 @@ elif st.session_state.page == "staff_portal":
                 
             st.markdown("<div style='font-size:14px; font-weight:bold; color:#555; margin-bottom:5px;'>🔍 全キャスト検索 (未出勤者の予定追加・変更)</div>", unsafe_allow_html=True)
             col_search1, col_search2 = st.columns([3, 1])
-            with col_search1: input_q = st.text_input("検索キーワード", placeholder="名前 または 店番", key=f"search_input_{st.session_state.search_cast_key}", label_visibility="collapsed")
+            with col_search1:
+                input_q = st.text_input("検索キーワード", placeholder="名前 または 店番", key=f"search_input_{st.session_state.search_cast_key}", label_visibility="collapsed")
             with col_search2:
-                if st.button("検索", type="secondary", use_container_width=True): st.session_state.active_search_query = input_q; st.rerun()
+                if st.button("検索", type="secondary", use_container_width=True):
+                    st.session_state.active_search_query = input_q; st.rerun()
 
-            def reset_search(): st.session_state.active_search_query = ""; st.session_state.search_cast_key += 1; clear_cache()
+            def reset_search():
+                st.session_state.active_search_query = ""; st.session_state.search_cast_key += 1; clear_cache()
+
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed")
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
             
-            search_query, display_count, seen_all_cids = st.session_state.active_search_query, 0, set()
+            search_query = st.session_state.active_search_query
+            display_count = 0
+            seen_all_cids = set()
             for loop_idx, cast in enumerate(casts):
                 c_id, c_name = str(cast["cast_id"]), str(cast["name"])
                 if not c_name: continue
                 if c_id in seen_all_cids: continue
                 seen_all_cids.add(c_id)
+                
                 if search_query:
                     if search_query not in c_name and search_query not in c_id: continue
                 else:
@@ -1077,6 +1123,7 @@ elif st.session_state.page == "staff_portal":
                 
                 target_row = next((row for row in atts if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"] and str(row["cast_id"]) == str(c_id)), None)
                 render_cast_edit_card(c_id, c_name, pref, target_row, "all", d_names, time_slots, early_time_slots, loop_idx)
+
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
         # ----------------------------------------
