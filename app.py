@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import streamlit as st
 
 # 🌟 システムバージョン管理
-APP_VERSION = 12
+APP_VERSION = 13
 
 GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -299,7 +299,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
 st.markdown("""
 <style>
     html, body, [data-testid="stAppViewContainer"], .block-container { max-width: 100vw !important; overflow-x: hidden !important; background-color: #f0f2f5; font-family: -apple-system, sans-serif; }
-    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 800px !important; } /* 🌟 コンテナ幅を広げてボタンを大きく */
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 800px !important; }
     header, footer, [data-testid="stToolbar"] { display: none !important; }
     .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
     .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
@@ -325,25 +325,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 🌟 トップ画面のみ適用される専用CSS（色の確実な反映とボタンの巨大化）
+# 🌟 トップ画面のみ適用される専用CSS
 if st.session_state.page == "home":
     st.markdown("""
     <style>
-        /* 共通設定：ボタンの幅と高さを倍にする */
+        /* 🌟 スタッフとキャストのボタン：高さを2/3(80px)にし、黒枠で囲む */
         div.element-container:has(#btn-staff-marker) + div.element-container button,
-        div.element-container:has(#btn-cast-marker) + div.element-container button,
-        div.element-container:has(#btn-admin-marker) + div.element-container button {
+        div.element-container:has(#btn-cast-marker) + div.element-container button {
             width: 100% !important;
-            height: 120px !important; /* 🌟 高さを倍に巨大化 */
+            height: 80px !important;
             border-radius: 15px !important;
-            border: none !important;
+            border: 2px solid black !important;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
             margin-bottom: 10px !important;
         }
         div.element-container:has(#btn-staff-marker) + div.element-container button p,
-        div.element-container:has(#btn-cast-marker) + div.element-container button p,
-        div.element-container:has(#btn-admin-marker) + div.element-container button p {
-            font-size: 24px !important; /* 🌟 文字も大きく */
+        div.element-container:has(#btn-cast-marker) + div.element-container button p {
+            font-size: 20px !important;
             font-weight: bold !important;
             white-space: pre-wrap !important;
             margin: 0 !important;
@@ -360,9 +358,22 @@ if st.session_state.page == "home":
             background-color: #f48fb1 !important;
         }
         
-        /* 🌟 管理者ボタン：グレー */
+        /* 🌟 管理者ボタン：高さを1/3(40px)にし、薄いグレーに変更 */
         div.element-container:has(#btn-admin-marker) + div.element-container button {
-            background-color: #9e9e9e !important;
+            width: 100% !important;
+            height: 40px !important;
+            border-radius: 15px !important;
+            border: none !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            margin-bottom: 10px !important;
+            background-color: #e0e0e0 !important;
+        }
+        div.element-container:has(#btn-admin-marker) + div.element-container button p {
+            font-size: 16px !important;
+            font-weight: bold !important;
+            white-space: pre-wrap !important;
+            margin: 0 !important;
+            color: #333333 !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -392,7 +403,6 @@ if st.session_state.page == "home":
     st.markdown('<div class="title1">六本木水島本店</div>', unsafe_allow_html=True)
     st.markdown('<div class="title2">送迎管理</div>', unsafe_allow_html=True)
 
-    # 🌟 幅を倍にするため、カラムの制約を外して直接配置し、目印(marker)を使って色を塗る
     st.markdown('<div id="btn-staff-marker"></div>', unsafe_allow_html=True)
     if st.button("スタッフ業務開始\n（配車・送迎設定）", use_container_width=True):
         st.session_state.page = "staff_login"
@@ -996,8 +1006,7 @@ elif st.session_state.page == "staff_portal":
 
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr); dest_enc = urllib.parse.quote(store_addr); wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
-                    map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&waypoints={wp_enc}"
-                    list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
+                    list_html += f"<a href='https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&waypoints={wp_enc}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
                 
                 for idx, t in enumerate(ordered_tasks):
                     addr_display = f"🏠 迎え: {t['home_addr'] if t['home_addr'] else '未登録'}"
