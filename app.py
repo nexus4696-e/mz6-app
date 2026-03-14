@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import streamlit as st
 
 # 🌟 システムバージョン管理
-APP_VERSION = 13
+APP_VERSION = 14
 
 GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -557,7 +557,8 @@ elif st.session_state.page == "cast_mypage":
         memo_tmr, ta_tmr, tc_tmr, ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr, so_tmr = parse_attendance_memo(m_tmr.get("memo","")) if m_tmr else ("", "", "0", "", "", "", "")
         col_tm1, col_tm2 = st.columns([3, 1.2]) 
         with col_tm1:
-            s_tmr = st.radio("明日の状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(m_tmr["status"] if m_tmr else "未定"), horizontal=True, key="tmr_s")
+            s_tmr = radio_idx = ["未定", "出勤", "自走", "休み"].index(m_tmr["status"] if m_tmr else "未定")
+            s_tmr = st.radio("明日の状態", ["未定", "出勤", "自走", "休み"], index=radio_idx, horizontal=True, key="tmr_s")
             m_tmr_txt = st.text_input("明日の備考", value=memo_tmr, key="tmr_m")
             req_stopover_tmr = st.checkbox("🍽️ 明日途中で寄る場所がある", value=bool(so_tmr))
             so_a_tmr = st.text_input("明日の立ち寄り先", value=so_tmr) if req_stopover_tmr else ""
@@ -690,11 +691,9 @@ elif st.session_state.page == "staff_portal":
                     return_tasks.append({"task": t, "dist": 0, "actual_pickup": actual_pickup, "use_takuji": use_takuji, "takuji_addr": takuji_addr, "c_name": latest_name, "c_id": t['cast_id']})
                 
                 ordered_returns, ret_sec, return_full_path, _, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True)
-                
                 if return_full_path:
                     org_enc = urllib.parse.quote(store_addr); dest_enc = urllib.parse.quote(store_addr); wp_enc = urllib.parse.quote("|".join(return_full_path[:-1])) if len(return_full_path) > 1 else ""
                     list_html += f"<a href='https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&waypoints={wp_enc}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>"
-                        
                 for idx, rt in enumerate(ordered_returns):
                     list_html += f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
                     if rt["use_takuji"]: list_html += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
@@ -761,6 +760,7 @@ elif st.session_state.page == "staff_portal":
                 if st.button("🟢 乗車完了", key=f"brd_{active['cast_id']}", use_container_width=True):
                     post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "board"}); clear_cache(); st.rerun()
 
+    # 👑 管理者フル機能
     else:
         current_tab = st.session_state.get("current_staff_tab", "① 配車リスト")
         try: tab_index = tabs_list.index(current_tab)
@@ -815,6 +815,25 @@ elif st.session_state.page == "staff_portal":
                     elif not active_drivers: st.error("稼働するドライバーを1人以上選択してください。")
                     else:
                         st.info("Google AIでルートを計算中... ⏳")
+                        
+                        # 🌟 学習機能：過去の全配車実績からドライバーとキャストの相性を学習
+                        learning_scores = {}
+                        for r in atts:
+                            if r.get("status") in ["出勤", "自走"] and r.get("driver_name") and r.get("driver_name") not in ["", "未定"]:
+                                cid = str(r.get("cast_id"))
+                                drv = r.get("driver_name")
+                                if cid not in learning_scores: learning_scores[cid] = {}
+                                learning_scores[cid][drv] = learning_scores[cid].get(drv, 0) + 1
+
+                        def driver_covers_line(drv_area, c_line):
+                            if drv_area == "全般": return True
+                            if drv_area == "広島方面" and c_line == "Route_A_West": return True
+                            if drv_area == "岡山方面" and c_line == "Route_C_North": return True
+                            if drv_area == "広島＆岡山方面" and c_line in ["Route_A_West", "Route_C_North"]: return True
+                            if drv_area == "倉敷・岡山方面" and c_line in ["Route_C_North", "Route_B_NorthWest", "Route_E_South"]: return True
+                            if drv_area == "倉敷方面" and c_line in ["Route_E_South", "Route_B_NorthWest"]: return True
+                            return False
+
                         all_today_casts, early_drivers, seen_cids_ai = [], set(), set()
                         for row in atts:
                             if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
@@ -842,36 +861,56 @@ elif st.session_state.page == "staff_portal":
                                     if d["name"] in early_drivers: continue
                                     try: cap = int(d.get("capacity", 4))
                                     except: cap = 4
-                                    drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None}
+                                    # 🌟 担当方面を反映
+                                    area = d.get("area", "全般")
+                                    drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None, "area": area}
 
                             for uc in all_today_casts:
                                 if uc["row"]["status"] == "自走": continue
-                                assigned_d = None; c_line = uc["line"]
-                                sorted_drv_names = sorted(drv_specs.keys(), key=lambda k: len(drv_specs[k]["assigned_rows"]))
+                                assigned_d = None; c_line = uc["line"]; cid = str(uc["row"]["cast_id"])
                                 
-                                if "2:" in dispatch_mode:
-                                    for d_name in sorted_drv_names:
-                                        if len(drv_specs[d_name]["assigned_rows"]) < drv_specs[d_name]["capacity"] and drv_specs[d_name]["line"] == c_line: assigned_d = d_name; break
-                                    if not assigned_d:
-                                        for d_name in sorted_drv_names:
-                                            if len(drv_specs[d_name]["assigned_rows"]) == 0: drv_specs[d_name]["line"] = c_line; assigned_d = d_name; break
-                                    if not assigned_d:
-                                        for d_name in sorted_drv_names:
-                                            if len(drv_specs[d_name]["assigned_rows"]) < drv_specs[d_name]["capacity"]: assigned_d = d_name; break
+                                best_score = -1
+                                best_d = None
+                                
+                                # 🌟 AIスコアリングシステム
+                                for d_name, stat in drv_specs.items():
+                                    if len(stat["assigned_rows"]) >= stat["capacity"]: continue
+                                    
+                                    score = 0
+                                    # 1. ライン一致・方面カバーの評価
+                                    if stat["line"] == c_line:
+                                        score += 100 # 既に同じラインを担当している場合は最優先
+                                    elif stat["line"] is None:
+                                        if driver_covers_line(stat["area"], c_line):
+                                            score += 50 # 方面指定が合致する空きドライバー
+                                        else:
+                                            score -= 50 # 指定方面外の場合はペナルティ
+                                    else:
+                                        if uc["dist"] > 10: continue
+                                            
+                                    # 2. AI学習スコア（手動変更履歴の反映）
+                                    score += learning_scores.get(cid, {}).get(d_name, 0) * 5
+                                    
+                                    # 3. 均等割りの評価
+                                    if "2:" in dispatch_mode:
+                                        score += (stat["capacity"] - len(stat["assigned_rows"])) * 10
+                                        
+                                    if score > best_score:
+                                        best_score = score
+                                        best_d = d_name
+                                
+                                if best_d:
+                                    assigned_d = best_d
                                 else:
-                                    for d_name in sorted_drv_names:
-                                        if len(drv_specs[d_name]["assigned_rows"]) < drv_specs[d_name]["capacity"] and drv_specs[d_name]["line"] == c_line: assigned_d = d_name; break
-                                    if not assigned_d:
-                                        for d_name in sorted_drv_names:
-                                            if len(drv_specs[d_name]["assigned_rows"]) == 0: drv_specs[d_name]["line"] = c_line; assigned_d = d_name; break
-                                    if not assigned_d and uc["dist"] <= 10:
-                                        for d_name in sorted_drv_names:
-                                            if len(drv_specs[d_name]["assigned_rows"]) < drv_specs[d_name]["capacity"]: assigned_d = d_name; break
-                                    if not assigned_d:
-                                        for d_name in sorted_drv_names:
-                                            if len(drv_specs[d_name]["assigned_rows"]) < drv_specs[d_name]["capacity"]: assigned_d = d_name; break
+                                    # フォールバック
+                                    for d_name, stat in drv_specs.items():
+                                        if len(stat["assigned_rows"]) < stat["capacity"]:
+                                            assigned_d = d_name; break
 
-                                if assigned_d: drv_specs[assigned_d]["assigned_rows"].append(uc)
+                                if assigned_d: 
+                                    if drv_specs[assigned_d]["line"] is None:
+                                        drv_specs[assigned_d]["line"] = c_line
+                                    drv_specs[assigned_d]["assigned_rows"].append(uc)
 
                             assigned_ids = set()
                             base_time = str(sets.get("base_arrival_time", "19:50"))
@@ -1207,31 +1246,57 @@ elif st.session_state.page == "staff_portal":
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
         # ----------------------------------------
-        # ④ STAFF設定
+        # 🌟 ④ STAFF設定 (UI一覧化 ＆ 担当方面の追加)
         # ----------------------------------------
         elif st.session_state.current_staff_tab == "④ STAFF設定":
             exist_drvs = {str(d["driver_id"]): d for d in drvs}
-            staff_disp_list = ["-- 新規・編集するスタッフを選択 --"]
-            for i in range(1, 31):
-                nm = exist_drvs.get(str(i), {}).get("name", "")
-                if nm: staff_disp_list.append(f"STAFF {i} : {nm}")
-                else: staff_disp_list.append(f"STAFF {i} : (未登録)")
+            
+            if "editing_staff_id" not in st.session_state:
+                st.session_state.editing_staff_id = None
+
+            if st.session_state.editing_staff_id is None:
+                st.markdown('<div class="app-header">STAFF一覧・登録</div>', unsafe_allow_html=True)
+                for i in range(1, 31):
+                    d = exist_drvs.get(str(i), {})
+                    nm = d.get("name", "")
+                    area = d.get("area", "全般")
+                    disp_nm = nm if nm else "(未登録)"
+                    disp_area = f"[{area}]" if nm else ""
                     
-            selected_staff_str = st.selectbox("スタッフ選択", staff_disp_list, label_visibility="collapsed")
-            if selected_staff_str != "-- 新規・編集するスタッフを選択 --":
-                i = int(selected_staff_str.split(" ")[1])
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown(f"<div style='padding:10px 0; border-bottom:1px solid #ddd; font-size:15px;'><b>STAFF {i}</b> : {disp_nm} <span style='color:#666; font-size:12px;'>{disp_area}</span></div>", unsafe_allow_html=True)
+                    with col2:
+                        st.markdown("<div style='margin-top:5px;'></div>", unsafe_allow_html=True)
+                        if st.button("詳細", key=f"edit_staff_btn_{i}", use_container_width=True):
+                            st.session_state.editing_staff_id = i
+                            st.rerun()
+            else:
+                i = st.session_state.editing_staff_id
+                if st.button("🔙 STAFF一覧に戻る", use_container_width=True):
+                    st.session_state.editing_staff_id = None
+                    st.rerun()
+                    
                 d = exist_drvs.get(str(i), {})
                 nm = str(d.get("name", ""))
                 
-                st.markdown(f'<div class="card" style="padding:15px; border-top: 4px solid #4caf50;">', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-weight:bold; font-size:18px; margin-bottom:15px;">✏️ STAFF {i} の設定</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="card" style="padding:15px; border-top: 4px solid #4caf50; margin-top:15px;">', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-weight:bold; font-size:18px; margin-bottom:15px;">✏️ STAFF {i} の詳細設定</div>', unsafe_allow_html=True)
                 
-                d_area = str(d.get("area", "他")).strip()
-                if d_area not in ["岡山", "広島", "他"]: d_area = "他"
+                d_area = str(d.get("area", "全般")).strip()
+                area_opts = ["全般", "広島方面", "岡山方面", "広島＆岡山方面", "倉敷・岡山方面", "倉敷方面"]
+                if d_area not in area_opts:
+                    if "岡山" in d_area and "広島" in d_area: d_area = "広島＆岡山方面"
+                    elif "岡山" in d_area and "倉敷" in d_area: d_area = "倉敷・岡山方面"
+                    elif "倉敷" in d_area: d_area = "倉敷方面"
+                    elif "岡山" in d_area: d_area = "岡山方面"
+                    elif "広島" in d_area: d_area = "広島方面"
+                    else: d_area = "全般"
+                    
                 d_cap = int(d.get("capacity", 4)) if str(d.get("capacity", "")).isdigit() else 4
                 nn = st.text_input("STAFF名", value=nm, key=f"dn_{i}")
                 colA, colB = st.columns(2)
-                with colA: n_area = st.selectbox("担当方面", ["岡山", "広島", "他"], index=["岡山", "広島", "他"].index(d_area), key=f"d_ar_{i}")
+                with colA: n_area = st.selectbox("担当方面", area_opts, index=area_opts.index(d_area), key=f"d_ar_{i}")
                 with colB: n_cap = st.number_input("乗車定員", min_value=1, max_value=10, value=d_cap, key=f"d_cp_{i}")
                 
                 p_pref, p_city, p_rest = parse_address(str(d.get("address", "")))
@@ -1254,14 +1319,18 @@ elif st.session_state.page == "staff_portal":
                 
                 if st.session_state.get(f"saved_staff_{i}", False):
                     st.markdown('<div style="background-color: #4caf50; color: white; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 10px;">✅ 決定済み</div>', unsafe_allow_html=True)
-                    if st.button("🔄 再変更", key=f"reedit_staff_{i}", use_container_width=True): st.session_state[f"saved_staff_{i}"] = False; st.rerun()
+                    if st.button("🔄 再変更", key=f"reedit_staff_{i}", use_container_width=True):
+                        st.session_state[f"saved_staff_{i}"] = False
+                        st.rerun()
                 else:
                     if st.button("💾 決定する", key=f"ds_{i}", type="primary", use_container_width=True):
                         city_part = d_other_city if d_city == "他" else d_city
                         final_addr = d_pref + city_part + d_rest
                         payload = {"action": "save_driver", "driver_id": i, "name": nn, "password": n_pass, "address": final_addr, "phone": n_tel, "area": n_area, "capacity": n_cap}
                         res = post_api(payload)
-                        if res.get("status") == "success": clear_cache(); st.session_state[f"saved_staff_{i}"] = True; st.success("保存しました！"); st.rerun()
+                        if res.get("status") == "success":
+                            clear_cache(); st.session_state[f"saved_staff_{i}"] = True; st.success("保存しました！"); st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
         # ----------------------------------------
         # ⚙️ 管理設定
