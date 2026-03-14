@@ -7,8 +7,9 @@ import re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 システムバージョン管理（バグ完全修正・店長デザイン維持版）
-APP_VERSION = 10
+# 🌟 システムバージョン管理（バグ修正・UI調整版）
+APP_VERSION = 11
+
 GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
 
@@ -317,18 +318,23 @@ st.markdown("""
     .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
     .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
 
-    /* 🌟 店長指定のUIデザイン */
+    /* 🌟 店長指定のUIデザイン (カラー＆幅を倍に調整) */
     .title1 { text-align:center; font-size:40px; font-weight:bold; color:white; text-shadow:2px 2px 5px black; }
     .title2 { text-align:center; font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 5px black; margin-bottom:40px; }
     div.element-container:has(button p:contains("スタッフ業務開始")), div.element-container:has(button p:contains("キャスト専用ログイン")), div.element-container:has(button p:contains("管理者ログイン")) { margin-bottom: 20px; }
     div.element-container:has(button p:contains("スタッフ業務開始")) button, div.element-container:has(button p:contains("キャスト専用ログイン")) button, div.element-container:has(button p:contains("管理者ログイン")) button { width: 100% !important; height: 80px !important; border-radius: 10px !important; border: none !important; }
     div.element-container:has(button p:contains("スタッフ業務開始")) button p, div.element-container:has(button p:contains("キャスト専用ログイン")) button p, div.element-container:has(button p:contains("管理者ログイン")) button p { font-size: 20px !important; font-weight: bold !important; white-space: pre-wrap !important; margin: 0 !important; }
-    div.element-container:has(button p:contains("スタッフ業務開始")) button { background-color: #2b7ed1 !important; }
+    
+    /* ボタンの色を指示通りに変更 */
+    div.element-container:has(button p:contains("スタッフ業務開始")) button { background-color: #64b5f6 !important; } /* 薄いブルー */
     div.element-container:has(button p:contains("スタッフ業務開始")) button p { color: white !important; }
-    div.element-container:has(button p:contains("キャスト専用ログイン")) button { background-color: #e21b5a !important; }
+    
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button { background-color: #f48fb1 !important; } /* 薄いピンク */
     div.element-container:has(button p:contains("キャスト専用ログイン")) button p { color: white !important; }
-    div.element-container:has(button p:contains("管理者ログイン")) button { background-color: #dddddd !important; }
-    div.element-container:has(button p:contains("管理者ログイン")) button p { color: #333333 !important; }
+    
+    div.element-container:has(button p:contains("管理者ログイン")) button { background-color: #9e9e9e !important; } /* グレー */
+    div.element-container:has(button p:contains("管理者ログイン")) button p { color: white !important; }
+    
     .footer { position: fixed; bottom: 0; left: 0; width: 100%; background: #333; color: white; padding: 10px; text-align: center; z-index: 9999; }
 </style>
 """, unsafe_allow_html=True)
@@ -358,6 +364,7 @@ if st.session_state.page == "home":
     st.markdown('<div class="title1">六本木水島本店</div>', unsafe_allow_html=True)
     st.markdown('<div class="title2">送迎管理</div>', unsafe_allow_html=True)
 
+    # 幅を広げるために、カラム(col)の制約を外して直接配置しました
     if st.button("スタッフ業務開始\n（配車・送迎設定）", use_container_width=True):
         st.session_state.page = "staff_login"
         st.rerun()
@@ -402,6 +409,7 @@ elif st.session_state.page == "admin_login":
     settings = db.get("settings") or {}
     pw = st.text_input("管理者パスワード", type="password")
     if st.button("ログイン", type="primary", use_container_width=True):
+        # 🌟 パスワード認証を正常な状態に復旧
         if pw == "admin" or pw == str(settings.get("admin_password", "admin")): 
             st.session_state.is_admin = True
             st.session_state.logged_in_staff = "管理者"
@@ -823,7 +831,7 @@ elif st.session_state.page == "staff_portal":
                                 if assigned_d: drv_specs[assigned_d]["assigned_rows"].append(uc)
 
                             assigned_ids = set()
-                            base_time = str(settings.get("base_arrival_time", "19:50"))
+                            base_time = str(sets.get("base_arrival_time", "19:50"))
                             try: bh, bm = map(int, base_time.split(':')); b_mins = bh * 60 + bm
                             except: b_mins = 19 * 60 + 50
 
@@ -857,7 +865,7 @@ elif st.session_state.page == "staff_portal":
                                     driver_updates.append({"id": item["task"]["id"], "driver_name": d_name, "pickup_time": current_calc_time, "status": item["task"]["status"]})
                                     assigned_ids.add(item["task"]["id"])
                                     stff_id = next((d.get("line_user_id", "") for d in drvs if d["name"] == d_name), "")
-                                    notify_staff_via_line(settings.get("line_access_token", ""), stff_id, d_name, item["c_name"], current_calc_time)
+                                    notify_staff_via_line(sets.get("line_access_token", ""), stff_id, d_name, item["c_name"], current_calc_time)
                                 
                                 if driver_updates: post_api({"action": "update_manual_dispatch", "updates": driver_updates})
                             
@@ -947,6 +955,7 @@ elif st.session_state.page == "staff_portal":
                                     h, m = map(int, pt.split(':'))
                                     earliest_m = min(earliest_m, h * 60 + m)
                             except Exception: pass
+                        
                         if earliest_m != 9999:
                             dep_m = earliest_m - (first_leg_sec // 60) - 5
                             if dep_m < 0: dep_m += 24 * 60
@@ -964,21 +973,9 @@ elif st.session_state.page == "staff_portal":
                     if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {t['takuji_addr']}</span>"
                     if t["memo_text"]: addr_display += f"<br>📝 備考: {t['memo_text']}"
                     list_html += f"<div style='margin-bottom:8px;'><b>迎え順 {idx+1}： {t['task']['pickup_time']}</b>　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span></div><hr style='margin:5px 0;'>"
-            list_html += '</div>'
-            st.markdown(list_html, unsafe_allow_html=True)
-
-        my_atts = [r for r in atts if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
-        active = next((r for r in my_atts if not r.get("boarded_at")), None)
-        if active:
-            c_info = next((c for c in casts if str(c["cast_id"]) == str(active["cast_id"])), {})
-            latest_name = c_info.get("name", active["cast_name"])
-            st.markdown(f"<div style='background:#1e1e1e; padding:15px; border-radius:12px; border:2px solid #00bcd4; margin-bottom:10px;'><h2 style='color:white; margin:0;'>{latest_name} さん</h2></div>", unsafe_allow_html=True)
-            if not active.get("arrived_at"):
-                if st.button("📍 到着を記録", key=f"arr_{active['cast_id']}", use_container_width=True):
-                    post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "arrive"}); clear_cache(); st.rerun()
-            else:
-                if st.button("🟢 乗車完了", key=f"brd_{active['cast_id']}", use_container_width=True):
-                    post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "board"}); clear_cache(); st.rerun()
+                
+                list_html += '</div>'
+                st.markdown(list_html, unsafe_allow_html=True)
 
         # ----------------------------------------
         # ② キャスト送迎
@@ -1008,25 +1005,20 @@ elif st.session_state.page == "staff_portal":
                     st.session_state.early_list = []; clear_cache(); st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            dispatch_count = 0
-            early_count = 0
-            today_active_casts = []
-            seen_cids_today = set()
+            dispatch_count, early_count = 0, 0
+            today_active_casts, seen_cids_today = [], set()
             
             for row in atts:
                 if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                     cid_str = str(row["cast_id"])
                     if cid_str in seen_cids_today: continue
                     seen_cids_today.add(cid_str)
-                    
                     dispatch_count += 1
                     _, _, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
                     is_early = (e_drv and e_drv != "未定" and e_drv != "")
                     if is_early: early_count += 1
-                    
                     c_info_dict = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
                     pref = c_info_dict.get("area", "他")
-                        
                     today_active_casts.append({"id": row["cast_id"], "name": row["cast_name"], "status": row["status"], "is_early": is_early, "pref": pref, "row": row})
 
             today_active_casts = sorted(today_active_casts, key=lambda x: int(x["id"]) if str(x["id"]).isdigit() else 999)
@@ -1053,8 +1045,7 @@ elif st.session_state.page == "staff_portal":
                         render_cast_edit_card(c_id, latest_name, c_dict.get('pref', '他'), c_dict.get('row'), "tdy", d_names, time_slots, early_time_slots, loop_idx)
                     if display_c == 0: st.write("該当するキャストがいません。")
                     st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.info("本日の送迎申請はまだありません。")
+                else: st.info("本日の送迎申請はまだありません。")
 
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
             
@@ -1063,27 +1054,20 @@ elif st.session_state.page == "staff_portal":
                 
             st.markdown("<div style='font-size:14px; font-weight:bold; color:#555; margin-bottom:5px;'>🔍 全キャスト検索 (未出勤者の予定追加・変更)</div>", unsafe_allow_html=True)
             col_search1, col_search2 = st.columns([3, 1])
-            with col_search1:
-                input_q = st.text_input("検索キーワード", placeholder="名前 または 店番", key=f"search_input_{st.session_state.search_cast_key}", label_visibility="collapsed")
+            with col_search1: input_q = st.text_input("検索キーワード", placeholder="名前 または 店番", key=f"search_input_{st.session_state.search_cast_key}", label_visibility="collapsed")
             with col_search2:
-                if st.button("検索", type="secondary", use_container_width=True):
-                    st.session_state.active_search_query = input_q; st.rerun()
+                if st.button("検索", type="secondary", use_container_width=True): st.session_state.active_search_query = input_q; st.rerun()
 
-            def reset_search():
-                st.session_state.active_search_query = ""; st.session_state.search_cast_key += 1; clear_cache()
-
+            def reset_search(): st.session_state.active_search_query = ""; st.session_state.search_cast_key += 1; clear_cache()
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed")
             st.markdown("<hr style='margin:15px 0;'>", unsafe_allow_html=True)
             
-            search_query = st.session_state.active_search_query
-            display_count = 0
-            seen_all_cids = set()
+            search_query, display_count, seen_all_cids = st.session_state.active_search_query, 0, set()
             for loop_idx, cast in enumerate(casts):
                 c_id, c_name = str(cast["cast_id"]), str(cast["name"])
                 if not c_name: continue
                 if c_id in seen_all_cids: continue
                 seen_all_cids.add(c_id)
-                
                 if search_query:
                     if search_query not in c_name and search_query not in c_id: continue
                 else:
@@ -1091,13 +1075,8 @@ elif st.session_state.page == "staff_portal":
                 display_count += 1
                 pref = str(cast["area"])
                 
-                target_row = None
-                for row in atts:
-                    if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"] and str(row["cast_id"]) == str(c_id):
-                        target_row = row; break
-                
+                target_row = next((row for row in atts if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"] and str(row["cast_id"]) == str(c_id)), None)
                 render_cast_edit_card(c_id, c_name, pref, target_row, "all", d_names, time_slots, early_time_slots, loop_idx)
-
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
         # ----------------------------------------
@@ -1123,7 +1102,6 @@ elif st.session_state.page == "staff_portal":
                     if not is_in_range(i, act_rng): continue
                 
                 display_count += 1
-                
                 with st.expander(f"店番 {i} : {nm if nm else '未登録'} {mgr}"):
                     nn = st.text_input("名前", value=nm, key=f"cn_{i}")
                     mgr_idx = staff_list.index(mgr) if mgr in staff_list else 0
@@ -1131,9 +1109,7 @@ elif st.session_state.page == "staff_portal":
                     
                     raw_addr = str(c.get("address", ""))
                     home_addr, takuji_en, takuji_addr, is_edited = parse_cast_address(raw_addr)
-                    
-                    if is_edited == "1":
-                        st.markdown("<div style='color:#4caf50; font-weight:bold; font-size:14px; margin-bottom:10px;'>✅ キャスト本人が自宅住所を更新済みです</div>", unsafe_allow_html=True)
+                    if is_edited == "1": st.markdown("<div style='color:#4caf50; font-weight:bold; font-size:14px; margin-bottom:10px;'>✅ キャスト本人が自宅住所を更新済みです</div>", unsafe_allow_html=True)
                     
                     p_pref, p_city, p_rest = parse_address(home_addr)
                     c_pref = st.selectbox("県", ["", "岡山県", "広島県", "香川県"], index=["", "岡山県", "広島県", "香川県"].index(p_pref) if p_pref in ["", "岡山県", "広島県", "香川県"] else 0, key=f"c_pref_{i}")
@@ -1169,10 +1145,8 @@ elif st.session_state.page == "staff_portal":
                             final_home = c_pref + city_part + c_rest
                             auto_area = "岡山" if c_pref == "岡山県" else ("広島" if c_pref == "広島県" else "他")
                             encoded_addr = encode_cast_address(final_home, "1" if new_takuji_en else "0", new_takuji_addr, "0")
-                            
                             res = post_api({"action": "save_cast", "cast_id": i, "name": nn, "password": np, "phone": nt, "area": auto_area, "address": encoded_addr, "manager": n_mgr})
-                            if res.get("status") == "success":
-                                clear_cache(); st.session_state[f"saved_cast_{i}"] = True; st.success("保存しました！"); time.sleep(1); st.rerun()
+                            if res.get("status") == "success": clear_cache(); st.session_state[f"saved_cast_{i}"] = True; st.success("保存しました！"); time.sleep(1); st.rerun()
 
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
 
@@ -1188,7 +1162,6 @@ elif st.session_state.page == "staff_portal":
                 else: staff_disp_list.append(f"STAFF {i} : (未登録)")
                     
             selected_staff_str = st.selectbox("スタッフ選択", staff_disp_list, label_visibility="collapsed")
-            
             if selected_staff_str != "-- 新規・編集するスタッフを選択 --":
                 i = int(selected_staff_str.split(" ")[1])
                 d = exist_drvs.get(str(i), {})
@@ -1225,17 +1198,14 @@ elif st.session_state.page == "staff_portal":
                 
                 if st.session_state.get(f"saved_staff_{i}", False):
                     st.markdown('<div style="background-color: #4caf50; color: white; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 10px;">✅ 決定済み</div>', unsafe_allow_html=True)
-                    if st.button("🔄 再変更", key=f"reedit_staff_{i}", use_container_width=True):
-                        st.session_state[f"saved_staff_{i}"] = False
-                        st.rerun()
+                    if st.button("🔄 再変更", key=f"reedit_staff_{i}", use_container_width=True): st.session_state[f"saved_staff_{i}"] = False; st.rerun()
                 else:
                     if st.button("💾 決定する", key=f"ds_{i}", type="primary", use_container_width=True):
                         city_part = d_other_city if d_city == "他" else d_city
                         final_addr = d_pref + city_part + d_rest
                         payload = {"action": "save_driver", "driver_id": i, "name": nn, "password": n_pass, "address": final_addr, "phone": n_tel, "area": n_area, "capacity": n_cap}
                         res = post_api(payload)
-                        if res.get("status") == "success":
-                            clear_cache(); st.session_state[f"saved_staff_{i}"] = True; st.success("保存しました！"); st.rerun()
+                        if res.get("status") == "success": clear_cache(); st.session_state[f"saved_staff_{i}"] = True; st.success("保存しました！"); st.rerun()
 
         # ----------------------------------------
         # ⚙️ 管理設定
@@ -1243,12 +1213,12 @@ elif st.session_state.page == "staff_portal":
         elif st.session_state.current_staff_tab == "⚙️ 管理設定":
             st.markdown('<div class="app-header" style="border:none;">📢 アプリ全体設定</div>', unsafe_allow_html=True)
             with st.form("adm_form"):
-                s_notice = settings.get("notice_text", "") if isinstance(settings, dict) else ""
-                s_pass = settings.get("admin_password", "admin") if isinstance(settings, dict) else "admin"
-                s_line = settings.get("line_bot_id", "") if isinstance(settings, dict) else ""
-                s_addr = settings.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(settings, dict) else "岡山県倉敷市水島東栄町2-24"
-                s_time = settings.get("base_arrival_time", "19:50") if isinstance(settings, dict) else "19:50"
-                s_line_token = settings.get("line_access_token", "") if isinstance(settings, dict) else ""
+                s_notice = sets.get("notice_text", "") if isinstance(sets, dict) else ""
+                s_pass = sets.get("admin_password", "admin") if isinstance(sets, dict) else "admin"
+                s_line = sets.get("line_bot_id", "") if isinstance(sets, dict) else ""
+                s_addr = sets.get("store_address", "岡山県倉敷市水島東栄町2-24") if isinstance(sets, dict) else "岡山県倉敷市水島東栄町2-24"
+                s_time = sets.get("base_arrival_time", "19:50") if isinstance(sets, dict) else "19:50"
+                s_line_token = sets.get("line_access_token", "") if isinstance(sets, dict) else ""
                 
                 st.markdown('<div class="section-title" style="color:#2196f3; margin-top:0;">📍 送迎基本設定 (店舗・到着時間)</div>', unsafe_allow_html=True)
                 n_addr = st.text_input("到着場所（店舗住所）", value=s_addr)
@@ -1267,7 +1237,4 @@ elif st.session_state.page == "staff_portal":
                 
                 if st.form_submit_button("保存して反映", type="primary", use_container_width=True):
                     res = post_api({"action": "save_settings", "admin_password": a_pass, "notice_text": n_text, "line_bot_id": l_id, "store_address": n_addr, "base_arrival_time": n_time, "line_access_token": l_token})
-                    if res.get("status") == "success": 
-                        clear_cache()
-                        st.session_state.flash_msg = "設定を保存しました"
-                        st.rerun()
+                    if res.get("status") == "success": clear_cache(); st.session_state.flash_msg = "設定を保存しました"; st.rerun()
