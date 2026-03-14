@@ -7,8 +7,8 @@ import re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 システムバージョン管理
-APP_VERSION = 20
+# 🌟 システムバージョン管理（Googleの並べ替え完全排除・絶対固定ルート版）
+APP_VERSION = 21
 
 GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -53,7 +53,6 @@ def get_db_data():
 
 def clear_cache(): st.cache_data.clear()
 
-# 🌟 LINE通知システム（詳細ルート版＆キャスト版を追加）
 def notify_staff_via_line(token, target_id, staff_name, cast_name, pickup_time):
     if not token or not target_id: return
     url = 'https://api.line.me/v2/bot/message/push'
@@ -84,11 +83,13 @@ def notify_driver_route_via_line(token, target_id, driver_name, route_details, d
 @st.cache_data(ttl=3600)
 def get_rss_news(url, limit=5):
     try:
-        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers, timeout=10)
         res.raise_for_status()
         root = ET.fromstring(res.content)
         return [{"title": item.find('title').text, "link": item.find('link').text} for item in root.findall('.//item')[:limit]]
-    except: return [{"title": "情報の取得に失敗しました", "link": "#"}]
+    except:
+        return [{"title": "情報の取得に失敗しました", "link": "#"}]
 
 def parse_cast_address(raw_address):
     if not raw_address: return "", "0", "", "0"
@@ -155,6 +156,9 @@ def get_route_line_and_distance(addr_str):
         if not any(x in addr for x in ["水島", "連島", "広江", "児島", "下津井"]): line = "Route_C_North"
     return line, dist
 
+# ==========================================
+# 🤖 AIルート計算（Googleの並べ替え完全排除・実距離に基づく絶対固定ルート化）
+# ==========================================
 @st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
     api_error_msg = ""
@@ -162,38 +166,41 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
     if not tasks_list: return tasks_list, 0, [], 0, ""
 
     valid_tasks = []
+    # 🌟 抜本的改革：Googleに丸投げせず、店舗からの実際の距離(m)を個別に正確に測定する
     for t in tasks_list:
         addr = clean_address_for_map(t.get("actual_pickup", ""))
         if addr:
-            _, dist_score = get_route_line_and_distance(addr)
-            t["dist_score"] = dist_score
+            try:
+                dist_res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={
+                    "origin": store_addr,
+                    "destination": addr,
+                    "key": api_key,
+                    "language": "ja"
+                }, timeout=5).json()
+                if dist_res.get("status") == "OK":
+                    t["real_dist_from_store"] = dist_res["routes"][0]["legs"][0]["distance"]["value"]
+                else:
+                    _, backup_dist = get_route_line_and_distance(addr)
+                    t["real_dist_from_store"] = backup_dist * 1000
+            except:
+                _, backup_dist = get_route_line_and_distance(addr)
+                t["real_dist_from_store"] = backup_dist * 1000
+            
             valid_tasks.append(t)
 
     invalid_tasks = [t for t in tasks_list if not clean_address_for_map(t.get("actual_pickup", ""))]
-    if is_return: valid_tasks.sort(key=lambda x: x["dist_score"])
-    else: valid_tasks.sort(key=lambda x: x["dist_score"], reverse=True)
+    
+    # 🌟 絶対的な約束：Googleの最適化を無視し、「実際の距離が遠い順」に絶対に固定する
+    if is_return: 
+        valid_tasks.sort(key=lambda x: x.get("real_dist_from_store", 0)) # 帰りは店舗に近い順
+    else: 
+        valid_tasks.sort(key=lambda x: x.get("real_dist_from_store", 0), reverse=True) # 迎えは店舗から遠い順
 
     ordered_valid_tasks = valid_tasks
     total_sec, first_leg_sec, full_path = 0, 0, []
     actual_dest = dest_addr if dest_addr else store_addr
 
-    if len(ordered_valid_tasks) > 1:
-        # 🚨 修正：Googleによる勝手な並べ替え（optimize:true）を完全撤廃し、大前提の遠い順を絶対固定する
-        wp_str = "|".join([clean_address_for_map(t["actual_pickup"]) for t in ordered_valid_tasks])
-        try:
-            res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={"origin": store_addr, "destination": actual_dest, "waypoints": wp_str, "key": api_key, "language": "ja"}, timeout=10).json()
-            if res.get("status") == "OK":
-                wp_order = res["routes"][0]["waypoint_order"]
-                ordered_valid_tasks = [valid_tasks[i] for i in wp_order]
-                legs = res["routes"][0]["legs"]
-                dur_to_first = legs[0]["duration"]["value"]
-                dur_from_last = legs[-1]["duration"]["value"]
-                if (store_addr == actual_dest) or ("倉敷市水島東栄町" in actual_dest):
-                    if is_return and dur_to_first > dur_from_last: ordered_valid_tasks.reverse()
-                    elif not is_return and dur_to_first < dur_from_last: ordered_valid_tasks.reverse()
-            else: api_error_msg = f"{res.get('status')} - {res.get('error_message', '')}"
-        except Exception as e: api_error_msg = f"通信例外: {str(e)}"
-
+    # 🚨 optimize:true を完全に削除し、指定した遠方順の通りにしか計算させない
     final_ordered_tasks = ordered_valid_tasks + invalid_tasks
 
     for t in final_ordered_tasks:
@@ -208,6 +215,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
         if is_return and actual_dest == store_addr: 
             calc_dest = full_path[-1]; calc_waypoints = full_path[:-1]
         
+        # 順番を固定したまま、移動時間のみを正確に取得する
         params = {"origin": calc_origin, "destination": calc_dest, "key": api_key, "language": "ja", "departure_time": "now"}
         if calc_waypoints: params["waypoints"] = "|".join(calc_waypoints)
             
@@ -220,11 +228,10 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             else:
                 if not api_error_msg: api_error_msg = f"{res2.get('status')} - {res2.get('error_message', '')}"
         except Exception as e:
-            if not api_error_msg: api_error_msg = f"通信例外2: {str(e)}"
+            if not api_error_msg: api_error_msg = f"通信例外: {str(e)}"
             
     return final_ordered_tasks, total_sec, full_path, first_leg_sec, api_error_msg
 
-# 🌟 手動変更時に自動でルート・時間を再計算する関数 (16:00制限追加)
 def recalc_route_for_driver(drv_name, trigger_line_notify=False):
     if not drv_name or drv_name == "未定": return None, None
     db_f = get_db_data(); casts_f = db_f.get("casts", []); drvs_f = db_f.get("drivers", [])
@@ -233,7 +240,7 @@ def recalc_route_for_driver(drv_name, trigger_line_notify=False):
     
     drv_tasks = [r for r in atts_f if r["target_date"] == "当日" and r["status"] in ["出勤", "自走"] and r.get("driver_name") == drv_name]
     valid_drv_tasks = []
-    for r in drv_tasks:
+    for r in dr_tasks:
         if r["status"] == "自走": continue
         _, _, _, e_drv, _, _, _ = parse_attendance_memo(r.get("memo", ""))
         if e_drv and e_drv != "未定" and e_drv != "": continue
@@ -1165,7 +1172,7 @@ elif st.session_state.page == "staff_portal":
                         latest_name = c_info.get("name", t['cast_name']) if c_info else t['cast_name']
                         tasks_with_details.append({"task": t, "c_info": c_info, "actual_pickup": actual_pickup, "stopover": stopover, "use_takuji": use_takuji, "takuji_addr": takuji_addr, "memo_text": memo_text, "c_name": latest_name, "c_id": t['cast_id'], "is_edited": is_edited, "home_addr": home_addr, "temp_addr": temp_addr, "takuji_cancel": takuji_cancel})
 
-                    st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 遠いキャストから拾いながらお店に戻る最短ルートです</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>", unsafe_allow_html=True)
                     ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
 
                     if not GOOGLE_MAPS_API_KEY: st.markdown("<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>", unsafe_allow_html=True)
@@ -1183,7 +1190,10 @@ elif st.session_state.page == "staff_portal":
                         if earliest_m != 9999:
                             dep_m = earliest_m - (first_leg_sec // 60) - 5
                             if dep_m < 0: dep_m += 24 * 60
+                            
+                            # 🌟 管理者表示用UIの「16:00出発制限」
                             if 6 * 60 < dep_m < 16 * 60: dep_m = 16 * 60
+                            
                             st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {(dep_m // 60) % 24:02d}:{dep_m % 60:02d}</div>", unsafe_allow_html=True)
 
                 if full_path:
