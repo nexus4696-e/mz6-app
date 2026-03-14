@@ -7,8 +7,8 @@ import re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 システムバージョン管理（Tkinterデザイン採用版）
-APP_VERSION = 5
+# 🌟 システムバージョン管理（店長デザイン完全採用版）
+APP_VERSION = 9
 
 # 🌟 抜本的解決：ご提示いただいたAPIキーを直接プログラムに埋め込み
 GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
@@ -388,7 +388,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                     st.rerun()
 
 # ==========================================
-# 🎨 CSS設計 (🌟 Tkinterデザインの完全移植)
+# 🎨 CSS設計
 # ==========================================
 st.markdown("""
 <style>
@@ -396,8 +396,8 @@ st.markdown("""
     html, body, [data-testid="stAppViewContainer"], .block-container {
         max-width: 100vw !important;
         overflow-x: hidden !important;
-        background-color: #f1f1f1 !important; /* Tkinter指定の背景色 */
-        font-family: Helvetica, sans-serif !important;
+        background-color: #f0f2f5;
+        font-family: -apple-system, sans-serif;
     }
     .block-container {
         padding-top: 1rem;
@@ -521,96 +521,6 @@ st.markdown("""
         margin-bottom: 15px;
         border-radius: 0 0 5px 5px;
     }
-
-    /* ========================================= */
-    /* 🌟 店長のTkinterデザイン完全再現 (Topページ用) */
-    /* ========================================= */
-    
-    /* タイトル（影付き） */
-    .tk-title-main {
-        font-family: Helvetica, sans-serif;
-        font-size: 26px;
-        font-weight: bold;
-        color: white;
-        text-shadow: 2px 2px 0px black;
-        text-align: center;
-        margin-top: 30px;
-        margin-bottom: 0px;
-    }
-    .tk-title-sub {
-        font-family: Helvetica, sans-serif;
-        font-size: 22px;
-        font-weight: bold;
-        color: white;
-        text-shadow: 2px 2px 0px black;
-        text-align: center;
-        margin-top: 10px;
-        margin-bottom: 40px;
-    }
-
-    /* スタッフボタン（ブルーバック） */
-    div.element-container:has(button p:contains("スタッフ業務開始")) button {
-        background-color: #2b7ed1 !important;
-        color: white !important;
-        font-family: Helvetica, sans-serif !important;
-        font-size: 16px !important;
-        font-weight: bold !important;
-        height: 80px !important;
-        border-radius: 4px !important;
-        border: none !important;
-    }
-    
-    /* キャストボタン（ピンク/赤） */
-    div.element-container:has(button p:contains("キャスト専用ログイン")) button {
-        background-color: #e21b5a !important;
-        color: white !important;
-        font-family: Helvetica, sans-serif !important;
-        font-size: 16px !important;
-        font-weight: bold !important;
-        height: 80px !important;
-        border-radius: 4px !important;
-        border: none !important;
-    }
-    
-    /* 管理者ボタン（灰色・目立たなく） */
-    div.element-container:has(button p:contains("管理者ログイン")) button {
-        background-color: transparent !important;
-        color: #555555 !important;
-        font-family: Helvetica, sans-serif !important;
-        font-size: 12px !important;
-        border: none !important;
-        box-shadow: none !important;
-        margin-top: 20px !important;
-    }
-
-    /* 下部ステータスバー */
-    .tk-bottom-bar {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 40px;
-        background-color: #333333;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        z-index: 99999;
-    }
-    .tk-bottom-left {
-        color: white;
-        font-size: 14px;
-        margin-left: 20px;
-        font-family: sans-serif;
-    }
-    .tk-bottom-right {
-        background-color: #1cc7c9;
-        color: white;
-        font-size: 14px;
-        padding: 5px 10px;
-        margin-right: 20px;
-        font-family: sans-serif;
-        border-radius: 3px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -635,43 +545,116 @@ def render_top_nav():
     st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
 # ==========================================
-# 🏠 ホーム画面 (🌟 Tkinterデザインの適用)
+# 🏠 ホーム画面 (🌟 ver9: 店長提供のStreamlitデザインを完全採用)
 # ==========================================
 if st.session_state.page == "home":
-    
-    # 🌟 店長ご指定のタイトル（影付き文字）
-    st.markdown('<p class="tk-title-main">六本木水島本店</p>', unsafe_allow_html=True)
-    st.markdown('<p class="tk-title-sub">送迎管理</p>', unsafe_allow_html=True)
-    
-    st.write("") # スペース調整
-    
-    # 🌟 店長ご指定のボタン配置
-    col1, col2, col3 = st.columns([1, 8, 1])
-    with col2:
-        if st.button("スタッフ業務開始\n（配車・送迎設定）", use_container_width=True):
-            st.session_state.page = "staff_login"
-            st.rerun()
-            
-        st.write("")
-        
-        if st.button("キャスト専用ログイン\n（予定の申請）", use_container_width=True):
-            st.session_state.page = "cast_login"
-            st.rerun()
-            
-        st.write("")
-        st.write("")
-        
-        if st.button("管理者ログイン（設定・リセット）", use_container_width=True):
-            st.session_state.page = "admin_login"
-            st.rerun()
-            
-        st.markdown(f"<div style='text-align:center; color:#999; font-size:12px; margin-top:20px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
-
-    # 🌟 店長ご指定の下部バー
     st.markdown("""
-    <div class="tk-bottom-bar">
-        <div class="tk-bottom-left">サーバー同期完了</div>
-        <div class="tk-bottom-right">最新データ受信</div>
+    <style>
+    /* ===== 店長指定のCSS（Streamlit用にボタン選択を最適化） ===== */
+    .title1 {
+        text-align:center;
+        font-size:40px;
+        font-weight:bold;
+        color:white;
+        text-shadow:2px 2px 5px black;
+    }
+
+    .title2 {
+        text-align:center;
+        font-size:32px;
+        font-weight:bold;
+        color:white;
+        text-shadow:2px 2px 5px black;
+        margin-bottom:40px;
+    }
+
+    div.element-container:has(button p:contains("スタッフ業務開始")),
+    div.element-container:has(button p:contains("キャスト専用ログイン")),
+    div.element-container:has(button p:contains("管理者ログイン")) {
+        margin-bottom: 20px;
+    }
+
+    div.element-container:has(button p:contains("スタッフ業務開始")) button,
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button,
+    div.element-container:has(button p:contains("管理者ログイン")) button {
+        width: 100% !important;
+        height: 80px !important;
+        border-radius: 10px !important;
+        border: none !important;
+    }
+    
+    div.element-container:has(button p:contains("スタッフ業務開始")) button p,
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button p,
+    div.element-container:has(button p:contains("管理者ログイン")) button p {
+        font-size: 20px !important;
+        font-weight: bold !important;
+        white-space: pre-wrap !important;
+        margin: 0 !important;
+    }
+
+    /* スタッフボタンの色 */
+    div.element-container:has(button p:contains("スタッフ業務開始")) button {
+        background-color: #2b7ed1 !important;
+    }
+    div.element-container:has(button p:contains("スタッフ業務開始")) button p {
+        color: white !important;
+    }
+
+    /* キャストボタンの色 */
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button {
+        background-color: #e21b5a !important;
+    }
+    div.element-container:has(button p:contains("キャスト専用ログイン")) button p {
+        color: white !important;
+    }
+
+    /* 管理者ボタンの色 */
+    div.element-container:has(button p:contains("管理者ログイン")) button {
+        background-color: #dddddd !important;
+    }
+    div.element-container:has(button p:contains("管理者ログイン")) button p {
+        color: #333333 !important;
+    }
+
+    /* フッター */
+    .footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: #333;
+        color: white;
+        padding: 10px;
+        text-align: center;
+        z-index: 9999;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ===== タイトル =====
+    st.markdown('<div class="title1">六本木水島本店</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title2">送迎管理</div>', unsafe_allow_html=True)
+
+    # ===== ボタン =====
+    if st.button("スタッフ業務開始\n（配車・送迎設定）", use_container_width=True):
+        st.session_state.page = "staff_login"
+        st.rerun()
+
+    if st.button("キャスト専用ログイン\n（予定の申請）", use_container_width=True):
+        st.session_state.page = "cast_login"
+        st.rerun()
+
+    if st.button("管理者ログイン（設定・リセット）", use_container_width=True):
+        st.session_state.page = "admin_login"
+        st.rerun()
+
+    # フッターに被らないように余白を持たせてバージョン表示
+    st.markdown(f"<div style='text-align:center; color:#999; font-size:12px; margin-top:20px; padding-bottom:60px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
+
+    # ===== フッター =====
+    st.markdown("""
+    <div class="footer">
+    サーバー同期完了　　　最新データ受信
     </div>
     """, unsafe_allow_html=True)
 
@@ -912,7 +895,7 @@ elif st.session_state.page == "staff_portal":
                 act_pickup = temp_addr if temp_addr else home_addr
                 use_tkj = (takuji_en == "1" and tc == "0" and takuji_addr != "")
                 latest_name = c_info.get("name", t['cast_name'])
-                my_early.append({"task": t, "early_time": e_time, "early_dest": e_dest, "c_name": latest_name, "c_id": t['cast_id'], "actual_pickup": act_pickup, "use_takuji": use_tkj, "takuji_addr": takuji_addr, "stopover": so})
+                my_early.append({"task": t, "early_time": e_time, "early_dest": e_dest, "c_name": latest_name, "c_id": t['cast_id'], "actual_pickup": act_pickup, "use_tkj": use_tkj, "takuji_addr": takuji_addr, "stopover": so})
 
         if my_early:
             early_html = '<div style="background:#fff3e0; border:2px solid #ff9800; padding:10px; border-radius:8px; margin-bottom:15px;"><h4 style="color:#e65100; margin-top:0; margin-bottom:5px;">🌅 本日の早便</h4>'
@@ -1041,33 +1024,33 @@ elif st.session_state.page == "staff_portal":
                         "home_addr": home_addr, "temp_addr": temp_addr, "takuji_cancel": takuji_cancel
                     })
 
-                list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
-                
-                ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
-
-                if not GOOGLE_MAPS_API_KEY:
-                    list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>"
-                elif first_leg_sec == 0:
-                    err_text = api_err if api_err else "距離が取得できないため出発時間を計算できません"
-                    list_html += f"<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー:<br>{err_text}</div>"
-                else:
-                    earliest_m = 9999
-                    for t in ordered_tasks:
-                        try:
-                            pt = str(t['task'].get('pickup_time', ''))
-                            if pt and pt != '未定':
-                                h, m = map(int, pt.split(':'))
-                                earliest_m = min(earliest_m, h * 60 + m)
-                        except Exception:
-                            pass
+                    list_html += "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 一番遠いキャストから拾いながらお店に戻る最短ルートです</div>"
                     
-                    if earliest_m != 9999:
-                        dep_m = earliest_m - (first_leg_sec // 60)
-                        if dep_m < 0: dep_m += 24 * 60
-                        dep_h = (dep_m // 60) % 24
-                        dep_min = dep_m % 60
-                        dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
-                        list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (AI逆算): {dep_time_str}</div>"
+                    ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False)
+
+                    if not GOOGLE_MAPS_API_KEY:
+                        list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>"
+                    elif first_leg_sec == 0:
+                        err_text = api_err if api_err else "距離が取得できないため出発時間を計算できません"
+                        list_html += f"<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 Google API通信エラー:<br>{err_text}</div>"
+                    else:
+                        earliest_m = 9999
+                        for t in ordered_tasks:
+                            try:
+                                pt = str(t['task'].get('pickup_time', ''))
+                                if pt and pt != '未定':
+                                    h, m = map(int, pt.split(':'))
+                                    earliest_m = min(earliest_m, h * 60 + m)
+                            except Exception:
+                                pass
+                        
+                        if earliest_m != 9999:
+                            dep_m = earliest_m - (first_leg_sec // 60) - 5
+                            if dep_m < 0: dep_m += 24 * 60
+                            dep_h = (dep_m // 60) % 24
+                            dep_min = dep_m % 60
+                            dep_time_str = f"{dep_h:02d}:{dep_min:02d}"
+                            list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (AI逆算): {dep_time_str}</div>"
 
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr)
@@ -1249,7 +1232,7 @@ elif st.session_state.page == "staff_portal":
                                                 assigned_d = d_name; break
                                     if not assigned_d and uc["dist"] <= 10:
                                         for d_name in sorted_drv_names:
-                                            stat = drv_specs[d_name]
+                                            stat = d_name
                                             if len(stat["assigned_rows"]) < stat["capacity"]:
                                                 assigned_d = d_name; break
                                     if not assigned_d:
@@ -1844,7 +1827,7 @@ elif st.session_state.page == "staff_portal":
                                 pass
                         
                         if earliest_m != 9999:
-                            dep_m = earliest_m - (first_leg_sec // 60)
+                            dep_m = earliest_m - (first_leg_sec // 60) - 5
                             if dep_m < 0: dep_m += 24 * 60
                             dep_h = (dep_m // 60) % 24
                             dep_min = dep_m % 60
@@ -2151,4 +2134,7 @@ elif st.session_state.page == "staff_portal":
             for d_name, t_rows in my_tasks.items():
                 t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
                 
-                list_html = f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 {d_name} (STAFF)</div><div style="background:#ffffff; border:1px solid #ccc; border-top:
+                list_html = f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 {d_name} (STAFF)</div><div style="background:#ffffff; border:1px solid #ccc; border-top:none; padding:10px; border-radius:0 0 5px 5px; margin-bottom:20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">'
+                
+                if is_return_time:
+                    list_html += f'<div style="background:#e3f2fd; border:2px solid #2196f3; padding
