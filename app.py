@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import streamlit as st
 
 # 🌟 システムバージョン管理
-APP_VERSION = 16
+APP_VERSION = 17
 
 GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
@@ -139,6 +139,9 @@ def get_route_line_and_distance(addr_str):
         if not any(x in addr for x in ["水島", "連島", "広江", "児島", "下津井"]): line = "Route_C_North"
     return line, dist
 
+# ==========================================
+# 🤖 AIルート計算（絶対的な約束：乗車時間最小化）
+# ==========================================
 @st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False):
     api_error_msg = ""
@@ -154,28 +157,15 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             valid_tasks.append(t)
 
     invalid_tasks = [t for t in tasks_list if not clean_address_for_map(t.get("actual_pickup", ""))]
+    
+    # 🌟 絶対条件：キャストの乗車時間を最小限にするため、遠い順（帰りは近い順）に完全に固定する
     if is_return: valid_tasks.sort(key=lambda x: x["dist_score"])
     else: valid_tasks.sort(key=lambda x: x["dist_score"], reverse=True)
 
+    # 🚨 Google APIによる勝手なルート変更（optimize:true）を完全撤廃し、固定順序を絶対化
     ordered_valid_tasks = valid_tasks
     total_sec, first_leg_sec, full_path = 0, 0, []
     actual_dest = dest_addr if dest_addr else store_addr
-
-    if len(ordered_valid_tasks) > 1:
-        wp_str = "optimize:true|" + "|".join([clean_address_for_map(t["actual_pickup"]) for t in ordered_valid_tasks])
-        try:
-            res = requests.get("https://maps.googleapis.com/maps/api/directions/json", params={"origin": store_addr, "destination": actual_dest, "waypoints": wp_str, "key": api_key, "language": "ja"}, timeout=10).json()
-            if res.get("status") == "OK":
-                wp_order = res["routes"][0]["waypoint_order"]
-                ordered_valid_tasks = [valid_tasks[i] for i in wp_order]
-                legs = res["routes"][0]["legs"]
-                dur_to_first = legs[0]["duration"]["value"]
-                dur_from_last = legs[-1]["duration"]["value"]
-                if (store_addr == actual_dest) or ("倉敷市水島東栄町" in actual_dest):
-                    if is_return and dur_to_first > dur_from_last: ordered_valid_tasks.reverse()
-                    elif not is_return and dur_to_first < dur_from_last: ordered_valid_tasks.reverse()
-            else: api_error_msg = f"{res.get('status')} - {res.get('error_message', '')}"
-        except Exception as e: api_error_msg = f"通信例外: {str(e)}"
 
     final_ordered_tasks = ordered_valid_tasks + invalid_tasks
 
@@ -192,6 +182,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             calc_dest = full_path[-1]
             calc_waypoints = full_path[:-1]
         
+        # 順番を固定したまま、移動時間のみを正確に取得する
         params = {"origin": calc_origin, "destination": calc_dest, "key": api_key, "language": "ja", "departure_time": "now"}
         if calc_waypoints: params["waypoints"] = "|".join(calc_waypoints)
             
@@ -204,11 +195,10 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             else:
                 if not api_error_msg: api_error_msg = f"{res2.get('status')} - {res2.get('error_message', '')}"
         except Exception as e:
-            if not api_error_msg: api_error_msg = f"通信例外2: {str(e)}"
+            if not api_error_msg: api_error_msg = f"通信例外: {str(e)}"
             
     return final_ordered_tasks, total_sec, full_path, first_leg_sec, api_error_msg
 
-# 🌟 手動変更時に自動でルート・時間を再計算する関数
 def recalc_route_for_driver(drv_name):
     if not drv_name or drv_name == "未定": return
     db_f = get_db_data()
@@ -382,7 +372,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 🌟 トップ画面のみ適用される専用CSS（ご指示のデザインとサイズ調整）
+# 🌟 トップ画面のみ適用される専用CSS
 if st.session_state.page == "home":
     st.markdown("""
     <style>
@@ -403,7 +393,6 @@ if st.session_state.page == "home":
             margin: 0 !important;
             color: white !important;
         }
-
         div.element-container:has(#btn-staff-marker) + div.element-container button { background-color: #64b5f6 !important; }
         div.element-container:has(#btn-cast-marker) + div.element-container button { background-color: #f48fb1 !important; }
         
@@ -605,7 +594,8 @@ elif st.session_state.page == "cast_mypage":
         memo_tmr, ta_tmr, tc_tmr, ex_e_drv_tmr, ex_e_time_tmr, ex_e_dest_tmr, so_tmr = parse_attendance_memo(m_tmr.get("memo","")) if m_tmr else ("", "", "0", "", "", "", "")
         col_tm1, col_tm2 = st.columns([3, 1.2]) 
         with col_tm1:
-            s_tmr = st.radio("明日の状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(m_tmr["status"] if m_tmr else "未定"), horizontal=True, key="tmr_s")
+            s_tmr = radio_idx = ["未定", "出勤", "自走", "休み"].index(m_tmr["status"] if m_tmr else "未定")
+            s_tmr = st.radio("明日の状態", ["未定", "出勤", "自走", "休み"], index=radio_idx, horizontal=True, key="tmr_s")
             m_tmr_txt = st.text_input("明日の備考", value=memo_tmr, key="tmr_m")
             req_stopover_tmr = st.checkbox("🍽️ 明日途中で寄る場所がある", value=bool(so_tmr))
             so_a_tmr = st.text_input("明日の立ち寄り先", value=so_tmr) if req_stopover_tmr else ""
@@ -672,11 +662,9 @@ elif st.session_state.page == "staff_portal":
     current_hour, current_minute = dt.hour, dt.minute
     is_return_time = (current_hour > 20) or (current_hour == 20 and current_minute >= 30) or (current_hour <= 7)
 
-    # 🚙 ドライバー専用画面
     if not is_adm:
         st.markdown(f'<div class="date-header">{today_str} ({dow})</div>', unsafe_allow_html=True)
         
-        # 🌟 スタッフ名と当日のみの乗車定員変更UIを追加
         d_info = next((d for d in drvs if str(d.get("name")) == staff_n), None)
         if d_info:
             cur_cap = int(d_info.get("capacity", 4)) if str(d_info.get("capacity", "4")).isdigit() else 4
@@ -826,7 +814,6 @@ elif st.session_state.page == "staff_portal":
                 if st.button("🟢 乗車完了", key=f"brd_{active['cast_id']}", use_container_width=True):
                     post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "board"}); clear_cache(); st.rerun()
 
-    # 👑 管理者フル機能
     else:
         current_tab = st.session_state.get("current_staff_tab", "① 配車リスト")
         try: tab_index = tabs_list.index(current_tab)
@@ -1023,7 +1010,6 @@ elif st.session_state.page == "staff_portal":
                 unassigned_html += '</div>'
                 st.markdown(unassigned_html, unsafe_allow_html=True)
             
-            # 🌟 新機能：コース番号と入れ替え・個別移動の完全版
             course_idx = 1
             for d_name, t_rows in my_tasks.items():
                 t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
@@ -1083,14 +1069,13 @@ elif st.session_state.page == "staff_portal":
                             except Exception: pass
                         
                         if earliest_m != 9999:
-                            dep_m = earliest_m - (first_leg_sec // 60) - 5
+                            dep_m = earliest_m - (first_leg_sec // 60)
                             if dep_m < 0: dep_m += 24 * 60
                             st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (AI逆算): {(dep_m // 60) % 24:02d}:{dep_m % 60:02d}</div>", unsafe_allow_html=True)
 
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr); dest_enc = urllib.parse.quote(store_addr); wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
-                    map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&waypoints={wp_enc}"
-                    st.markdown(f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
+                    st.markdown(f"<a href='https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&waypoints={wp_enc}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
                 
                 for idx, t in enumerate(ordered_tasks):
                     addr_display = f"🏠 迎え: {t['home_addr'] if t['home_addr'] else '未登録'}"
@@ -1102,9 +1087,8 @@ elif st.session_state.page == "staff_portal":
                 
                 st.markdown('</div>', unsafe_allow_html=True)
                 
-                # 🌟 変更UI：コース丸ごと入れ替え（スワップ）と個別移動
                 with st.expander(f"🔄 コース{course_idx}（{d_name}班）の担当・キャスト変更"):
-                    st.markdown("**◆ このコースの担当ドライバーを入れ替え**")
+                    st.markdown("**◆ このコースの担当ドライバーを完全入れ替え**")
                     col_drv1, col_drv2 = st.columns([3, 1])
                     with col_drv1: new_course_drv = st.selectbox("新しい担当スタッフ", ["--"] + d_names, key=f"course_drv_{d_name}_{course_idx}", label_visibility="collapsed")
                     with col_drv2:
@@ -1322,81 +1306,3 @@ elif st.session_state.page == "staff_portal":
                 if st.form_submit_button("保存して反映", type="primary", use_container_width=True):
                     res = post_api({"action": "save_settings", "admin_password": a_pass, "notice_text": n_text, "line_bot_id": l_id, "store_address": n_addr, "base_arrival_time": n_time, "line_access_token": l_token})
                     if res.get("status") == "success": clear_cache(); st.session_state.flash_msg = "設定を保存しました"; st.rerun()
-
-# 🎨 全体CSS設計
-st.markdown("""
-<style>
-    html, body, [data-testid="stAppViewContainer"], .block-container { max-width: 100vw !important; overflow-x: hidden !important; background-color: #f0f2f5; font-family: -apple-system, sans-serif; }
-    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 800px !important; }
-    header, footer, [data-testid="stToolbar"] { display: none !important; }
-    .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
-    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
-    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div { border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #ffffff !important; }
-    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; margin-bottom: -10px !important; }
-    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] { width: 33.33% !important; flex: 1 1 0% !important; min-width: 0 !important; }
-    div.element-container:has(#nav-marker) + div.element-container button { padding: 0 !important; font-size: 13px !important; width: 100% !important; white-space: nowrap !important; min-height: 36px !important; height: 36px !important; font-weight: bold !important; border: 1px solid #999 !important; background-color: #f8f9fa !important; }
-    div[role="radiogroup"] { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding-bottom: 10px; }
-    div[role="radiogroup"] > label { background-color: #ffffff !important; border: 2px solid #ccc !important; border-radius: 8px !important; padding: 10px 5px !important; margin: 0 !important; flex: 1 1 auto !important; min-width: 60px !important; justify-content: center !important; box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important; }
-    div[role="radiogroup"] > label[data-checked="true"] { background-color: #e3f2fd !important; border-color: #2196f3 !important; }
-    div[role="radiogroup"] > label[data-checked="true"] p { color: #1565c0 !important; font-weight: 900 !important; }
-    div[role="radiogroup"] > label p { font-size: 15px !important; font-weight: bold !important; margin: 0 !important; }
-    div[role="radiogroup"] > label div[data-baseweb="radio"] > div { display: none !important; }
-    @keyframes pulse-red { 0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); } 70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); } 100% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); } }
-    div.element-container:has(button p:contains("📍 到着を記録")) button { animation: pulse-red 1.5s infinite !important; border: 2px solid white !important; color: white !important; font-size: 18px !important; }
-    .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
-    .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
-
-    .title1 { text-align:center; font-size:40px; font-weight:bold; color:white; text-shadow:2px 2px 5px black; margin-top: 30px; }
-    .title2 { text-align:center; font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 5px black; margin-bottom:40px; }
-    .footer { position: fixed; bottom: 0; left: 0; width: 100%; background: #333; color: white; padding: 10px; text-align: center; z-index: 9999; }
-</style>
-""", unsafe_allow_html=True)
-
-# 🌟 トップ画面のみ適用される専用CSS（店長ご指定のデザインとサイズ調整）
-if st.session_state.page == "home":
-    st.markdown("""
-    <style>
-        /* 🌟 スタッフとキャストのボタン：高さを2/3(80px)にし、黒枠で囲む */
-        div.element-container:has(#btn-staff-marker) + div.element-container button,
-        div.element-container:has(#btn-cast-marker) + div.element-container button {
-            width: 100% !important;
-            height: 80px !important;
-            border-radius: 15px !important;
-            border: 2px solid black !important;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-            margin-bottom: 10px !important;
-        }
-        div.element-container:has(#btn-staff-marker) + div.element-container button p,
-        div.element-container:has(#btn-cast-marker) + div.element-container button p {
-            font-size: 20px !important;
-            font-weight: bold !important;
-            white-space: pre-wrap !important;
-            margin: 0 !important;
-            color: white !important;
-        }
-
-        /* 🌟 スタッフボタン：薄いブルー */
-        div.element-container:has(#btn-staff-marker) + div.element-container button { background-color: #64b5f6 !important; }
-        
-        /* 🌟 キャストボタン：薄いピンク */
-        div.element-container:has(#btn-cast-marker) + div.element-container button { background-color: #f48fb1 !important; }
-        
-        /* 🌟 管理者ボタン：高さを1/3(40px)にし、薄いグレーに変更 */
-        div.element-container:has(#btn-admin-marker) + div.element-container button {
-            width: 100% !important;
-            height: 40px !important;
-            border-radius: 15px !important;
-            border: none !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-            margin-bottom: 10px !important;
-            background-color: #e0e0e0 !important;
-        }
-        div.element-container:has(#btn-admin-marker) + div.element-container button p {
-            font-size: 16px !important;
-            font-weight: bold !important;
-            white-space: pre-wrap !important;
-            margin: 0 !important;
-            color: #333333 !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
