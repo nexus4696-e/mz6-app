@@ -3,8 +3,8 @@ import xml.etree.ElementTree as ET
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 🌟 システムバージョン管理（エラー完全撲滅・安全分割検証済版）
-APP_VERSION = 32
+# 🌟 システムバージョン管理（スマホホーム画面アイコン強制反映版）
+APP_VERSION = 33
 
 try: GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
 except: GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
@@ -14,21 +14,32 @@ dt = datetime.datetime.now(JST)
 today_str = dt.strftime("%m月%d日")
 dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 
-st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
+# 🌟 Streamlitの根幹設定で、初期の「車絵文字」を「指定画像URL」に直接変更！
+st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="http://mute-imari-1089.catfood.jp/mz6/28470.jpg", layout="centered", initial_sidebar_state="collapsed")
 st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
 
-# 🌟 スマホのホーム画面追加用に、アイコンとタイトルを強制的に上書き
+# 🌟 スマホが迷わないよう、初期アイコンを全消去して強制上書きする強力なスクリプト
 components.html(
     """
     <script>
         const doc = window.parent.document;
+        const iconUrl = "http://mute-imari-1089.catfood.jp/mz6/28470.jpg";
         doc.title = "六本木 水島本店";
-        let icon = doc.querySelector("link[rel='shortcut icon']");
-        if (!icon) { icon = doc.createElement("link"); icon.rel = "shortcut icon"; doc.head.appendChild(icon); }
-        icon.href = "http://mute-imari-1089.catfood.jp/mz6/28470.jpg";
-        let appleIcon = doc.querySelector("link[rel='apple-touch-icon']");
-        if (!appleIcon) { appleIcon = doc.createElement("link"); appleIcon.rel = "apple-touch-icon"; doc.head.appendChild(appleIcon); }
-        appleIcon.href = "http://mute-imari-1089.catfood.jp/mz6/28470.jpg";
+        
+        // 既存のアイコン設定をすべて削除して競合を防ぐ
+        doc.querySelectorAll("link[rel*='icon']").forEach(e => e.remove());
+        
+        // iOS/Androidホーム画面用のアイコンを強制追加
+        let appleIcon = doc.createElement("link");
+        appleIcon.rel = "apple-touch-icon";
+        appleIcon.href = iconUrl;
+        doc.head.appendChild(appleIcon);
+        
+        // 通常のファビコンも強制追加
+        let favIcon = doc.createElement("link");
+        favIcon.rel = "icon";
+        favIcon.href = iconUrl;
+        doc.head.appendChild(favIcon);
     </script>
     """,
     height=0, width=0,
@@ -468,11 +479,6 @@ if st.session_state.page == "home":
     </style>
     """, unsafe_allow_html=True)
 
-time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
-early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
-MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
-NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
-
 def render_top_nav():
     if st.session_state.page == "home": return
     st.markdown('<div id="nav-marker" style="display:none;"></div>', unsafe_allow_html=True)
@@ -673,6 +679,7 @@ elif st.session_state.page == "staff_portal":
     current_hour, current_minute = dt.hour, dt.minute
     is_return_time = (current_hour > 20) or (current_hour == 20 and current_minute >= 30) or (current_hour <= 7)
 
+    # 🚙 ドライバー専用画面
     if not is_adm:
         st.markdown(f'<div class="date-header">{today_str} ({dow})</div>', unsafe_allow_html=True)
         d_info = next((d for d in drvs if str(d.get("name")) == staff_n), None)
@@ -796,9 +803,10 @@ elif st.session_state.page == "staff_portal":
                     tasks_with_details.append({"task": t, "c_info": c_info, "actual_pickup": actual_pickup, "stopover": stopover, "use_takuji": use_takuji, "takuji_addr": takuji_addr, "memo_text": memo_text, "c_name": c_info.get("name", t['cast_name']), "c_id": t['cast_id'], "is_edited": is_edited, "home_addr": home_addr, "temp_addr": temp_addr, "takuji_cancel": takuji_cancel})
 
                 tasks_with_details.sort(key=lambda x: x["task"].get("pickup_time", "99:99"))
+                st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 遠いキャストから拾いながらお店に戻る最短ルートです</div>", unsafe_allow_html=True)
                 ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False, manual_order=True)
 
-                list_html = list_html_head + "<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 遠いキャストから拾いながらお店に戻る最短ルートです</div>"
+                list_html = list_html_head
                 if not GOOGLE_MAPS_API_KEY: list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>"
                 else:
                     earliest_m = 9999
@@ -817,8 +825,7 @@ elif st.session_state.page == "staff_portal":
 
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr); dest_enc = urllib.parse.quote(store_addr); wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
-                    list_html += f"<a href='https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&waypoints={wp_enc}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
-                
+                    list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
                 for idx, t in enumerate(ordered_tasks):
                     addr_display = f"🏠 迎え: {t['home_addr'] if t['home_addr'] else '未登録'}"
                     if t["temp_addr"]: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {t['temp_addr']}</span>"
@@ -843,6 +850,7 @@ elif st.session_state.page == "staff_portal":
                 if st.button("🟢 乗車完了", key=f"brd_{active['cast_id']}", use_container_width=True):
                     post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "board"}); clear_cache(); st.rerun()
 
+    # 👑 管理者フル機能
     else:
         tabs_list_admin = ["① 配車リスト", "② キャスト送迎", "③ キャスト登録", "④ STAFF設定", "⚙️ 管理設定"]
         current_tab = st.session_state.get("current_staff_tab", "① 配車リスト")
@@ -937,7 +945,8 @@ elif st.session_state.page == "staff_portal":
                                     if d["name"] in early_drivers: continue
                                     try: cap = int(d.get("capacity", 4))
                                     except: cap = 4
-                                    drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None, "area": d.get("area", "全般")}
+                                    area = d.get("area", "全般")
+                                    drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None, "area": area}
 
                             for uc in all_today_casts:
                                 if uc["row"]["status"] == "自走": continue
