@@ -2,8 +2,8 @@ import os, requests, datetime, urllib.parse, time, re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 システムバージョン管理（通信エラー400完全撲滅・URLバグ修正版）
-APP_VERSION = 40
+# 🌟 システムバージョン管理（全構文エラー・URLバグ完全修正版）
+APP_VERSION = 41
 
 try: GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
 except: GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
@@ -649,7 +649,7 @@ elif st.session_state.page == "staff_portal":
         d_info = next((d for d in drvs if str(d.get("name")) == staff_n), None)
         if d_info:
             bot_id = str(sets.get("line_bot_id", "")); line_uid = d_info.get("line_user_id", "")
-            if line_uid: st.markdown('<div style="text-align:center; background:#e8f5e9; color:#2e7d32; padding:8px; border-radius:8px; margin-bottom:15px; font-size:13px; font-weight:bold;">✅ LINE通知連携済み</div>', unsafe_allow_html=True)
+            if line_uid: st.markdown('<div style="text-align:center; background:#e8f5e9; color:#2e7d32; padding:8px; border-radius:8px; margin-bottom:15px; font-weight:bold; font-size:14px; border:2px solid #4caf50;">✅ LINE通知連携済み</div>', unsafe_allow_html=True)
             else: st.markdown(f'<div style="text-align:center; background:#ffebee; color:#d32f2f; padding:8px; border-radius:8px; margin-bottom:15px; font-size:13px;"><b>⚠️ LINE未連携</b><br>お店のLINE({bot_id})に<br>合言葉「<b>STAFF{staff_n}</b>」と送信してください。</div>', unsafe_allow_html=True)
             cur_cap = int(d_info.get("capacity", 4)) if str(d_info.get("capacity", "4")).isdigit() else 4
             col_sn1, col_sn2 = st.columns([2, 1])
@@ -748,8 +748,8 @@ elif st.session_state.page == "staff_portal":
                     map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&waypoints={wp_enc}"
                     list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>"
                 for idx, rt in enumerate(ordered_returns):
-                    disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
-                    if rt["use_takuji"]: disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
+                    list_html += f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
+                    if rt["use_takuji"]: list_html += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
                     list_html += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
                 list_html += '</div></div>'
                 st.markdown(list_html, unsafe_allow_html=True)
@@ -773,7 +773,7 @@ elif st.session_state.page == "staff_portal":
                 ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False, manual_order=True)
 
                 list_html = list_html_head
-                if not GOOGLE_MAPS_API_KEY: list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー</div>", unsafe_allow_html=True
+                if not GOOGLE_MAPS_API_KEY: list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>"
                 else:
                     earliest_m = 9999
                     for t in ordered_tasks:
@@ -804,7 +804,7 @@ elif st.session_state.page == "staff_portal":
                     list_html += f"<div style='margin-bottom:8px;'><b>迎え順 {idx+1}： {t['task']['pickup_time']}</b>　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span></div><hr style='margin:5px 0;'>"
                 list_html += '</div>'
                 st.markdown(list_html, unsafe_allow_html=True)
-                render_dispatch_editor(staff_n, 1, t_rows, ordered_tasks, d_names, True)
+                render_dispatch_editor(staff_n, 1, t_rows, ordered_tasks, d_names, False)
 
         my_atts = [r for r in atts if r["target_date"] == "当日" and r["driver_name"] == staff_n and r["status"] == "出勤"]
         active = next((r for r in my_atts if not r.get("boarded_at")), None)
