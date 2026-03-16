@@ -3,8 +3,8 @@ import xml.etree.ElementTree as ET
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 🌟 システムバージョン管理（店舗跨ぎ完全禁止・ドライバー不足警告版）
-APP_VERSION = 35
+# 🌟 システムバージョン管理（エラー完全撲滅・店舗跨ぎ禁止・安全分割版）
+APP_VERSION = 36
 
 try: GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
 except: GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
@@ -14,9 +14,11 @@ dt = datetime.datetime.now(JST)
 today_str = dt.strftime("%m月%d日")
 dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 
+# 🌟 Streamlitの根幹設定
 st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="http://mute-imari-1089.catfood.jp/mz6/28470.jpg", layout="centered", initial_sidebar_state="collapsed")
 st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
 
+# 🌟 スマホのホーム画面アイコン強制反映
 components.html(
     """
     <script>
@@ -288,7 +290,8 @@ def recalc_route_for_driver(drv_name, trigger_line_notify=False, manual_order=Fa
             notify_driver_route_via_line(line_token, stff_id, drv_name, route_details, dep_time_str)
             for rt in route_details: notify_cast_via_line(line_token, rt["cast_line_id"], rt["name"], rt["time"], drv_name)
     return driver_updates, route_details
-    def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots, loop_idx):
+
+def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots, loop_idx):
     key_suffix = f"{c_id}_{prefix_key}_{loop_idx}"
     db_temp = get_db_data(); sets = db_temp.get("settings", {})
     c_info = next((c for c in db_temp.get("casts", []) if str(c["cast_id"]) == str(c_id)), {})
@@ -363,9 +366,6 @@ def recalc_route_for_driver(drv_name, trigger_line_notify=False, manual_order=Fa
                         new_row = next((r for r in db_f.get("attendance", []) if r["target_date"] == "当日" and str(r["cast_id"]) == str(c_id)), None)
                         if new_row:
                             post_api({"action": "update_manual_dispatch", "updates": [{"id": new_row["id"], "driver_name": n_d, "pickup_time": n_t, "status": n_s}]})
-                            if n_d != "未定" and n_d != cur_drv:
-                                stff_id = next((d.get("line_user_id", "") for d in db_f.get("drivers", []) if d["name"] == n_d), "")
-                                notify_staff_via_line(sets.get("line_access_token", ""), stff_id, n_d, latest_name, n_t)
                     st.session_state[f"saved_dispatch_{key_suffix}"] = True
                     st.session_state.active_search_query = ""
                     if "search_cast_key" in st.session_state: st.session_state.search_cast_key += 1
@@ -470,7 +470,6 @@ st.markdown("""
     .footer { position: fixed; bottom: 0; left: 0; width: 100%; background: #333; color: white; padding: 10px; text-align: center; z-index: 9999; }
 </style>
 """, unsafe_allow_html=True)
-
 if st.session_state.page == "home":
     st.markdown("""
     <style>
@@ -768,8 +767,9 @@ elif st.session_state.page == "staff_portal":
                 for idx, rt in enumerate(ordered_returns):
                     disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
                     if rt["use_takuji"]: disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
-                    st.markdown(disp_str + f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>", unsafe_allow_html=True)
-                st.markdown('</div></div>', unsafe_allow_html=True)
+                    list_html += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
+                list_html += '</div></div>'
+                st.markdown(list_html, unsafe_allow_html=True)
                 render_dispatch_editor(staff_n, 1, t_rows, ordered_returns, d_names, False)
 
             else:
@@ -938,10 +938,7 @@ elif st.session_state.page == "staff_portal":
                                 
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) >= stat["capacity"]: continue
-                                    
-                                    # 🌟【店舗跨ぎの完全禁止】すでに違う方角のキャストを乗せている車には絶対に乗せない
                                     if stat["line"] is not None and stat["line"] != c_line: continue
-                                    
                                     if not driver_covers_line(stat["area"], c_line): continue
                                     
                                     score = learning_scores.get(cid, {}).get(d_name, 0) * 5
@@ -1013,8 +1010,6 @@ elif st.session_state.page == "staff_portal":
                                 driver_routes_info[d_name] = {"dep_time": dep_time_str, "route": route_details, "driver_line_id": next((d.get("line_user_id", "") for d in drvs if d["name"] == d_name), "")}
                                 
                             if all_driver_updates: post_api({"action": "update_manual_dispatch", "updates": all_driver_updates})
-                            
-                            # 🌟【未割り当て（送迎不可）の処理】
                             unassigned_updates = [{"id": uc["row"]["id"], "driver_name": "未定", "pickup_time": "未定", "status": uc["row"]["status"]} for uc in all_today_casts if uc["row"]["status"] != "自走" and uc["row"]["id"] not in assigned_ids]
                             if unassigned_updates: post_api({"action": "update_manual_dispatch", "updates": unassigned_updates})
                             
@@ -1041,9 +1036,8 @@ elif st.session_state.page == "staff_portal":
                         if drv not in my_tasks: my_tasks[drv] = []
                         my_tasks[drv].append(row)
             
-            # 🌟 ドライバー不足・送迎不可の警告表示
             if unassigned:
-                unassigned_html = '<div class="warning-box">⚠️ ドライバー不足・ルート制限のため送迎できません</div><div class="warning-content"><div style="font-size:12px; color:#666; margin-bottom:10px;">※店舗を跨ぐ無理な配車を禁止した結果、以下のキャストを乗せる車がありません。稼働ドライバーを追加するか、手動で割り当ててください。</div>'
+                unassigned_html = '<div class="warning-box">⚠️ ドライバー不足で送迎できません</div><div class="warning-content"><div style="font-size:12px; color:#666; margin-bottom:10px;">※ルート制限・定員オーバーのため送迎できません。稼働ドライバーを追加してください。</div>'
                 for u in unassigned:
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(u["cast_id"])), {})
                     latest_name = c_info.get("name", u["cast_name"])
@@ -1181,10 +1175,7 @@ elif st.session_state.page == "staff_portal":
             </div>
             ''', unsafe_allow_html=True)
             
-            # 🌟 出勤キャスト一覧をタップして開く仕様に変更（エラー完全回避のフラット構造）
-            st.markdown(f"<div style='font-size:16px; font-weight:bold; color:#333; margin-bottom:10px; border-bottom: 2px solid #2196f3; padding-bottom: 5px;'>📋 出勤キャストを表示する（{dispatch_count}名）</div>", unsafe_allow_html=True)
-            show_active_casts = st.toggle("出勤キャスト一覧を開く", key="toggle_active_casts")
-            
+            show_active_casts = st.toggle(f"📋 当日の出勤キャストを表示する（{dispatch_count}名）")
             if show_active_casts:
                 if today_active_casts:
                     list_search = st.text_input("🔍 一覧からキャストを絞り込み検索", placeholder="名前 または 店番", key="today_list_search")
@@ -1252,7 +1243,6 @@ elif st.session_state.page == "staff_portal":
                 
                 display_count += 1
                 
-                # 🌟 キャスト登録画面のエラー修正：完全なフラット構造に変更
                 st.markdown(f"<div style='background:#fff; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px;'>", unsafe_allow_html=True)
                 col_title, col_mgr = st.columns([3, 2])
                 with col_title:
