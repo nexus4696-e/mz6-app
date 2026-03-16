@@ -442,9 +442,7 @@ def render_top_nav():
     with c2: 
         if st.button("🔙 戻る"): st.session_state.page = "home"; st.rerun()
     with c3: 
-        if st.button("🚪 ログアウト"): st.session_state.logged_in_cast = st.session_state.logged_in_staff = None; st.session_state.is_admin = False; st.session_state.page = "home"; st.rerun()
-    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
-    st.markdown("""
+        if st.button("🚪 ログアウト"): st.session_state.logged_in_cast = st.sest.markdown("""
 <style>
     html, body, [data-testid="stAppViewContainer"], .block-container { max-width: 100vw !important; overflow-x: hidden !important; background-color: #f0f2f5; font-family: -apple-system, sans-serif; }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 800px !important; }
@@ -1405,4 +1403,6 @@ elif st.session_state.page == "staff_portal":
                 
                 if st.form_submit_button("保存して反映", type="primary", use_container_width=True):
                     res = post_api({"action": "save_settings", "admin_password": a_pass, "notice_text": n_text, "line_bot_id": l_id, "store_address": n_addr, "base_arrival_time": n_time, "line_access_token": l_token})
-                    if res.get("status") == "success": clear_cache(); st.session_state.flash_msg = "設定を保存しました"; st.rerun()
+                    if res.get("status") == "success": clear_cache(); st.session_state.flash_msg = "設定を保存しました"; st.rerun()ssion_state.logged_in_staff = None; st.session_state.is_admin = False; st.session_state.page = "home"; st.rerun()
+            
+    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
