@@ -1,10 +1,9 @@
 import os, requests, datetime, urllib.parse, time, re
 import xml.etree.ElementTree as ET
 import streamlit as st
-import streamlit.components.v1 as components
 
-# 🌟 システムバージョン管理
-APP_VERSION = 30
+# 🌟 システムバージョン管理（インデントエラー完全撲滅・安全分割版）
+APP_VERSION = 31
 
 try: GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
 except: GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
@@ -17,26 +16,11 @@ dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
 st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
 
-# 🌟 スマホのホーム画面追加用に、アイコンとタイトルを強制的に上書きする裏技
-components.html(
-    """
-    <script>
-        const doc = window.parent.document;
-        doc.title = "六本木 水島本店";
-        let icon = doc.querySelector("link[rel='shortcut icon']");
-        if (!icon) { icon = doc.createElement("link"); icon.rel = "shortcut icon"; doc.head.appendChild(icon); }
-        icon.href = "http://mute-imari-1089.catfood.jp/mz6/28470.jpg";
-        let appleIcon = doc.querySelector("link[rel='apple-touch-icon']");
-        if (!appleIcon) { appleIcon = doc.createElement("link"); appleIcon.rel = "apple-touch-icon"; doc.head.appendChild(appleIcon); }
-        appleIcon.href = "http://mute-imari-1089.catfood.jp/mz6/28470.jpg";
-    </script>
-    """,
-    height=0, width=0,
-)
-
 for k in ["page", "logged_in_cast", "logged_in_staff", "is_admin", "selected_staff_for_login", "flash_msg", "current_staff_tab"]:
     if k not in st.session_state: st.session_state[k] = None if k != "page" else "home"
 if "is_admin" not in st.session_state: st.session_state.is_admin = False
+if "current_staff_tab" not in st.session_state or st.session_state.current_staff_tab not in ["① 配車リスト", "② キャスト送迎", "③ キャスト登録", "④ STAFF設定", "⚙️ 管理設定"]:
+    st.session_state.current_staff_tab = "① 配車リスト"
 
 if st.session_state.get("flash_msg"):
     st.toast(st.session_state.flash_msg, icon="✅")
@@ -237,6 +221,7 @@ def recalc_route_for_driver(drv_name, trigger_line_notify=False, manual_order=Fa
         valid_drv_tasks.append({"task": r, "c_info": c_info, "actual_pickup": actual_pickup, "stopover": stopover, "use_takuji": use_takuji, "takuji_addr": takuji_addr, "memo_text": memo_text, "c_name": latest_name, "c_id": r["cast_id"], "dist_score": dst})
     
     if not valid_drv_tasks: return None, None
+    
     if manual_order: valid_drv_tasks.sort(key=lambda x: x["task"].get("pickup_time", "99:99"))
         
     ordered_tasks, total_sec, full_path, first_leg_sec, _ = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr_f, store_addr_f, valid_drv_tasks, is_return=False, manual_order=manual_order)
@@ -283,7 +268,210 @@ def recalc_route_for_driver(drv_name, trigger_line_notify=False, manual_order=Fa
             notify_driver_route_via_line(line_token, stff_id, drv_name, route_details, dep_time_str)
             for rt in route_details: notify_cast_via_line(line_token, rt["cast_line_id"], rt["name"], rt["time"], drv_name)
     return driver_updates, route_details
-    def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots, loop_idx):
+
+def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots, loop_idx):
+    key_suffix = f"{c_id}_{prefix_key}_{loop_idx}"
+    db_temp = get_db_data(); sets = db_temp.get("settings", {})
+    c_info = next((c for c in db_temp.get("casts", []) if str(c["cast_id"]) == str(c_id)), {})
+    
+    latest_name = c_info.get("name", c_name)
+    line_uid = c_info.get("line_user_id", "")
+    mgr_name = c_info.get("manager", "未設定")
+    is_authorized = st.session_state.is_admin or (st.session_state.logged_in_staff == mgr_name)
+
+    if target_row:
+        cur_status = target_row["status"]
+        cur_drv = target_row.get("driver_name", "未定")
+        if not cur_drv: cur_drv = "未定"
+        cur_time = target_row.get("pickup_time", "未定")
+        if not cur_time: cur_time = "未定"
+        memo_text, temp_addr, takuji_cancel, e_drv, e_time, e_dest, stopover = parse_attendance_memo(target_row.get("memo", ""))
+    else:
+        cur_status, cur_drv, cur_time = "未定", "未定", "未定"
+        memo_text, temp_addr, takuji_cancel, e_drv, e_time, e_dest, stopover = "", "", "0", "", "", "", ""
+
+    is_early = (e_drv != "" and e_drv != "未定")
+    title_badge = "🌅 早便" if is_early else ("🚙 送迎" if cur_drv != "未定" else ("🏃 自走" if cur_status == "自走" else ("💤 休み" if cur_status == "休み" else "未定")))
+    
+    with st.expander(f"店番 {c_id} : {latest_name} ({pref}) - {title_badge}"):
+        if is_authorized:
+            st.markdown("<div style='background:#f0f7ff; padding:10px; border-radius:8px; border:1px solid #cce5ff; margin-bottom:10px;'><div style='font-size:12px; font-weight:bold; color:#004085; margin-bottom:5px;'>📱 個別LINE送信</div>", unsafe_allow_html=True)
+            if line_uid:
+                col_l1, col_l2 = st.columns([3, 1])
+                with col_l1: l_msg = st.text_input("メッセージ", key=f"lmsg_{key_suffix}", label_visibility="collapsed")
+                with col_l2:
+                    if st.button("送信", key=f"lbtn_{key_suffix}", use_container_width=True, type="primary"):
+                        if l_msg:
+                            post_api({"action": "update_manual_dispatch", "updates": [{"id": target_row["id"] if target_row else -1, "driver_name": cur_drv, "pickup_time": cur_time, "status": cur_status}]})
+                            st.success("完了")
+            else: st.markdown("<div style='font-size:11px; color:#666;'>⚠️ LINE未連携</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        if st.session_state.get(f"saved_dispatch_{key_suffix}", False):
+            st.markdown('<div style="background-color: #4caf50; color: white; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 10px;">✅ 決定済み</div>', unsafe_allow_html=True)
+            if st.button("🔄 再変更", key=f"reedit_{key_suffix}", use_container_width=True):
+                st.session_state[f"saved_dispatch_{key_suffix}"] = False; st.rerun()
+        else:
+            col1, col2, col3 = st.columns(3)
+            with col1: n_s = st.selectbox("状態", ["未定", "出勤", "自走", "休み"], index=["未定", "出勤", "自走", "休み"].index(cur_status) if cur_status in ["未定", "出勤", "自走", "休み"] else 0, key=f"st_{key_suffix}")
+            with col2: n_d = st.selectbox("ドライバー", ["未定"] + d_names_list, index=(["未定"] + d_names_list).index(cur_drv) if cur_drv in (["未定"] + d_names_list) else 0, key=f"drv_{key_suffix}")
+            with col3: n_t = st.selectbox("時間", ["未定", "AI算出中"] + t_slots, index=(["未定", "AI算出中"] + t_slots).index(cur_time) if cur_time in (["未定", "AI算出中"] + t_slots) else 0, key=f"tm_{key_suffix}")
+            
+            show_details = st.toggle("⚙️ 早便や詳細設定を開く", key=f"toggle_{key_suffix}")
+            if show_details:
+                st.markdown("<div style='background:#fffde7; padding:10px; border-radius:8px;'>", unsafe_allow_html=True)
+                col_e1, col_e2 = st.columns(2)
+                with col_e1: new_ed = st.selectbox("早便ドライバー", ["未定"] + d_names_list, index=(["未定"] + d_names_list).index(e_drv) if e_drv in (["未定"] + d_names_list) else 0, key=f"edrv_{key_suffix}")
+                with col_e2: new_et = st.selectbox("送り先到着時間", e_t_slots, index=e_t_slots.index(e_time) if e_time in e_t_slots else 0, key=f"etm_{key_suffix}")
+                new_eds = st.text_input("早便送迎先", value=e_dest, key=f"edest_{key_suffix}")
+                new_so = st.text_input("立ち寄り先 (同伴等)", value=stopover, key=f"so_{key_suffix}")
+                new_ta = st.text_input("迎え先変更", value=temp_addr, key=f"ta_{key_suffix}")
+                new_memo = st.text_input("備考", value=new_memo, key=f"mm_{key_suffix}")
+                new_tc = st.checkbox("本日託児キャンセル", value=(takuji_cancel == "1"), key=f"tc_{key_suffix}")
+                st.markdown("</div>", unsafe_allow_html=True)
+            else: new_ed, new_et, new_eds, new_so, new_ta, new_memo, new_tc = e_drv, e_time, e_dest, stopover, temp_addr, memo_text, (takuji_cancel == "1")
+
+            if st.button("💾 決定する", key=f"btn_upd_{key_suffix}", type="primary", use_container_width=True):
+                if n_s in ["未定", "休み"]: n_d, n_t, new_ed, new_et, new_eds = "未定", "未定", "未定", "未定", ""
+                enc_m = encode_attendance_memo(new_memo, new_ta, ("1" if new_tc else "0"), new_ed, new_et, new_eds, new_so)
+                if n_s in ["未定", "休み"]: post_api({"action": "cancel_dispatch", "cast_id": c_id})
+                res = post_api({"action": "save_attendance", "records": [{"cast_id": c_id, "cast_name": latest_name, "area": pref, "status": n_s, "memo": enc_m, "target_date": "当日"}]})
+                
+                if res.get("status") == "success":
+                    time.sleep(0.5); clear_cache()
+                    if n_s not in ["未定", "休み"]:
+                        db_f = get_db_data()
+                        new_row = next((r for r in db_f.get("attendance", []) if r["target_date"] == "当日" and str(r["cast_id"]) == str(c_id)), None)
+                        if new_row:
+                            post_api({"action": "update_manual_dispatch", "updates": [{"id": new_row["id"], "driver_name": n_d, "pickup_time": n_t, "status": n_s}]})
+                            if n_d != "未定" and n_d != cur_drv:
+                                stff_id = next((d.get("line_user_id", "") for d in db_f.get("drivers", []) if d["name"] == n_d), "")
+                                notify_staff_via_line(sets.get("line_access_token", ""), stff_id, n_d, latest_name, n_t)
+                    
+                    st.session_state[f"saved_dispatch_{key_suffix}"] = True
+                    st.session_state.active_search_query = ""
+                    if "search_cast_key" in st.session_state: st.session_state.search_cast_key += 1
+                    st.session_state.flash_msg = f"{latest_name} 更新完了"
+                    st.rerun()
+
+def render_dispatch_editor(d_name, course_idx, t_rows, active_ordered, drv_names, is_adm):
+    with st.expander(f"🔄 コース{course_idx}（{d_name}班）の順序入替・担当変更"):
+        st.markdown("**◆ 迎え順の変更 / 欠勤(外す)**")
+        for idx, t in enumerate(active_ordered):
+            task_row = t.get("task", {})
+            if not task_row: continue
+            c_name, c_id = t["c_name"], t["c_id"]
+            c_info, memo_txt = t.get("c_info", {}), t.get("memo_text", "")
+            
+            c1, c2, c3, c4 = st.columns([5, 1.5, 1.5, 1.5])
+            with c1: st.write(f"{idx+1}. {c_name}")
+            with c2:
+                if idx > 0 and st.button("▲", key=f"up_{d_name}_{course_idx}_{idx}_{c_id}"):
+                    pt1, pt2 = task_row.get("pickup_time", "99:99"), active_ordered[idx-1]["task"].get("pickup_time", "99:99")
+                    if pt1 == pt2: pt2 = "99:98"
+                    post_api({"action": "update_manual_dispatch", "updates": [{"id": task_row["id"], "driver_name": d_name, "pickup_time": pt2, "status": task_row["status"]}, {"id": active_ordered[idx-1]["task"]["id"], "driver_name": d_name, "pickup_time": pt1, "status": active_ordered[idx-1]["task"]["status"]}]})
+                    time.sleep(0.5); clear_cache(); recalc_route_for_driver(d_name, trigger_line_notify=True, manual_order=True); clear_cache(); st.rerun()
+            with c3:
+                if idx < len(active_ordered) - 1 and st.button("▼", key=f"dn_{d_name}_{course_idx}_{idx}_{c_id}"):
+                    pt1, pt2 = task_row.get("pickup_time", "99:99"), active_ordered[idx+1]["task"].get("pickup_time", "99:99")
+                    if pt1 == pt2: pt2 = "99:98"
+                    post_api({"action": "update_manual_dispatch", "updates": [{"id": task_row["id"], "driver_name": d_name, "pickup_time": pt2, "status": task_row["status"]}, {"id": active_ordered[idx+1]["task"]["id"], "driver_name": d_name, "pickup_time": pt1, "status": active_ordered[idx+1]["task"]["status"]}]})
+                    time.sleep(0.5); clear_cache(); recalc_route_for_driver(d_name, trigger_line_notify=True, manual_order=True); clear_cache(); st.rerun()
+            with c4:
+                if st.button("🗑️", key=f"del_{d_name}_{course_idx}_{idx}_{c_id}"):
+                    post_api({"action": "save_attendance", "records": [{"cast_id": c_id, "cast_name": c_name, "area": c_info.get("area","他"), "status": "休み", "memo": encode_attendance_memo(memo_txt, "", "0"), "target_date": "当日"}]})
+                    post_api({"action": "cancel_dispatch", "cast_id": c_id})
+                    time.sleep(0.5); clear_cache(); recalc_route_for_driver(d_name, trigger_line_notify=True, manual_order=True); clear_cache(); st.rerun()
+        
+        if is_adm:
+            st.markdown("<hr style='margin:10px 0;'>**◆ コース担当の完全入替**", unsafe_allow_html=True)
+            c_drv1, c_drv2 = st.columns([3, 1])
+            with c_drv1: new_course_drv = st.selectbox("新しい担当", ["--"] + drv_names, key=f"cdrv_{d_name}_{course_idx}", label_visibility="collapsed")
+            with c_drv2:
+                if st.button("入替", key=f"btn_cdrv_{d_name}_{course_idx}", use_container_width=True) and new_course_drv != "--" and new_course_drv != d_name:
+                    db_f = get_db_data(); atts_f = db_f.get("attendance", [])
+                    updates = []
+                    for r in atts_f:
+                        if r["target_date"] == "当日" and r["status"] in ["出勤", "自走"]:
+                            if r.get("driver_name") == d_name: updates.append({"id": r["id"], "driver_name": new_course_drv, "pickup_time": "未定", "status": r["status"]})
+                            elif r.get("driver_name") == new_course_drv: updates.append({"id": r["id"], "driver_name": d_name, "pickup_time": "未定", "status": r["status"]})
+                    if updates:
+                        post_api({"action": "update_manual_dispatch", "updates": updates})
+                        time.sleep(0.5); clear_cache(); recalc_route_for_driver(d_name, trigger_line_notify=True, manual_order=False); recalc_route_for_driver(new_course_drv, trigger_line_notify=True, manual_order=False); clear_cache(); st.rerun()
+            
+            st.markdown("<hr style='margin:10px 0;'>**◆ 個別キャスト移動**", unsafe_allow_html=True)
+            for t in t_rows:
+                db_t = get_db_data()
+                c_inf = next((c for c in db_t.get("casts", []) if str(c["cast_id"]) == str(t["cast_id"])), {})
+                l_name = c_inf.get("name", t['cast_name'])
+                col_i1, col_i2 = st.columns([3, 1])
+                with col_i1: new_ind_drv = st.selectbox(f"{l_name}", ["--", "未定"] + drv_names, key=f"idrv_{t['id']}_{course_idx}")
+                with col_i2:
+                    st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+                    if st.button("移動", key=f"bind_{t['id']}_{course_idx}", use_container_width=True) and new_ind_drv != "--" and new_ind_drv != d_name:
+                        post_api({"action": "update_manual_dispatch", "updates": [{"id": t["id"], "driver_name": new_ind_drv, "pickup_time": "未定", "status": t.get("status")}]})
+                        time.sleep(0.5); clear_cache(); recalc_route_for_driver(d_name, trigger_line_notify=True, manual_order=False)
+                        if new_ind_drv != "未定": recalc_route_for_driver(new_ind_drv, trigger_line_notify=True, manual_order=False)
+                        clear_cache(); st.rerun()
+
+# 🎨 全体CSS設計
+st.markdown("""
+<style>
+    html, body, [data-testid="stAppViewContainer"], .block-container { max-width: 100vw !important; overflow-x: hidden !important; background-color: #f0f2f5; font-family: -apple-system, sans-serif; }
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 800px !important; }
+    header, footer, [data-testid="stToolbar"] { display: none !important; }
+    .app-header { border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 20px; font-weight: bold; }
+    .date-header { text-align: center; margin-bottom: 15px; padding: 10px; background: #fff; border: 2px solid #333; border-radius: 8px; font-size: 24px; font-weight: 900; color: #e91e63; }
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div { border: 2px solid #000000 !important; border-radius: 6px !important; background-color: #ffffff !important; }
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; gap: 5px !important; margin-bottom: -10px !important; }
+    div.element-container:has(#nav-marker) + div.element-container > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] { width: 33.33% !important; flex: 1 1 0% !important; min-width: 0 !important; }
+    div.element-container:has(#nav-marker) + div.element-container button { padding: 0 !important; font-size: 13px !important; width: 100% !important; white-space: nowrap !important; min-height: 36px !important; height: 36px !important; font-weight: bold !important; border: 1px solid #999 !important; background-color: #f8f9fa !important; }
+    div[role="radiogroup"] { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding-bottom: 10px; }
+    div[role="radiogroup"] > label { background-color: #ffffff !important; border: 2px solid #ccc !important; border-radius: 8px !important; padding: 10px 5px !important; margin: 0 !important; flex: 1 1 auto !important; min-width: 60px !important; justify-content: center !important; box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important; }
+    div[role="radiogroup"] > label[data-checked="true"] { background-color: #e3f2fd !important; border-color: #2196f3 !important; }
+    div[role="radiogroup"] > label[data-checked="true"] p { color: #1565c0 !important; font-weight: 900 !important; }
+    div[role="radiogroup"] > label p { font-size: 15px !important; font-weight: bold !important; margin: 0 !important; }
+    div[role="radiogroup"] > label div[data-baseweb="radio"] > div { display: none !important; }
+    @keyframes pulse-red { 0% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7); } 70% { background-color: #cc0000; box-shadow: 0 0 0 15px rgba(255, 77, 77, 0); } 100% { background-color: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); } }
+    div.element-container:has(button p:contains("📍 到着を記録")) button { animation: pulse-red 1.5s infinite !important; border: 2px solid white !important; color: white !important; font-size: 18px !important; }
+    .warning-box { background: #f44336; color: white; padding: 10px; font-weight: bold; border-radius: 5px 5px 0 0; }
+    .warning-content { background: #ffebee; border-left: 4px solid #d32f2f; padding: 10px; margin-bottom: 15px; border-radius: 0 0 5px 5px; }
+    .title1 { text-align:center; font-size:40px; font-weight:bold; color:white; text-shadow:2px 2px 5px black; margin-top: 30px; }
+    .title2 { text-align:center; font-size:32px; font-weight:bold; color:white; text-shadow:2px 2px 5px black; margin-bottom:40px; }
+    .footer { position: fixed; bottom: 0; left: 0; width: 100%; background: #333; color: white; padding: 10px; text-align: center; z-index: 9999; }
+</style>
+""", unsafe_allow_html=True)
+
+if st.session_state.page == "home":
+    st.markdown("""
+    <style>
+        div.element-container:has(#btn-staff-marker) + div.element-container button,
+        div.element-container:has(#btn-cast-marker) + div.element-container button { width: 100% !important; height: 80px !important; border-radius: 15px !important; border: 2px solid black !important; box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important; margin-bottom: 10px !important; }
+        div.element-container:has(#btn-staff-marker) + div.element-container button p,
+        div.element-container:has(#btn-cast-marker) + div.element-container button p { font-size: 20px !important; font-weight: bold !important; white-space: pre-wrap !important; margin: 0 !important; color: white !important; }
+        div.element-container:has(#btn-staff-marker) + div.element-container button { background-color: #64b5f6 !important; }
+        div.element-container:has(#btn-cast-marker) + div.element-container button { background-color: #f48fb1 !important; }
+        div.element-container:has(#btn-admin-marker) + div.element-container button { width: 100% !important; height: 40px !important; border-radius: 15px !important; border: none !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; margin-bottom: 10px !important; background-color: #e0e0e0 !important; }
+        div.element-container:has(#btn-admin-marker) + div.element-container button p { font-size: 16px !important; font-weight: bold !important; white-space: pre-wrap !important; margin: 0 !important; color: #333333 !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+time_slots = [f"{h}:{m:02d}" for h in range(17, 27) for m in range(0, 60, 10)]
+early_time_slots = [f"{h}:{m:02d}" for h in range(14, 21) for m in range(0, 60, 10)]
+MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
+NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
+
+def render_top_nav():
+    if st.session_state.page == "home": return
+    st.markdown('<div id="nav-marker" style="display:none;"></div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1: 
+        if st.button("🏠 ホーム"): st.session_state.page = "home"; st.rerun()
+    with c2: 
+        if st.button("🔙 戻る"): st.session_state.page = "home"; st.rerun()
+    with c3: 
+        if st.button("🚪 ログアウト"): st.session_state.logged_in_cast = st.session_state.logged_in_staff = None; st.session_state.is_admin = False; st.session_state.page = "home"; st.rerun()
+    st.madef render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_list, t_slots, e_t_slots, loop_idx):
     key_suffix = f"{c_id}_{prefix_key}_{loop_idx}"
     db_temp = get_db_data(); sets = db_temp.get("settings", {})
     c_info = next((c for c in db_temp.get("casts", []) if str(c["cast_id"]) == str(c_id)), {})
@@ -1371,4 +1559,5 @@ elif st.session_state.page == "staff_portal":
                 
                 if st.form_submit_button("保存して反映", type="primary", use_container_width=True):
                     res = post_api({"action": "save_settings", "admin_password": a_pass, "notice_text": n_text, "line_bot_id": l_id, "store_address": n_addr, "base_arrival_time": n_time, "line_access_token": l_token})
-                    if res.get("status") == "success": clear_cache(); st.session_state.flash_msg = "設定を保存しました"; st.rerun()
+                    if res.get("status") == "success": clear_cache(); st.session_state.flash_msg = "設定を保存しました"; st.rerun()rkdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
+    
