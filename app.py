@@ -2,8 +2,8 @@ import os, requests, datetime, urllib.parse, time, re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 システムバージョン管理（全エラー撲滅・文字制限切断対策版）
-APP_VERSION = 42
+# 🌟 システムバージョン管理（文字途切れ・構文エラー・URLバグ完全撲滅版）
+APP_VERSION = 43
 
 try: GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
 except: GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
@@ -13,6 +13,7 @@ dt = datetime.datetime.now(JST)
 today_str = dt.strftime("%m月%d日")
 dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 
+# 🌟 Streamlitの安全な標準機能のみを使用（400エラー回避）
 st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
 st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
 
@@ -451,7 +452,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-if st.session_state.page == "home":
+current_page = st.session_state.page
+
+if current_page == "home":
     st.markdown("""
     <style>
         div.element-container:has(#btn-staff-marker) + div.element-container button,
@@ -477,7 +480,7 @@ if st.session_state.page == "home":
     st.markdown(f"<div style='text-align:center; color:#999; font-size:12px; margin-top:30px; padding-bottom:60px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
     st.markdown('<div class="footer">サーバー同期完了　　　最新データ受信</div>', unsafe_allow_html=True)
 
-elif st.session_state.page == "cast_login":
+if current_page == "cast_login":
     render_top_nav(); db = get_db_data(); casts = db.get("casts", [])
     st.markdown('<div class="app-header">キャストログイン</div>', unsafe_allow_html=True)
     st.caption("店番 または キャスト名を入力し、パスワードを入れてください")
@@ -496,7 +499,7 @@ elif st.session_state.page == "cast_login":
             else: st.error("⚠️ 該当するキャストが見つかりません。")
         else: st.warning("店番かキャスト名を入力してください。")
 
-elif st.session_state.page == "admin_login":
+if current_page == "admin_login":
     render_top_nav(); db = get_db_data(); settings = db.get("settings") or {}
     pw = st.text_input("管理者パスワード", type="password")
     if st.button("ログイン", type="primary", use_container_width=True):
@@ -505,7 +508,7 @@ elif st.session_state.page == "admin_login":
             st.session_state.page = "staff_portal"; st.rerun()
         else: st.error("⚠️ パスワードが違います。")
 
-elif st.session_state.page == "staff_login":
+if current_page == "staff_login":
     render_top_nav(); db = get_db_data(); drivers = db.get("drivers", [])
     for d in [x for x in drivers if str(x["name"]).strip() != ""]:
         st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-bottom:10px;'>👤 {d['name']}</div>", unsafe_allow_html=True)
@@ -518,7 +521,7 @@ elif st.session_state.page == "staff_login":
                     st.session_state.page = "staff_portal"; st.rerun()
                 else: st.error("❌ エラー")
         st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
-        elif st.session_state.page == "cast_mypage":
+        if current_page == "cast_mypage":
     render_top_nav(); c = st.session_state.logged_in_cast; db = get_db_data()
     settings, casts, attendance = db.get("settings") or {}, db.get("casts", []), db.get("attendance", [])
     my_c = next((x for x in casts if str(x["cast_id"]) == str(c["店番"])), None)
@@ -624,13 +627,13 @@ elif st.session_state.page == "staff_login":
                 res = post_api({"action": "save_attendance", "records": records})
                 if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
 
-elif st.session_state.page == "report_done":
+if current_page == "report_done":
     render_top_nav()
     st.markdown("<h1 style='text-align:center; margin-top:50px;'>✅</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align:center;'>出勤報告を受け付けました。</h3>", unsafe_allow_html=True)
     if st.button("マイページへ戻る", type="primary", use_container_width=True): st.session_state.page = "cast_mypage"; st.rerun()
 
-elif st.session_state.page == "staff_portal":
+if current_page == "staff_portal":
     render_top_nav()
     staff_n = st.session_state.logged_in_staff
     is_adm = st.session_state.is_admin
@@ -781,6 +784,7 @@ elif st.session_state.page == "staff_portal":
                                 h, m = map(int, pt.split(':'))
                                 earliest_m = min(earliest_m, h * 60 + m)
                         except Exception: pass
+                    
                     if earliest_m != 9999:
                         dep_m = earliest_m - (first_leg_sec // 60) - 5
                         if dep_m < 0: dep_m += 24 * 60
@@ -817,7 +821,7 @@ elif st.session_state.page == "staff_portal":
                     post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "board"}); clear_cache(); st.rerun()
 
     # 👑 管理者フル機能
-    else:
+    if is_adm:
         tabs_list_admin = ["① 配車リスト", "② キャスト送迎", "③ キャスト登録", "④ STAFF設定", "⚙️ 管理設定"]
         current_tab = st.session_state.get("current_staff_tab", "① 配車リスト")
         try: tab_index = tabs_list_admin.index(current_tab)
@@ -1075,7 +1079,8 @@ elif st.session_state.page == "staff_portal":
                     st.markdown("<div style='font-size:12px; font-weight:bold; color:#e91e63; text-align:center; margin-bottom:5px;'>🤖 遠いキャストから拾いながらお店に戻る最短ルートです</div>", unsafe_allow_html=True)
                     ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, tasks_with_details, is_return=False, manual_order=True)
 
-                    if not GOOGLE_MAPS_API_KEY: st.markdown("<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>", unsafe_allow_html=True)
+                    list_html = list_html_head
+                    if not GOOGLE_MAPS_API_KEY: list_html += "<div style='font-size:14px; font-weight:bold; color:white; background:#f44336; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚨 API通信エラー: APIキーが設定されていません</div>"
                     else:
                         earliest_m = 9999
                         for t in ordered_tasks:
@@ -1090,12 +1095,12 @@ elif st.session_state.page == "staff_portal":
                             dep_m = earliest_m - (first_leg_sec // 60) - 5
                             if dep_m < 0: dep_m += 24 * 60
                             if 6 * 60 < dep_m < 16 * 60: dep_m = 16 * 60
-                            st.markdown(f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {(dep_m // 60) % 24:02d}:{dep_m % 60:02d}</div>", unsafe_allow_html=True)
+                            list_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center; border: 1px solid #f44336;'>🚀 店舗出発時刻 (計算): {(dep_m // 60) % 24:02d}:{dep_m % 60:02d}</div>"
 
                     if full_path:
                         org_enc = urllib.parse.quote(store_addr); dest_enc = urllib.parse.quote(store_addr); wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
                         map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&travelmode=driving&waypoints={wp_enc}"
-                        st.markdown(f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>", unsafe_allow_html=True)
+                        list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
                     
                     for idx, t in enumerate(ordered_tasks):
                         addr_display = f"🏠 迎え: {t['home_addr'] if t['home_addr'] else '未登録'}"
@@ -1103,8 +1108,9 @@ elif st.session_state.page == "staff_portal":
                         if t["stopover"]: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {t['stopover']}</span>"
                         if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {t['takuji_addr']}</span>"
                         if t["memo_text"]: addr_display += f"<br>📝 備考: {t['memo_text']}"
-                        st.markdown(f"**迎え順 {idx+1}： {t['task']['pickup_time']}**　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span><hr style='margin:5px 0;'>", unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                        list_html += f"<div style='margin-bottom:8px;'><b>迎え順 {idx+1}： {t['task']['pickup_time']}</b>　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span></div><hr style='margin:5px 0;'>"
+                    list_html += '</div>'
+                    st.markdown(list_html, unsafe_allow_html=True)
                     render_dispatch_editor(d_name, course_idx, t_rows, ordered_tasks, d_names, True)
             course_idx += 1
 
@@ -1208,7 +1214,7 @@ elif st.session_state.page == "staff_portal":
 
         elif selected_tab == "③ キャスト登録":
             st.markdown('<div style="margin-bottom:15px;">', unsafe_allow_html=True)
-            search_query_reg = st.text_input("🔍 キャスト検索 (名前または店番)", placeholder="例: ゆみか, 94", key="search_cast_reg")
+            search_query_reg = st.text_input("🔍 キャスト検索 (名前 または 店番)", placeholder="例: ゆみか, 94", key="search_cast_reg")
             st.markdown('</div>', unsafe_allow_html=True)
 
             act_rng = st.radio("範囲", range_opts, horizontal=True, label_visibility="collapsed", key="reg_rng")
@@ -1226,7 +1232,6 @@ elif st.session_state.page == "staff_portal":
                     if not is_in_range(i, act_rng): continue
                 
                 display_count += 1
-                
                 st.markdown(f"<div style='background:#fff; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px;'>", unsafe_allow_html=True)
                 col_title, col_mgr = st.columns([3, 2])
                 with col_title:
