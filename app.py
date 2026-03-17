@@ -2,8 +2,8 @@ import os, requests, datetime, urllib.parse, time, re
 import xml.etree.ElementTree as ET
 import streamlit as st
 
-# 🌟 システムバージョン管理（全エラー完全撲滅・インデント事故防止版）
-APP_VERSION = 49
+# 🌟 システムバージョン管理（インデントエラー完全防止・2分割版）
+APP_VERSION = 50
 
 try: GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
 except: GOOGLE_MAPS_API_KEY = "AIzaSyCRZS-A7Sasucg_lcPksXB7jao8xW6ckeE"
@@ -13,7 +13,7 @@ dt = datetime.datetime.now(JST)
 today_str = dt.strftime("%m月%d日")
 dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 
-# 🌟 Streamlitの安全な標準機能のみを使用（400エラー回避）
+# 🌟 Streamlitの根幹設定
 st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
 st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
 
@@ -139,7 +139,8 @@ def get_route_line_and_distance(addr_str):
     elif any(x in addr for x in ["北区", "中区", "庭瀬", "中庄", "庄", "倉敷"]):
         if not any(x in addr for x in ["水島", "連島", "広江", "児島", "下津井"]): line = "Route_C_North"
     return line, dist
-    @st.cache_data(ttl=120)
+
+@st.cache_data(ttl=120)
 def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_return=False, manual_order=False):
     api_error_msg = ""
     if not api_key: return tasks_list, 0, [], 0, "APIキーが設定されていません"
@@ -449,11 +450,11 @@ def render_top_nav():
 </style>
 """, unsafe_allow_html=True)
 
-page = st.session_state.page
+current_page = st.session_state.page
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 MAP_SEARCH_BTN = """<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"""
 
-if page == "home":
+if current_page == "home":
     st.markdown("""
     <style>
         div.element-container:has(#btn-staff-marker) + div.element-container button, div.element-container:has(#btn-cast-marker) + div.element-container button { width: 100% !important; height: 80px !important; border-radius: 15px !important; border: 2px solid black !important; box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important; margin-bottom: 10px !important; }
@@ -477,7 +478,7 @@ if page == "home":
     st.markdown(f"<div style='text-align:center; color:#999; font-size:12px; margin-top:30px; padding-bottom:60px;'>ver {APP_VERSION}</div>", unsafe_allow_html=True)
     st.markdown('<div class="footer">サーバー同期完了　　　最新データ受信</div>', unsafe_allow_html=True)
 
-if page == "cast_login":
+if current_page == "cast_login":
     render_top_nav(); db = get_db_data(); casts = db.get("casts", [])
     st.markdown('<div class="app-header">キャストログイン</div>', unsafe_allow_html=True)
     st.caption("店番 または キャスト名を入力し、パスワードを入れてください")
@@ -496,7 +497,7 @@ if page == "cast_login":
             else: st.error("⚠️ 該当するキャストが見つかりません。")
         else: st.warning("店番かキャスト名を入力してください。")
 
-if page == "admin_login":
+if current_page == "admin_login":
     render_top_nav(); db = get_db_data(); settings = db.get("settings") or {}
     pw = st.text_input("管理者パスワード", type="password")
     if st.button("ログイン", type="primary", use_container_width=True):
@@ -505,7 +506,7 @@ if page == "admin_login":
             st.session_state.page = "staff_portal"; st.rerun()
         else: st.error("⚠️ パスワードが違います。")
 
-if page == "staff_login":
+if current_page == "staff_login":
     render_top_nav(); db = get_db_data(); drivers = db.get("drivers", [])
     for d in [x for x in drivers if str(x["name"]).strip() != ""]:
         st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-bottom:10px;'>👤 {d['name']}</div>", unsafe_allow_html=True)
@@ -519,7 +520,7 @@ if page == "staff_login":
                 else: st.error("❌ エラー")
         st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
 
-if page == "cast_mypage":
+if current_page == "cast_mypage":
     render_top_nav(); c = st.session_state.logged_in_cast; db = get_db_data()
     settings, casts, attendance = db.get("settings") or {}, db.get("casts", []), db.get("attendance", [])
     my_c = next((x for x in casts if str(x["cast_id"]) == str(c["店番"])), None)
@@ -625,12 +626,13 @@ if page == "cast_mypage":
                 res = post_api({"action": "save_attendance", "records": records})
                 if res.get("status") == "success": clear_cache(); st.session_state.page = "report_done"; st.rerun()
 
-if page == "report_done":
+if current_page == "report_done":
     render_top_nav()
     st.markdown("<h1 style='text-align:center; margin-top:50px;'>✅</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align:center;'>出勤報告を受け付けました。</h3>", unsafe_allow_html=True)
     if st.button("マイページへ戻る", type="primary", use_container_width=True): st.session_state.page = "cast_mypage"; st.rerun()
-        if page == "staff_portal":
+
+if current_page == "staff_portal":
     render_top_nav()
     staff_n = st.session_state.logged_in_staff
     is_adm = st.session_state.is_admin
@@ -747,10 +749,11 @@ if page == "report_done":
                     map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&waypoints={wp_enc}&travelmode=driving"
                     list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>"
                 for idx, rt in enumerate(ordered_returns):
-                    disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
-                    if rt["use_takuji"]: disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
-                    st.markdown(disp_str + f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>", unsafe_allow_html=True)
-                st.markdown('</div></div>', unsafe_allow_html=True)
+                    list_html += f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
+                    if rt["use_takuji"]: list_html += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
+                    list_html += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
+                list_html += '</div></div>'
+                st.markdown(list_html, unsafe_allow_html=True)
                 render_dispatch_editor(staff_n, 1, t_rows, ordered_returns, d_names, False)
 
             else:
@@ -851,7 +854,7 @@ if page == "report_done":
                 early_html += '</div>'
                 st.markdown(early_html, unsafe_allow_html=True)
 
-            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（Google AI連携）</div><div style="font-size:12px; color:#555;">現在手動で割り当てているキャストも一旦リセットし、<br>AIが定員を守りながら「遠い人から拾う」最短ルートを組み直します。</div></div>', unsafe_allow_html=True)
+            st.markdown('<div style="background:#e8f5e9; border: 2px solid #4caf50; padding: 10px; border-radius: 8px; margin-bottom: 10px;"><div style="font-weight:bold; color:#2e7d32; font-size:16px; margin-bottom:5px;">🤖 自動配車（Google AI連携）</div><div style="font-size:12px; color:#555;">現在手立で割り当てているキャストも一旦リセットし、<br>AIが定員を守りながら「遠い人から拾う」最短ルートを組み直します。</div></div>', unsafe_allow_html=True)
             
             if not d_names: st.warning("⚠️ まだドライバーが登録されていません。「④ STAFF設定」タブを開いて登録してください。")
             else:
@@ -920,8 +923,6 @@ if page == "report_done":
                                 
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) >= stat["capacity"]: continue
-                                    
-                                    # 🌟店舗跨ぎの完全禁止：ルート確定済みの車には別ルートのキャストを乗せない
                                     if stat["line"] is not None and stat["line"] != c_line: continue
                                     if not driver_covers_line(stat["area"], c_line): continue
                                     
@@ -994,8 +995,6 @@ if page == "report_done":
                                 driver_routes_info[d_name] = {"dep_time": dep_time_str, "route": route_details, "driver_line_id": next((d.get("line_user_id", "") for d in drvs if d["name"] == d_name), "")}
                                 
                             if all_driver_updates: post_api({"action": "update_manual_dispatch", "updates": all_driver_updates})
-                            
-                            # 🌟 未割り当て（送迎不可）の処理
                             unassigned_updates = [{"id": uc["row"]["id"], "driver_name": "未定", "pickup_time": "未定", "status": uc["row"]["status"]} for uc in all_today_casts if uc["row"]["status"] != "自走" and uc["row"]["id"] not in assigned_ids]
                             if unassigned_updates: post_api({"action": "update_manual_dispatch", "updates": unassigned_updates})
                             
@@ -1022,7 +1021,6 @@ if page == "report_done":
                     if drv not in my_tasks: my_tasks[drv] = []
                     my_tasks[drv].append(row)
         
-        # 🌟 ドライバー不足の警告表示
         if unassigned:
             unassigned_html = '<div class="warning-box">⚠️ ドライバー不足で送迎できません</div><div class="warning-content"><div style="font-size:12px; color:#666; margin-bottom:10px;">※ルート制限・定員オーバーのため送迎できません。稼働ドライバーを追加してください。</div>'
             for u in unassigned:
