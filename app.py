@@ -417,12 +417,7 @@ def render_top_nav():
     c1, c2, c3 = st.columns(3)
     with c1: 
         if st.button("🏠 ホーム"): st.session_state.page = "home"; st.rerun()
-    with c2: 
-        if st.button("🔙 戻る"): st.session_state.page = "home"; st.rerun()
-    with c3: 
-        if st.button("🚪 ログアウト"): st.session_state.logged_in_cast = st.session_state.logged_in_staff = None; st.session_state.is_admin = False; st.session_state.page = "home"; st.rerun()
-    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
-    st.markdown("""
+    with c2: st.markdown("""
 <style>
     html, body, [data-testid="stAppViewContainer"], .block-container { max-width: 100vw !important; overflow-x: hidden !important; background-color: #f0f2f5; font-family: -apple-system, sans-serif; }
     .block-container { padding-top: 1rem; padding-bottom: 5rem; max-width: 800px !important; }
@@ -1241,3 +1236,7 @@ if page == "staff_portal":
                 n_mgr = st.selectbox("担当", staff_list, index=mgr_idx, key=f"cmgr_{i}", label_visibility="collapsed")
                 if n_mgr != mgr:
                     res = post_api({"action": "save_cast", "cast_id":
+        if st.button("🔙 戻る"): st.session_state.page = "home"; st.rerun()
+    with c3: 
+        if st.button("🚪 ログアウト"): st.session_state.logged_in_cast = st.session_state.logged_in_staff = None; st.session_state.is_admin = False; st.session_state.page = "home"; st.rerun()
+    st.markdown("<hr style='margin: 5px 0 15px 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
