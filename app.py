@@ -650,7 +650,7 @@ elif current_page == "report_done":
     render_top_nav()
     st.markdown("<h1 style='text-align:center; margin-top:50px;'>✅</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align:center;'>出勤報告を受け付けました。</h3>", unsafe_allow_html=True)
-if st.buelif current_page == "staff_portal":
+　if st.buelif current_page == "staff_portal":
     render_top_nav()
     staff_n = st.session_state.logged_in_staff
     is_adm = st.session_state.is_admin
