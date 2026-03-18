@@ -1411,7 +1411,6 @@ elif selected_tab == "④ STAFF設定":
                     res = post_api({"action": "save_settings", "admin_password": a_pass, "notice_text": n_text, "line_bot_id": l_id, "store_address": n_addr, "base_arrival_time": n_time, "line_access_token": l_token})
                     if res.get("status") == "success": clear_cache(); st.session_state.flash_msg = "設定を保存しました"; st.rerun()
 
-            # 🌟 復元した「本日のデータリセット」機能
             st.markdown('<hr style="margin:30px 0;">', unsafe_allow_html=True)
             st.markdown('<div style="color:#d32f2f; font-weight:bold; font-size:18px; margin-bottom:10px;">🗑️ データリセット業務（営業終了後）</div>', unsafe_allow_html=True)
             st.warning("※本日の「出勤・自走・休み」などの送迎データをすべて初期状態（未定）にリセットします。")
