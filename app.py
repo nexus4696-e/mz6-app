@@ -1309,8 +1309,7 @@ elif selected_tab == "③ キャスト登録":
                 st.markdown("</div>", unsafe_allow_html=True)
 
             if display_count == 0: st.info("条件に一致するキャストが見つかりません。")
-
-        elif selected_tab == "④ STAFF設定":
+elif selected_tab == "④ STAFF設定":
             exist_drvs = {str(d["driver_id"]): d for d in drvs}
             if "editing_staff_id" not in st.session_state: st.session_state.editing_staff_id = None
 
