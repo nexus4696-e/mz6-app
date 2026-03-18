@@ -1381,7 +1381,7 @@ elif selected_tab == "③ キャスト登録":
                         payload = {"action": "save_driver", "driver_id": i, "name": nn, "password": n_pass, "address": final_addr, "phone": n_tel, "area": n_area, "capacity": n_cap}
                         res = post_api(payload)
                         if res.get("status") == "success": clear_cache(); st.session_state[f"saved_staff_{i}"] = True; st.success("保存しました！"); st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
         elif selected_tab == "⚙️ 管理設定":
             st.markdown('<div class="app-header" style="border:none;">📢 アプリ全体設定</div>', unsafe_allow_html=True)
@@ -1426,4 +1426,3 @@ elif selected_tab == "③ キャスト登録":
                         clear_cache()
                         st.session_state.flash_msg = "本日のデータをリセットしました"
                         st.rerun()
-
