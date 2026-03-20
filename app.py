@@ -348,7 +348,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
             else: new_ed, new_et, new_eds, new_so, new_ta, new_memo, new_tc = e_drv, e_time, e_dest, stopover, temp_addr, memo_text, (takuji_cancel == "1")
 
             if st.button("💾 決定する", key=f"btn_upd_{key_suffix}", type="primary", use_container_width=True):
-                if n_s in ["未定", "休み"]: n_d, n_t, new_ed, new_et, new_eds = "未定", "未定", "未定", "未定", ""
+                if n_s in ["未定", "休み"]: n_d, n_t, new_et, new_eds = "未定", "未定", "未定", "未定", ""
                 enc_m = encode_attendance_memo(new_memo, new_ta, ("1" if new_tc else "0"), new_ed, new_et, new_eds, new_so)
                 if n_s in ["未定", "休み"]: post_api({"action": "cancel_dispatch", "cast_id": c_id})
                 res = post_api({"action": "save_attendance", "records": [{"cast_id": c_id, "cast_name": latest_name, "area": pref, "status": n_s, "memo": enc_m, "target_date": "当日"}]})
