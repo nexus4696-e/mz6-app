@@ -841,7 +841,6 @@ if current_page == "staff_portal" and st.session_state.is_admin:
         range_opts = ["全表示"] + [f"{i*10+1}-{i*10+10}" for i in range(15)]
         
         if selected_tab == "① 配車リスト":
-            if selected_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header">{today_str} 配車</div>', unsafe_allow_html=True)
             if not GOOGLE_MAPS_API_KEY: st.error("🚨 Google Maps APIキーが設定されていません。AI配車機能とルート計算が正常に機能しません。")
                 
@@ -1050,7 +1049,6 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                 t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
                 st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 コース{course_idx}：{d_name} (STAFF)</div>', unsafe_allow_html=True)
                 
-                # 🌟【起点跨ぎの判定と警告表示】
                 lines_in_course = set()
                 for t in t_rows:
                     c_inf = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), {})
@@ -1141,7 +1139,6 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                     st.markdown(list_html, unsafe_allow_html=True)
                     render_dispatch_editor(d_name, course_idx, t_rows, ordered_tasks, d_names, True)
             course_idx += 1
-
         elif selected_tab == "② キャスト送迎":
             with st.expander("🌅 早便設定（一括追加ツール）", expanded=False):
                 fk = st.session_state.get("early_form_key", 0)
