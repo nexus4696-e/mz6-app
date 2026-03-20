@@ -841,6 +841,7 @@ if current_page == "staff_portal" and st.session_state.is_admin:
         range_opts = ["全表示"] + [f"{i*10+1}-{i*10+10}" for i in range(15)]
         
         if selected_tab == "① 配車リスト":
+            if selected_tab == "① 配車リスト":
             st.markdown(f'<div class="date-header">{today_str} 配車</div>', unsafe_allow_html=True)
             if not GOOGLE_MAPS_API_KEY: st.error("🚨 Google Maps APIキーが設定されていません。AI配車機能とルート計算が正常に機能しません。")
                 
@@ -922,31 +923,35 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                                     if d["name"] in early_drivers: continue
                                     try: cap = int(d.get("capacity", 4))
                                     except: cap = 4
-                                    drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "line": None, "area": d.get("area", "全般")}
+                                    drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "lines": set(), "area": d.get("area", "全般")}
 
                             for uc in all_today_casts:
                                 if uc["row"]["status"] == "自走": continue
                                 assigned_d, c_line, cid = None, uc["line"], str(uc["row"]["cast_id"])
-                                best_score, best_d = -1, None
+                                best_score, best_d = -99999, None
                                 
                                 for d_name, stat in drv_specs.items():
                                     if len(stat["assigned_rows"]) >= stat["capacity"]: continue
-                                    if stat["line"] is not None and stat["line"] != c_line: continue
                                     if not driver_covers_line(stat["area"], c_line): continue
                                     
-                                    score = learning_scores.get(cid, {}).get(d_name, 0) * 5
-                                    if "2:" in dispatch_mode: score += (stat["capacity"] - len(stat["assigned_rows"])) * 10
+                                    score = 10000
+                                    is_empty = len(stat["assigned_rows"]) == 0
+                                    
+                                    if not is_empty:
+                                        if c_line in stat["lines"]: score += 5000
+                                        else: score -= 5000
+                                    else:
+                                        score += 2100
+                                        
+                                    if "2:" in dispatch_mode: score -= len(stat["assigned_rows"]) * 3000
+                                    else: score -= len(stat["assigned_rows"]) * 100
+                                    
+                                    score += learning_scores.get(cid, {}).get(d_name, 0) * 10
                                     if score > best_score: best_score = score; best_d = d_name
-                                
-                                if best_d: assigned_d = best_d
-                                else:
-                                    for d_name, stat in drv_specs.items():
-                                        if len(stat["assigned_rows"]) < stat["capacity"] and (stat["line"] is None or stat["line"] == c_line):
-                                            assigned_d = d_name; break
 
-                                if assigned_d: 
-                                    if drv_specs[assigned_d]["line"] is None: drv_specs[assigned_d]["line"] = c_line
-                                    drv_specs[assigned_d]["assigned_rows"].append(uc)
+                                if best_d: 
+                                    drv_specs[best_d]["lines"].add(c_line)
+                                    drv_specs[best_d]["assigned_rows"].append(uc)
 
                             assigned_ids = set()
                             base_time = str(sets.get("base_arrival_time", "19:50"))
@@ -1044,6 +1049,20 @@ if current_page == "staff_portal" and st.session_state.is_admin:
             for d_name, t_rows in my_tasks.items():
                 t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
                 st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 コース{course_idx}：{d_name} (STAFF)</div>', unsafe_allow_html=True)
+                
+                # 🌟【起点跨ぎの判定と警告表示】
+                lines_in_course = set()
+                for t in t_rows:
+                    c_inf = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), {})
+                    r_addr = c_inf.get("address", "")
+                    h_addr, _, _, _ = parse_cast_address(r_addr)
+                    _, t_addr, _, _, _, _, _ = parse_attendance_memo(t.get("memo", ""))
+                    a_pickup = t_addr if t_addr else h_addr
+                    c_line, _ = get_route_line_and_distance(a_pickup)
+                    if c_line: lines_in_course.add(c_line)
+                
+                if len(lines_in_course) > 1:
+                    st.markdown("<div style='background:#ffebee; border:1px solid #f44336; border-top:none; border-bottom:none; color:#d32f2f; font-weight:bold; font-size:13px; padding:8px; text-align:center;'>⚠️ 送迎人数の都合上、出発起点を跨いだルートになります</div>", unsafe_allow_html=True)
                 
                 if is_return_time:
                     st.markdown(f'<div style="background:#ffffff; border:1px solid #ccc; border-top:none; padding:10px; border-radius:0 0 5px 5px; margin-bottom:20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);"><div style="background:#e3f2fd; border:2px solid #2196f3; padding:8px; border-radius:5px; margin-bottom:15px;"><div style="color:#1565c0; font-weight:bold; margin-bottom:5px;">🌙 帰り班 (自動編成)</div>', unsafe_allow_html=True)
