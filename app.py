@@ -915,6 +915,7 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                             st.warning("⚠️ 通常AI配車の対象者がいません（全員が早便や自走、または未出勤です）")
                             time.sleep(2.5); st.rerun()
                         else:
+                            # 遠いキャストから優先して処理
                             all_today_casts.sort(key=lambda x: x["dist"], reverse=True)
                             drv_specs = {}
                             for d in drvs:
@@ -924,29 +925,49 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                                     except: cap = 4
                                     drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "lines": set(), "area": d.get("area", "全般")}
 
+                            # 🌟 新AIアルゴリズム（ご要望の定義を完全再現した採点システム）
                             for uc in all_today_casts:
                                 if uc["row"]["status"] == "自走": continue
                                 assigned_d, c_line, cid = None, uc["line"], str(uc["row"]["cast_id"])
-                                best_score, best_d = -99999, None
+                                best_score, best_d = -999999, None
                                 
                                 for d_name, stat in drv_specs.items():
+                                    # 定員オーバーだけは物理的に不可能なので絶対弾く（ハード制約）
                                     if len(stat["assigned_rows"]) >= stat["capacity"]: continue
-                                    if not driver_covers_line(stat["area"], c_line): continue
                                     
-                                    score = 10000
+                                    score = 0
                                     is_empty = len(stat["assigned_rows"]) == 0
                                     
-                                    if not is_empty:
-                                        if c_line in stat["lines"]: score += 5000
-                                        else: score -= 5000
+                                    # 1. 担当方面の判定（可能な限り合わせるが、定員都合なら他方面も許容）
+                                    if driver_covers_line(stat["area"], c_line):
+                                        score += 100000
                                     else:
-                                        score += 2100
+                                        score -= 50000 # 専門外エリアへのペナルティ
                                         
-                                    if "2:" in dispatch_mode: score -= len(stat["assigned_rows"]) * 3000
-                                    else: score -= len(stat["assigned_rows"]) * 100
-                                    
+                                    # 2. 起点跨ぎ（店舗跨ぎ）の判定
+                                    if not is_empty:
+                                        if c_line in stat["lines"]:
+                                            score += 80000 # 同じ方向で拾う（最高評価）
+                                        else:
+                                            score -= 80000 # 違う方向を混ぜる（極力排除、しかし定員都合で背に腹は代えられない場合は選ばれる）
+                                    else:
+                                        score += 20000 # 空車に乗せるのはOK
+                                        
+                                    # 3. ユーザー指定のモード判定
+                                    if "2:" in dispatch_mode:
+                                        # 完全均等振分け：乗車数が多いドライバーほど点数を下げ、皆が均等になるようにする
+                                        score -= len(stat["assigned_rows"]) * 10000
+                                    else:
+                                        # ルート効率化優先：同じ方面なら、新しい車を出すより同じ車に詰め込む（乗車時間を最短にする）
+                                        if not is_empty and c_line in stat["lines"]:
+                                            score += len(stat["assigned_rows"]) * 5000
+                                            
+                                    # 4. 過去の学習（よく乗せる組み合わせ）
                                     score += learning_scores.get(cid, {}).get(d_name, 0) * 10
-                                    if score > best_score: best_score = score; best_d = d_name
+
+                                    if score > best_score:
+                                        best_score = score
+                                        best_d = d_name
 
                                 if best_d: 
                                     drv_specs[best_d]["lines"].add(c_line)
@@ -1036,7 +1057,7 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                         my_tasks[drv].append(row)
             
             if unassigned:
-                unassigned_html = '<div class="warning-box">⚠️ ドライバー不足で送迎できません</div><div class="warning-content"><div style="font-size:12px; color:#666; margin-bottom:10px;">※ルート制限・定員オーバーのため送迎できません。稼働ドライバーを追加してください。</div>'
+                unassigned_html = '<div class="warning-box">⚠️ ドライバー不足で送迎できません</div><div class="warning-content"><div style="font-size:12px; color:#666; margin-bottom:10px;">※全車の定員が満杯です。これ以上配車するには稼働ドライバーを追加してください。</div>'
                 for u in unassigned:
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(u["cast_id"])), {})
                     latest_name = c_info.get("name", u["cast_name"])
@@ -1049,6 +1070,7 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                 t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
                 st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 コース{course_idx}：{d_name} (STAFF)</div>', unsafe_allow_html=True)
                 
+                # 🌟【起点跨ぎの判定と警告表示】
                 lines_in_course = set()
                 for t in t_rows:
                     c_inf = next((c for c in casts if str(c["cast_id"]) == str(t["cast_id"])), {})
