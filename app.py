@@ -46,6 +46,8 @@ NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8
 MAP_SEARCH_BTN = "<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"
 
 def post_api(payload):
+    # 🌟 セキュリティ：送信データに秘密の合言葉を混ぜる
+    payload["api_token"] = "mz6_secret_2026_xxyz"
     try:
         res = requests.post(API_URL, json=payload, timeout=10)
         if res.status_code == 404: return {"status": "error", "message": "🚨 api.php が見つかりません。"}
@@ -60,7 +62,6 @@ def get_db_data():
     if res.get("status") == "success": return res["data"]
     st.error(f"データベース通信エラー: {res.get('message')}")
     return {"drivers": [], "casts": [], "attendance": [], "settings": {}}
-
 def clear_cache(): st.cache_data.clear()
 
 def notify_staff_via_line(token, target_id, staff_name, cast_name, pickup_time):
