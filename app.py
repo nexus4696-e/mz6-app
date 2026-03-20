@@ -342,7 +342,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
                 new_eds = st.text_input("早便送迎先", value=e_dest, key=f"edest_{key_suffix}")
                 new_so = st.text_input("立ち寄り先 (同伴等)", value=stopover, key=f"so_{key_suffix}")
                 new_ta = st.text_input("迎え先変更", value=temp_addr, key=f"ta_{key_suffix}")
-                new_memo = st.text_input("備考", value=new_memo, key=f"mm_{key_suffix}")
+                new_memo = st.text_input("備考", value=memo, key=f"mm_{key_suffix}")
                 new_tc = st.checkbox("本日託児キャンセル", value=(takuji_cancel == "1"), key=f"tc_{key_suffix}")
                 st.markdown("</div>", unsafe_allow_html=True)
             else: new_ed, new_et, new_eds, new_so, new_ta, new_memo, new_tc = e_drv, e_time, e_dest, stopover, temp_addr, memo_text, (takuji_cancel == "1")
