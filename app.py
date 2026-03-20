@@ -853,9 +853,9 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                 if cid_str in seen_cids_e: continue
                 seen_cids_e.add(cid_str)
                 _, _, _, e_drv, e_time, e_dest, _ = parse_attendance_memo(row.get("memo", ""))
-                if e_drv and e_drv != "未定" and e_drv != "":
+                if (e_drv and e_drv != "未定" and e_drv != "") or (e_dest != ""):
                     c_info = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
-                    early_disp_tasks.append({"name": c_info.get("name", row["cast_name"]), "drv": e_drv, "time": e_time, "dest": e_dest})
+                    early_disp_tasks.append({"name": c_info.get("name", row["cast_name"]), "drv": e_drv if (e_drv and e_drv != "未定") else "未定", "time": e_time, "dest": e_dest})
         
         if early_disp_tasks:
             early_html = '<div style="background:#fff3e0; border: 2px solid #ff9800; padding: 10px; border-radius: 8px; margin-bottom: 15px;"><div style="font-weight:bold; color:#e65100; font-size:15px; margin-bottom:5px;">🌅 本日の早便一覧（設定済）</div>'
