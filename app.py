@@ -920,7 +920,6 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                             drv_specs = {}
                             for d in drvs:
                                 if d["name"] in active_drivers:
-                                    if d["name"] in early_drivers: continue
                                     try: cap = int(d.get("capacity", 4))
                                     except: cap = 4
                                     drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "lines": set(), "area": d.get("area", "全般")}
