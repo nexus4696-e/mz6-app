@@ -306,7 +306,7 @@ def render_cast_edit_card(c_id, c_name, pref, target_row, prefix_key, d_names_li
         cur_status, cur_drv, cur_time = "未定", "未定", "未定"
         memo_text, temp_addr, takuji_cancel, e_drv, e_time, e_dest, stopover = "", "", "0", "", "", "", ""
 
-    is_early = (e_drv != "" and e_drv != "未定")
+    is_early = (e_drv != "" and e_drv != "未定")　or (e_dest != "")
     title_badge = "🌅 早便" if is_early else ("🚙 送迎" if cur_drv != "未定" else ("🏃 自走" if cur_status == "自走" else ("💤 休み" if cur_status == "休み" else "未定")))
     
     with st.expander(f"店番 {c_id} : {latest_name} ({pref}) - {title_badge}"):
