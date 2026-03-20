@@ -562,7 +562,7 @@ if current_page == "cast_mypage":
 
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
     with st.expander("💡 今日のトピックス!!（接客の話題にどうぞ）"):
-        t_fun, t_trend, t_local, t_econ = st.tabs(["🤣 面白ネタ", "🔥 トレンド", "📰 今日のニュース", "📈 経済全般"])
+        t_fun, t_trend, t_local, t_econ = st.tabs(["🤣 芸能ネタ", "🔥 トレンド", "📰 今日のニュース", "📈 経済全般"])
         with t_fun:
             for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/entertainment.xml", 5): st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#1565c0; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
         with t_trend:
