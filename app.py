@@ -1161,8 +1161,8 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                 cid_str = str(row["cast_id"])
                 if cid_str in seen_cids_today: continue
                 seen_cids_today.add(cid_str)
-                dispatch_count += 1
-                _, _, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
+                _, _, _, e_drv, _, e_dest, _ = parse_attendance_memo(row.get("memo", ""))
+                is_early = (e_drv and e_drv != "未定" and e_drv != "") or (e_dest != "")
                 is_early = (e_drv and e_drv != "未定" and e_drv != "")
                 if is_early: early_count += 1
                 c_info_dict = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
