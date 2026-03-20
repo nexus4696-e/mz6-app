@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 APP_VERSION = 100
 
 try: GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
-except: GOOGLE_MAPS_API_KEY = ""
+except: GOOGLE_MAPS_API_KEY = "AIzaSyCerSOa9AOGB6pADqU_kiTsL93DX_D5pwE"
 
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
 dt = datetime.datetime.now(JST)
