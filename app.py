@@ -895,7 +895,7 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                             if drv_area == "倉敷方面" and c_line in ["Route_E_South", "Route_B_NorthWest"]: return True
                             return False
 
-                        all_today_casts, early_drivers, seen_cids_ai = [], set(), set()
+                        all_today_casts, early_drivers, seen_cids_ai = [], {}, set()
                         for row in atts:
                             if row["target_date"] == "当日" and row["status"] in ["出勤", "自走"]:
                                 cid_str = str(row["cast_id"])
@@ -904,9 +904,13 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                                 c_info = next((c for c in casts if str(c["cast_id"]) == str(row["cast_id"])), {})
                                 raw_addr = c_info.get("address", "")
                                 home_addr, _, _, _ = parse_cast_address(raw_addr)
-                                _, temp_addr, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
+                                _, temp_addr, _, e_drv, e_time, e_dest, _ = parse_attendance_memo(row.get("memo", ""))
+                                
+                                # 🌟 早便情報を辞書として保存（届け先・時間を記録）
                                 if e_drv and e_drv != "未定" and e_drv != "":
-                                    early_drivers.add(e_drv); continue 
+                                    early_drivers[e_drv] = {"dest": e_dest, "time": e_time}
+                                    continue 
+                                    
                                 actual_pickup = temp_addr if temp_addr else home_addr
                                 line, dst = get_route_line_and_distance(actual_pickup)
                                 all_today_casts.append({"row": row, "line": line, "dist": dst, "actual_pickup": actual_pickup})
@@ -915,54 +919,53 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                             st.warning("⚠️ 通常AI配車の対象者がいません（全員が早便や自走、または未出勤です）")
                             time.sleep(2.5); st.rerun()
                         else:
-                            # 遠いキャストから優先して処理
                             all_today_casts.sort(key=lambda x: x["dist"], reverse=True)
                             drv_specs = {}
                             for d in drvs:
                                 if d["name"] in active_drivers:
                                     try: cap = int(d.get("capacity", 4))
                                     except: cap = 4
+                                    if d["name"] in early_drivers: cap = min(cap, 2)
                                     drv_specs[d["name"]] = {"capacity": cap, "assigned_rows": [], "lines": set(), "area": d.get("area", "全般")}
 
-                            # 🌟 新AIアルゴリズム（ご要望の定義を完全再現した採点システム）
                             for uc in all_today_casts:
                                 if uc["row"]["status"] == "自走": continue
                                 assigned_d, c_line, cid = None, uc["line"], str(uc["row"]["cast_id"])
                                 best_score, best_d = -999999, None
                                 
                                 for d_name, stat in drv_specs.items():
-                                    # 定員オーバーだけは物理的に不可能なので絶対弾く（ハード制約）
                                     if len(stat["assigned_rows"]) >= stat["capacity"]: continue
                                     
                                     score = 0
                                     is_empty = len(stat["assigned_rows"]) == 0
                                     
-                                    # 1. 担当方面の判定（可能な限り合わせるが、定員都合なら他方面も許容）
-                                    if driver_covers_line(stat["area"], c_line):
-                                        score += 100000
-                                    else:
-                                        score -= 50000 # 専門外エリアへのペナルティ
+                                    if driver_covers_line(stat["area"], c_line): score += 100000
+                                    else: score -= 50000 
                                         
-                                    # 2. 起点跨ぎ（店舗跨ぎ）の判定
                                     if not is_empty:
-                                        if c_line in stat["lines"]:
-                                            score += 80000 # 同じ方向で拾う（最高評価）
-                                        else:
-                                            score -= 80000 # 違う方向を混ぜる（極力排除、しかし定員都合で背に腹は代えられない場合は選ばれる）
+                                        if c_line in stat["lines"]: score += 80000 
+                                        else: score -= 80000 
                                     else:
-                                        score += 20000 # 空車に乗せるのはOK
+                                        score += 20000 
                                         
-                                    # 3. ユーザー指定のモード判定
-                                    if "2:" in dispatch_mode:
-                                        # 完全均等振分け：乗車数が多いドライバーほど点数を下げ、皆が均等になるようにする
-                                        score -= len(stat["assigned_rows"]) * 10000
+                                    if "2:" in dispatch_mode: score -= len(stat["assigned_rows"]) * 10000
                                     else:
-                                        # ルート効率化優先：同じ方面なら、新しい車を出すより同じ車に詰め込む（乗車時間を最短にする）
-                                        if not is_empty and c_line in stat["lines"]:
-                                            score += len(stat["assigned_rows"]) * 5000
+                                        if not is_empty and c_line in stat["lines"]: score += len(stat["assigned_rows"]) * 5000
                                             
-                                    # 4. 過去の学習（よく乗せる組み合わせ）
                                     score += learning_scores.get(cid, {}).get(d_name, 0) * 10
+
+                                    # 🌟 早便ドライバーは「届け先」を基準にスコア計算
+                                    if d_name in early_drivers:
+                                        e_info = early_drivers[d_name]
+                                        e_line, _ = get_route_line_and_distance(e_info["dest"])
+                                        
+                                        if is_empty:
+                                            # まだ誰も割り当てられていない場合、早便の届け先と同じ方面のキャストなら特大ボーナス
+                                            if c_line == e_line: score += 150000
+                                            else: score -= 150000 # 違う方面は大幅減点
+                                        
+                                        # 遠方すぎる場所は除外
+                                        if uc["dist"] >= 200 and c_line != e_line: continue
 
                                     if score > best_score:
                                         best_score = score
@@ -988,7 +991,12 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                                     latest_name = c_info.get("name", item["row"]["cast_name"])
                                     ai_tasks.append({"task": item["row"], "actual_pickup": item["actual_pickup"], "c_name": latest_name, "c_id": item["row"]["cast_id"], "dist_score": item["dist"]})
                                 
-                                ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, ai_tasks, is_return=False, manual_order=False)
+                                # 🌟 出発起点を「店舗」から「早便の届け先」に変更
+                                origin_addr = store_addr
+                                if d_name in early_drivers and early_drivers[d_name]["dest"]:
+                                    origin_addr = early_drivers[d_name]["dest"]
+
+                                ordered_tasks, total_sec, full_path, first_leg_sec, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, origin_addr, store_addr, ai_tasks, is_return=False, manual_order=False)
                                 
                                 if total_sec == 0:
                                     st.warning(f"⚠️ API通信エラー: {d_name}班の計算に失敗しました。")
@@ -1008,6 +1016,21 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                                 if t_mins_list:
                                     earliest_m = min(t_mins_list)
                                     dep_m = earliest_m - (first_leg_sec // 60) - 5
+                                    
+                                    # 🌟 早便ドライバーは「早便の完了時間」より前に出発できない
+                                    if d_name in early_drivers and early_drivers[d_name]["time"]:
+                                        try:
+                                            eh, em = map(int, early_drivers[d_name]["time"].split(':'))
+                                            e_mins = eh * 60 + em
+                                            if dep_m < e_mins:
+                                                dep_m = e_mins
+                                                current_m = dep_m + (first_leg_sec // 60) + 5
+                                                t_mins_list = []
+                                                for idx in range(total_casts):
+                                                    t_mins_list.append(current_m)
+                                                    current_m += interval_mins
+                                        except: pass
+
                                     if 6 * 60 < dep_m < 16 * 60:
                                         dep_m = 16 * 60
                                         t_mins_list = []; current_m = dep_m + (first_leg_sec // 60) + 5
