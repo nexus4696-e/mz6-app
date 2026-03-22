@@ -738,7 +738,7 @@ if current_page == "staff_portal":
         for t in atts:
             if t["target_date"] == "当日" and t["status"] in ["出勤", "自走"] and t.get("driver_name") == staff_n:
                 _, _, _, e_drv, _, _, _ = parse_attendance_memo(t.get("memo", ""))
-                if e_drv and e_drv != "未定" and e_drv != "": continue
+                if e_drv and e_drv != "未定" and e_drv != "" and not is_return_time: continue
                 if t["status"] != "自走": my_tasks.append(t)
         
         if my_tasks:
