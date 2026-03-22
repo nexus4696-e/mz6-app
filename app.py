@@ -910,7 +910,7 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                                 # 🌟 早便情報を辞書として保存（届け先・時間を記録）
                                 if e_drv and e_drv != "未定" and e_drv != "":
                                     early_drivers[e_drv] = {"dest": e_dest, "time": e_time}
-                                    continue 
+                                    if not is_return_time: continue
                                     
                                 actual_pickup = temp_addr if temp_addr else home_addr
                                 line, dst = get_route_line_and_distance(actual_pickup)
