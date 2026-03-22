@@ -1072,7 +1072,8 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                     seen_cids_disp.add(cid_str)
                     drv = row["driver_name"]
                     _, _, _, e_drv, _, _, _ = parse_attendance_memo(row.get("memo", ""))
-                    if e_drv and e_drv != "未定" and e_drv != "": continue
+                    if e_drv and e_drv != "未定" and e_drv != "":
+                        if not (is_return_time and disp_date == "当日"): continue
                     if not drv or drv == "未定" or row["status"] == "自走": 
                         if row["status"] != "自走": unassigned.append(row)
                     else:
