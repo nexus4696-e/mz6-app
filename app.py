@@ -1,12 +1,19 @@
-import os, requests, datetime, urllib.parse, time, re
+import os, requests, datetime, urllib.parse, time, re, html
 import xml.etree.ElementTree as ET
 import streamlit as st
 import streamlit.components.v1 as components
 
 APP_VERSION = 100
 
+# 🛡️ XSS対策用の無害化関数
+def esc(t): return html.escape(str(t)) if t else ""
+
+# 🛡️ APIキー/トークンの安全な読み込み（未設定時はアプリを止めないための保険付き）
 try: GOOGLE_MAPS_API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
 except: GOOGLE_MAPS_API_KEY = "AIzaSyCerSOa9AOGB6pADqU_kiTsL93DX_D5pwE"
+
+try: API_TOKEN = st.secrets["API_TOKEN"]
+except: API_TOKEN = "mz6_secret_2026_xxyz"
 
 JST = datetime.timezone(datetime.timedelta(hours=+9), 'JST')
 dt = datetime.datetime.now(JST)
@@ -16,10 +23,11 @@ dow = ['月','火','水','木','金','土','日'][dt.weekday()]
 st.set_page_config(page_title="六本木 水島本店 送迎管理", page_icon="🚗", layout="centered", initial_sidebar_state="collapsed")
 st.markdown('<meta name="google" content="notranslate">', unsafe_allow_html=True)
 
+# 🛡️ HTTPS化
 components.html("""
     <script>
         const doc = window.parent.document;
-        const iconUrl = "http://mute-imari-1089.catfood.jp/mz6/28470.jpg";
+        const iconUrl = "https://mute-imari-1089.catfood.jp/mz6/28470.jpg";
         doc.title = "六本木 水島本店";
         doc.querySelectorAll("link[rel*='icon']").forEach(e => e.remove());
         let appleIcon = doc.createElement("link");
@@ -43,17 +51,19 @@ if st.session_state.get("flash_msg"):
 
 API_URL = "https://mute-imari-1089.catfood.jp/mz6/api.php"
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
-MAP_SEARCH_BTN = "<a href='https://www.google.com/maps' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"
+# 🛡️ マップURLのHTTPS化と正規化
+MAP_SEARCH_BTN = "<a href='https://maps.google.com/' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"
 
 def post_api(payload):
-    payload["api_token"] = "mz6_secret_2026_xxyz"
+    payload["api_token"] = API_TOKEN
     try:
         res = requests.post(API_URL, json=payload, timeout=10)
         if res.status_code == 404: return {"status": "error", "message": "🚨 api.php が見つかりません。"}
-        if res.status_code != 200: return {"status": "error", "message": f"🚨 サーバーエラー ({res.status_code})"}
+        # 🛡️ エラー情報の過剰な露出を防止
+        if res.status_code != 200: return {"status": "error", "message": "🚨 サーバーエラーが発生しました。"}
         try: return res.json()
-        except: return {"status": "error", "message": f"🚨 PHPエラー: {res.text[:100]}..."}
-    except Exception as e: return {"status": "error", "message": f"🚨 通信失敗: {str(e)}"}
+        except: return {"status": "error", "message": "🚨 サーバーからの応答が不正です。"}
+    except Exception: return {"status": "error", "message": "🚨 通信に失敗しました。"}
 
 @st.cache_data(ttl=2)
 def get_db_data():
@@ -208,8 +218,9 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
                 if legs: first_leg_sec = legs[0]["duration"]["value"]
             else:
                 if not api_error_msg: api_error_msg = f"{res2.get('status')} - {res2.get('error_message', '')}"
-        except Exception as e:
-            if not api_error_msg: api_error_msg = f"通信例外: {str(e)}"
+        # 🛡️ エラー情報の過剰な露出を防止
+        except Exception:
+            if not api_error_msg: api_error_msg = "通信例外が発生しました。"
             
     return final_ordered_tasks, total_sec, full_path, first_leg_sec, api_error_msg
 
@@ -524,7 +535,8 @@ if current_page == "admin_login":
 if current_page == "staff_login":
     render_top_nav(); db = get_db_data(); drivers = db.get("drivers", [])
     for d in [x for x in drivers if str(x["name"]).strip() != ""]:
-        st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-bottom:10px;'>👤 {d['name']}</div>", unsafe_allow_html=True)
+        # 🛡️ XSS対策
+        st.markdown(f"<div style='font-weight:bold; margin-top:15px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-bottom:10px;'>👤 {esc(d['name'])}</div>", unsafe_allow_html=True)
         colA, colB = st.columns([3, 1.2])
         with colA: p_in = st.text_input("PW", type="password", key=f"pw_{d['driver_id']}", label_visibility="collapsed", placeholder="パスワード")
         with colB:
@@ -540,11 +552,12 @@ if current_page == "cast_mypage":
     settings, casts, attendance = db.get("settings") or {}, db.get("casts", []), db.get("attendance", [])
     my_c = next((x for x in casts if str(x["cast_id"]) == str(c["店番"])), None)
     latest_name = my_c.get("name", c["キャスト名"]) if my_c else c["キャスト名"]
-    st.markdown(f'<div style="text-align: center; font-weight: bold; font-size: 20px;">店番 {c["店番"]} {latest_name} 様</div>', unsafe_allow_html=True)
+    # 🛡️ XSS対策
+    st.markdown(f'<div style="text-align: center; font-weight: bold; font-size: 20px;">店番 {c["店番"]} {esc(latest_name)} 様</div>', unsafe_allow_html=True)
     line_uid = my_c.get("line_user_id", ""); bot_id = str(settings.get("line_bot_id", ""))
     
     if line_uid: st.markdown('<div style="text-align:center; background:#e8f5e9; color:#2e7d32; padding:8px; border-radius:8px; margin-bottom:15px; font-weight:bold; font-size:14px; border:2px solid #4caf50;">✅ LINE通知：連携済み<br><span style="font-size:11px; font-weight:normal;">(配車決定などがLINEにお知らせされます)</span></div>', unsafe_allow_html=True)
-    else: st.markdown(f'<div style="text-align:center; background:#ffebee; color:#d32f2f; padding:8px; border-radius:8px; margin-bottom:15px; font-size:13px; border:2px solid #f44336;"><b>⚠️ LINE未連携</b><br>お店のLINE({bot_id})に<br>合言葉「<b>{c["店番"]}{c["キャスト名"]}</b>」とメッセージを送ってください。</div>', unsafe_allow_html=True)
+    else: st.markdown(f'<div style="text-align:center; background:#ffebee; color:#d32f2f; padding:8px; border-radius:8px; margin-bottom:15px; font-size:13px; border:2px solid #f44336;"><b>⚠️ LINE未連携</b><br>お店のLINE({esc(bot_id)})に<br>合言葉「<b>{c["店番"]}{esc(c["キャスト名"])}</b>」とメッセージを送ってください。</div>', unsafe_allow_html=True)
 
     with st.expander("🏠 自分の登録情報（自宅・託児所）の確認・変更"):
         if my_c:
@@ -562,14 +575,15 @@ if current_page == "cast_mypage":
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
     with st.expander("💡 今日のトピックス!!（接客の話題にどうぞ）"):
         t_fun, t_trend, t_local, t_econ = st.tabs(["🤣 芸能ネタ", "🔥 トレンド", "📰 今日のニュース", "📈 経済全般"])
+        # 🛡️ XSS対策
         with t_fun:
-            for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/entertainment.xml", 5): st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#1565c0; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
+            for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/entertainment.xml", 5): st.markdown(f"・ <a href='{esc(n['link'])}' target='_blank' style='text-decoration:none; color:#1565c0; font-size:14px;'>{esc(n['title'])}</a>", unsafe_allow_html=True)
         with t_trend:
-            for n in get_rss_news("https://news.livedoor.com/topics/rss/trend.xml", 5): st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#e65100; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
+            for n in get_rss_news("https://news.livedoor.com/topics/rss/trend.xml", 5): st.markdown(f"・ <a href='{esc(n['link'])}' target='_blank' style='text-decoration:none; color:#e65100; font-size:14px;'>{esc(n['title'])}</a>", unsafe_allow_html=True)
         with t_local:
-            for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/local.xml", 5): st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#2e7d32; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
+            for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/local.xml", 5): st.markdown(f"・ <a href='{esc(n['link'])}' target='_blank' style='text-decoration:none; color:#2e7d32; font-size:14px;'>{esc(n['title'])}</a>", unsafe_allow_html=True)
         with t_econ:
-            for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/business.xml", 5): st.markdown(f"・ <a href='{n['link']}' target='_blank' style='text-decoration:none; color:#4527a0; font-size:14px;'>{n['title']}</a>", unsafe_allow_html=True)
+            for n in get_rss_news("https://news.yahoo.co.jp/rss/topics/business.xml", 5): st.markdown(f"・ <a href='{esc(n['link'])}' target='_blank' style='text-decoration:none; color:#4527a0; font-size:14px;'>{esc(n['title'])}</a>", unsafe_allow_html=True)
     st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
 
     tab_today, tab_tmr, tab_week = st.tabs(["当日申請", "翌日申請", "週間申請"])
@@ -666,10 +680,11 @@ if current_page == "staff_portal":
         if d_info:
             bot_id = str(sets.get("line_bot_id", "")); line_uid = d_info.get("line_user_id", "")
             if line_uid: st.markdown('<div style="text-align:center; background:#e8f5e9; color:#2e7d32; padding:8px; border-radius:8px; margin-bottom:15px; font-size:13px; font-weight:bold;">✅ LINE通知連携済み</div>', unsafe_allow_html=True)
-            else: st.markdown(f'<div style="text-align:center; background:#ffebee; color:#d32f2f; padding:8px; border-radius:8px; margin-bottom:15px; font-size:13px;"><b>⚠️ LINE未連携</b><br>お店のLINE({bot_id})に<br>合言葉「<b>STAFF{staff_n}</b>」と送信してください。</div>', unsafe_allow_html=True)
+            else: st.markdown(f'<div style="text-align:center; background:#ffebee; color:#d32f2f; padding:8px; border-radius:8px; margin-bottom:15px; font-size:13px;"><b>⚠️ LINE未連携</b><br>お店のLINE({esc(bot_id)})に<br>合言葉「<b>STAFF{esc(staff_n)}</b>」と送信してください。</div>', unsafe_allow_html=True)
             cur_cap = int(d_info.get("capacity", 4)) if str(d_info.get("capacity", "4")).isdigit() else 4
             col_sn1, col_sn2 = st.columns([2, 1])
-            with col_sn1: st.markdown(f"<div style='font-size:20px; font-weight:bold; color:#333; margin-top:5px; margin-bottom:15px;'>👤 {staff_n} 班</div>", unsafe_allow_html=True)
+            # 🛡️ XSS対策
+            with col_sn1: st.markdown(f"<div style='font-size:20px; font-weight:bold; color:#333; margin-top:5px; margin-bottom:15px;'>👤 {esc(staff_n)} 班</div>", unsafe_allow_html=True)
             with col_sn2:
                 with st.popover(f"💺 定員: {cur_cap}名"):
                     n_cap = st.number_input("人数", min_value=1, max_value=10, value=cur_cap, key="temp_cap_input")
@@ -728,9 +743,12 @@ if current_page == "staff_portal":
                     early_html += f"<div style='font-size:15px; font-weight:bold; color:#d32f2f; background:#ffebee; padding:8px; border-radius:5px; margin-bottom:10px; text-align:center;'>🚀 店舗出発 (AI逆算): {(dep_m // 60) % 24:02d}:{dep_m % 60:02d}</div>"
             if early_path:
                 org_enc = urllib.parse.quote(store_addr); d_enc = urllib.parse.quote(e_dest_addr); wp_enc = urllib.parse.quote("|".join(early_path)) if early_path else ""
+                # 🛡️ マップURLの正規化
                 map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={d_enc}&waypoints={wp_enc}&travelmode=driving"
                 early_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#ff9800; margin-bottom:10px;'>🗺️ 早便ナビ開始</a>"
-            for idx, rt in enumerate(ord_early): early_html += f"<div style='font-size:14px;'><b>順 {idx+1}</b>: {rt['c_name']}<br><span style='color:#e65100;font-size:12px;font-weight:bold;'>⏰ 送り先到着: {rt['early_time']}</span><br><span style='color:#1565c0;font-size:12px;'>🏠 迎え: {rt['actual_pickup']}</span><br><span style='color:#666;font-size:12px;'>🏁 届け先: {rt['early_dest']}</span></div><hr style='margin:5px 0;'>"
+            for idx, rt in enumerate(ord_early): 
+                # 🛡️ XSS対策
+                early_html += f"<div style='font-size:14px;'><b>順 {idx+1}</b>: {esc(rt['c_name'])}<br><span style='color:#e65100;font-size:12px;font-weight:bold;'>⏰ 送り先到着: {esc(rt['early_time'])}</span><br><span style='color:#1565c0;font-size:12px;'>🏠 迎え: {esc(rt['actual_pickup'])}</span><br><span style='color:#666;font-size:12px;'>🏁 届け先: {esc(rt['early_dest'])}</span></div><hr style='margin:5px 0;'>"
             early_html += '</div>'
             st.markdown(early_html, unsafe_allow_html=True)
 
@@ -761,12 +779,14 @@ if current_page == "staff_portal":
                 ordered_returns, ret_sec, return_full_path, _, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True, manual_order=False)
                 if return_full_path:
                     org_enc = urllib.parse.quote(store_addr); dest_enc = urllib.parse.quote(store_addr); wp_enc = urllib.parse.quote("|".join(return_full_path[:-1])) if len(return_full_path) > 1 else ""
+                    # 🛡️ マップURLの正規化
                     map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&waypoints={wp_enc}&travelmode=driving"
                     list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>"
                 for idx, rt in enumerate(ordered_returns):
-                    list_html += f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
-                    if rt["use_takuji"]: list_html += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
-                    list_html += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>"
+                    # 🛡️ XSS対策
+                    list_html += f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{esc(rt['c_name'])}</b><br>"
+                    if rt["use_takuji"]: list_html += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {esc(rt['takuji_addr'])}</span><br>"
+                    list_html += f"<span style='color:#666;font-size:11px;'>🏠 降車先: {esc(rt['actual_pickup'])}</span></div><hr style='margin:5px 0;'>"
                 list_html += '</div></div>'
                 st.markdown(list_html, unsafe_allow_html=True)
                 render_dispatch_editor(staff_n, 1, t_rows, ordered_returns, d_names, False)
@@ -808,16 +828,18 @@ if current_page == "staff_portal":
 
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr); dest_enc = urllib.parse.quote(store_addr); wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
+                    # 🛡️ マップURLの正規化
                     map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&waypoints={wp_enc}&travelmode=driving"
                     list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
                 
                 for idx, t in enumerate(ordered_tasks):
-                    addr_display = f"🏠 迎え: {t['home_addr'] if t['home_addr'] else '未登録'}"
-                    if t["temp_addr"]: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {t['temp_addr']}</span>"
-                    if t["stopover"]: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {t['stopover']}</span>"
-                    if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {t['takuji_addr']}</span>"
-                    if t["memo_text"]: addr_display += f"<br>📝 備考: {t['memo_text']}"
-                    list_html += f"<div style='margin-bottom:8px;'><b>迎え順 {idx+1}： {t['task']['pickup_time']}</b>　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span></div><hr style='margin:5px 0;'>"
+                    # 🛡️ XSS対策
+                    addr_display = f"🏠 迎え: {esc(t['home_addr']) if t['home_addr'] else '未登録'}"
+                    if t["temp_addr"]: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {esc(t['temp_addr'])}</span>"
+                    if t["stopover"]: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {esc(t['stopover'])}</span>"
+                    if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {esc(t['takuji_addr'])}</span>"
+                    if t["memo_text"]: addr_display += f"<br>📝 備考: {esc(t['memo_text'])}"
+                    list_html += f"<div style='margin-bottom:8px;'><b>迎え順 {idx+1}： {esc(t['task']['pickup_time'])}</b>　<span style='font-size:16px; font-weight:bold;'>{esc(t['c_name'])}</span> <br><span style='font-size:13px;'>{addr_display}</span></div><hr style='margin:5px 0;'>"
                 list_html += '</div>'
                 st.markdown(list_html, unsafe_allow_html=True)
                 render_dispatch_editor(staff_n, 1, t_rows, ordered_tasks, d_names, True)
@@ -827,7 +849,8 @@ if current_page == "staff_portal":
         if active:
             c_info = next((c for c in casts if str(c["cast_id"]) == str(active["cast_id"])), {})
             latest_name = c_info.get("name", active["cast_name"])
-            st.markdown(f"<div style='background:#1e1e1e; padding:15px; border-radius:12px; border:2px solid #00bcd4; margin-bottom:10px;'><h2 style='color:white; margin:0;'>{latest_name} さん</h2></div>", unsafe_allow_html=True)
+            # 🛡️ XSS対策
+            st.markdown(f"<div style='background:#1e1e1e; padding:15px; border-radius:12px; border:2px solid #00bcd4; margin-bottom:10px;'><h2 style='color:white; margin:0;'>{esc(latest_name)} さん</h2></div>", unsafe_allow_html=True)
             if not active.get("arrived_at"):
                 if st.button("📍 到着を記録", key=f"arr_{active['cast_id']}", use_container_width=True):
                     post_api({"action": "record_driver_action", "attendance_id": active["id"], "type": "arrive"}); clear_cache(); st.rerun()
@@ -860,7 +883,8 @@ if current_page == "staff_portal" and st.session_state.is_admin:
         
         if early_disp_tasks:
             early_html = '<div style="background:#fff3e0; border: 2px solid #ff9800; padding: 10px; border-radius: 8px; margin-bottom: 15px;"><div style="font-weight:bold; color:#e65100; font-size:15px; margin-bottom:5px;">🌅 本日の早便一覧（設定済）</div>'
-            for ed in early_disp_tasks: early_html += f"<div style='font-size:13px; color:#333; margin-bottom:3px;'>・ <b>{ed['name']}</b> ➡️ {ed['dest']} ({ed['time']}着) / ドライバー: {ed['drv']}</div>"
+            # 🛡️ XSS対策
+            for ed in early_disp_tasks: early_html += f"<div style='font-size:13px; color:#333; margin-bottom:3px;'>・ <b>{esc(ed['name'])}</b> ➡️ {esc(ed['dest'])} ({esc(ed['time'])}着) / ドライバー: {esc(ed['drv'])}</div>"
             early_html += '</div>'
             st.markdown(early_html, unsafe_allow_html=True)
 
@@ -936,7 +960,6 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                             
                             for d_name, stat in drv_specs.items():
                                 if len(stat["assigned_rows"]) >= stat["capacity"]: continue
-                                
                                 score = 0
                                 is_empty = len(stat["assigned_rows"]) == 0
                                 
@@ -958,7 +981,6 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                                 if d_name in early_drivers:
                                     e_info = early_drivers[d_name]
                                     e_line, _ = get_route_line_and_distance(e_info["dest"])
-                                    
                                     if is_empty:
                                         if c_line == e_line: score += 150000
                                         else: score -= 150000
@@ -1002,7 +1024,7 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                                 total_casts = len(ordered_tasks)
                                 interval_mins = (total_sec // 60) // (total_casts + 1) if total_casts > 0 else 15
                                 if interval_mins < 1: interval_mins = 1
-                            
+                             
                             t_mins_list = []
                             for idx in range(total_casts):
                                 mins_to_subtract = (total_casts - idx) * interval_mins
@@ -1044,7 +1066,7 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                                 route_details.append({"name": item["c_name"], "time": current_calc_time, "addr": item["actual_pickup"], "cast_line_id": next((c.get("line_user_id", "") for c in casts if str(c["cast_id"]) == str(item["c_id"])), "")})
                             
                             driver_routes_info[d_name] = {"dep_time": dep_time_str, "route": route_details, "driver_line_id": next((d.get("line_user_id", "") for d in drvs if d["name"] == d_name), "")}
-                            
+                             
                         if all_driver_updates: post_api({"action": "update_manual_dispatch", "updates": all_driver_updates})
                         
                         unassigned_updates = [{"id": uc["row"]["id"], "driver_name": "未定", "pickup_time": "未定", "status": uc["row"]["status"]} for uc in all_today_casts if uc["row"]["status"] != "自走" and uc["row"]["id"] not in assigned_ids]
@@ -1080,14 +1102,15 @@ if current_page == "staff_portal" and st.session_state.is_admin:
             for u in unassigned:
                 c_info = next((c for c in casts if str(c["cast_id"]) == str(u["cast_id"])), {})
                 latest_name = c_info.get("name", u["cast_name"])
-                unassigned_html += f"<div style='margin-bottom:5px;'><b>送迎不可</b>　<span style='font-size:16px; font-weight:bold; color:#d32f2f;'>{latest_name}</span> <br><span style='font-size:12px; color:#555;'>({u['status']})</span></div><hr style='margin:5px 0;'>"
+                # 🛡️ XSS対策
+                unassigned_html += f"<div style='margin-bottom:5px;'><b>送迎不可</b>　<span style='font-size:16px; font-weight:bold; color:#d32f2f;'>{esc(latest_name)}</span> <br><span style='font-size:12px; color:#555;'>({esc(u['status'])})</span></div><hr style='margin:5px 0;'>"
             unassigned_html += '</div>'
             st.markdown(unassigned_html, unsafe_allow_html=True)
         
         course_idx = 1
         for d_name, t_rows in my_tasks.items():
             t_rows = sorted(t_rows, key=lambda x: x['pickup_time'] if x['pickup_time'] and x['pickup_time'] != '未定' else '99:99')
-            st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 コース{course_idx}：{d_name} (STAFF)</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="background:#444; color:white; padding:10px; font-weight:bold; border-radius:5px 5px 0 0;">🚕 コース{course_idx}：{esc(d_name)} (STAFF)</div>', unsafe_allow_html=True)
             
             lines_in_course = set()
             for t in t_rows:
@@ -1119,12 +1142,14 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                 ordered_returns, ret_sec, return_full_path, _, api_err = optimize_and_calc_route(GOOGLE_MAPS_API_KEY, store_addr, store_addr, return_tasks, is_return=True, manual_order=False)
                 if return_full_path:
                     org_enc = urllib.parse.quote(store_addr); dest_enc = urllib.parse.quote(store_addr); wp_enc = urllib.parse.quote("|".join(return_full_path[:-1])) if len(return_full_path) > 1 else ""
+                    # 🛡️ マップURLの正規化
                     map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&waypoints={wp_enc}&travelmode=driving"
                     st.markdown(f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#1565c0; margin-bottom:10px;'>🗺️ 帰りナビ開始 (現在地から)</a>", unsafe_allow_html=True)
                 for idx, rt in enumerate(ordered_returns):
-                    disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{rt['c_name']}</b><br>"
-                    if rt["use_takuji"]: disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {rt['takuji_addr']}</span><br>"
-                    st.markdown(disp_str + f"<span style='color:#666;font-size:11px;'>🏠 降車先: {rt['actual_pickup']}</span></div><hr style='margin:5px 0;'>", unsafe_allow_html=True)
+                    # 🛡️ XSS対策
+                    disp_str = f"<div style='font-size:13px;'>降車順 {idx+1}：<b>{esc(rt['c_name'])}</b><br>"
+                    if rt["use_takuji"]: disp_str += f"<span style='color:#2196f3;font-size:11px;font-weight:bold;'>👶 託児経由: {esc(rt['takuji_addr'])}</span><br>"
+                    st.markdown(disp_str + f"<span style='color:#666;font-size:11px;'>🏠 降車先: {esc(rt['actual_pickup'])}</span></div><hr style='margin:5px 0;'>", unsafe_allow_html=True)
             
                 st.markdown('</div></div>', unsafe_allow_html=True)
                 render_dispatch_editor(d_name, course_idx, t_rows, ordered_returns, d_names, True)
@@ -1166,16 +1191,18 @@ if current_page == "staff_portal" and st.session_state.is_admin:
 
                 if full_path:
                     org_enc = urllib.parse.quote(store_addr); dest_enc = urllib.parse.quote(store_addr); wp_enc = urllib.parse.quote("|".join(full_path)) if full_path else ""
+                    # 🛡️ マップURLの正規化
                     map_url = f"https://www.google.com/maps/dir/?api=1&origin={org_enc}&destination={dest_enc}&waypoints={wp_enc}&travelmode=driving"
                     list_html += f"<a href='{map_url}' target='_blank' style='{NAV_BTN_STYLE} background:#4caf50; margin-bottom:15px;'>🗺️ スマホのナビで全行程を開始</a>"
                 
                 for idx, t in enumerate(ordered_tasks):
-                    addr_display = f"🏠 迎え: {t['home_addr'] if t['home_addr'] else '未登録'}"
-                    if t["temp_addr"]: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {t['temp_addr']}</span>"
-                    if t["stopover"]: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {t['stopover']}</span>"
-                    if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {t['takuji_addr']}</span>"
-                    if t["memo_text"]: addr_display += f"<br>📝 備考: {t['memo_text']}"
-                    list_html += f"<div style='margin-bottom:8px;'><b>迎え順 {idx+1}： {t['task']['pickup_time']}</b>　<span style='font-size:16px; font-weight:bold;'>{t['c_name']}</span> <br><span style='font-size:13px;'>{addr_display}</span></div><hr style='margin:5px 0;'>"
+                    # 🛡️ XSS対策
+                    addr_display = f"🏠 迎え: {esc(t['home_addr']) if t['home_addr'] else '未登録'}"
+                    if t["temp_addr"]: addr_display += f"<br><span style='color:#e91e63;font-weight:bold;'>📍 当日変更: {esc(t['temp_addr'])}</span>"
+                    if t["stopover"]: addr_display += f"<br><span style='color:#ff9800;font-weight:bold;'>🍽️ 立ち寄り(同伴): {esc(t['stopover'])}</span>"
+                    if t["use_takuji"]: addr_display += f"<br><span style='color:#2196f3;font-weight:bold;'>👶 経由(託児): {esc(t['takuji_addr'])}</span>"
+                    if t["memo_text"]: addr_display += f"<br>📝 備考: {esc(t['memo_text'])}"
+                    list_html += f"<div style='margin-bottom:8px;'><b>迎え順 {idx+1}： {esc(t['task']['pickup_time'])}</b>　<span style='font-size:16px; font-weight:bold;'>{esc(t['c_name'])}</span> <br><span style='font-size:13px;'>{addr_display}</span></div><hr style='margin:5px 0;'>"
                 list_html += '</div>'
                 st.markdown(list_html, unsafe_allow_html=True)
                 render_dispatch_editor(d_name, course_idx, t_rows, ordered_tasks, d_names, True)
@@ -1301,7 +1328,8 @@ if current_page == "staff_portal" and st.session_state.is_admin:
             st.markdown(f"<div style='background:#fff; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px;'>", unsafe_allow_html=True)
             col_title, col_mgr = st.columns([3, 2])
             with col_title:
-                st.markdown(f"<div style='font-size:16px; font-weight:bold; margin-top:5px;'>店番 {i} : {nm if nm else '未登録'}</div>", unsafe_allow_html=True)
+                # 🛡️ XSS対策
+                st.markdown(f"<div style='font-size:16px; font-weight:bold; margin-top:5px;'>店番 {i} : {esc(nm) if nm else '未登録'}</div>", unsafe_allow_html=True)
             with col_mgr:
                 mgr_idx = staff_list.index(mgr) if mgr in staff_list else 0
                 n_mgr = st.selectbox("担当", staff_list, index=mgr_idx, key=f"cmgr_{i}", label_visibility="collapsed")
@@ -1330,7 +1358,7 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                     c_other_city = st.text_input("「他」の場合の直接入力", value=other_val, key=f"c_other_city_{i}", placeholder="例: 真庭市")
                 st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
                 c_rest = st.text_input("町名・番地・建物名", value=p_rest, key=f"c_rest_{i}", placeholder="例: 水島東栄町1-11")
-                
+            
                 st.markdown("<div style='font-weight:bold; color:#2196f3; margin-top:10px;'>👶 託児設定</div>", unsafe_allow_html=True)
                 new_takuji_en = st.checkbox("託児所を利用する", value=(takuji_en=="1"), key=f"takuji_en_{i}")
                 st.markdown(MAP_SEARCH_BTN, unsafe_allow_html=True)
@@ -1368,7 +1396,8 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                 disp_area = f"[{area}]" if nm else ""
                 
                 col1, col2 = st.columns([4, 1])
-                with col1: st.markdown(f"<div style='padding:10px 0; border-bottom:1px solid #ddd; font-size:15px;'><b>STAFF {i}</b> : {disp_nm} <span style='color:#666; font-size:12px;'>{disp_area}</span></div>", unsafe_allow_html=True)
+                # 🛡️ XSS対策
+                with col1: st.markdown(f"<div style='padding:10px 0; border-bottom:1px solid #ddd; font-size:15px;'><b>STAFF {i}</b> : {esc(disp_nm)} <span style='color:#666; font-size:12px;'>{esc(disp_area)}</span></div>", unsafe_allow_html=True)
                 with col2:
                     st.markdown("<div style='margin-top:5px;'></div>", unsafe_allow_html=True)
                     if st.button("詳細", key=f"edit_staff_btn_{i}", use_container_width=True):
@@ -1472,4 +1501,3 @@ if current_page == "staff_portal" and st.session_state.is_admin:
                     st.rerun()
 
 # EOF
-
