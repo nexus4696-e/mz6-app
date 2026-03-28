@@ -211,7 +211,7 @@ def optimize_and_calc_route(api_key, store_addr, dest_addr, tasks_list, is_retur
             calc_waypoints = full_path[:-1]
         
         params = {"origin": calc_origin, "destination": calc_dest, "key": api_key, "language": "ja", "departure_time": "now"}
-        if calc_waypoints: params["waypoints"] = "|".join(calc_waypoints)
+        if calc_waypoints: params["waypoints"] = "optimize:true|" + "|".join(calc_waypoints)
             
         try:
             res2 = requests.get("https://maps.googleapis.com/maps/api/directions/json", params=params, timeout=10).json()
