@@ -49,7 +49,7 @@ if st.session_state.get("flash_msg"):
     st.toast(st.session_state.flash_msg, icon="✅")
     st.session_state.flash_msg = ""
 
-API_URL = "https://mute-imari-1089.catfood.jp/mz6/api.php"
+API_URL = "https://mute-imari-1089.catfood.jp/m6/api.php"
 NAV_BTN_STYLE = "display:block; text-align:center; padding:12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:16px; color:white; box-shadow:0 2px 4px rgba(0,0,0,0.2);"
 # 🛡️ マップURLのHTTPS化と正規化
 MAP_SEARCH_BTN = "<a href='https://maps.google.com/' target='_blank' style='display:inline-block; padding:4px 8px; background:#4285f4; color:white; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; margin-bottom:5px;'>🔍 Googleマップ</a>"
